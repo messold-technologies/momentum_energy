@@ -37,7 +37,7 @@ async function makeRequest(method, path, data = null) {
 
 async function submitSalesTransaction(transactionPayload) {
   logger.info('Submitting sales transaction to Momentum', {
-    reference: transactionPayload.transaction?.transactionReferenceId,
+    reference: transactionPayload.transaction?.transactionReference,
   });
 
   try {

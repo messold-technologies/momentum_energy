@@ -1,16 +1,14 @@
-import { useFormContext } from 'react-hook-form';
+import { useFormContext, type FieldErrors } from 'react-hook-form';
 import FormField, { inputClass } from '../ui/FormField';
 import { v4 as uuidv4 } from 'uuid';
+import type { TransactionPayload } from '../../lib/types';
 
 export default function Step1Transaction() {
-  const {
-    register,
-    setValue,
-    formState: { errors },
-  } = useFormContext();
+  const { register, setValue, formState } = useFormContext();
+  const errors = formState.errors as FieldErrors<TransactionPayload>;
 
   function generateRef() {
-    setValue('transaction.transactionReferenceId', uuidv4().slice(0, 20).toUpperCase());
+    setValue('transaction.transactionReference', uuidv4().slice(0, 20).toUpperCase());
   }
 
   return (
@@ -24,13 +22,13 @@ export default function Step1Transaction() {
         <FormField
           label="Transaction Reference"
           required
-          error={errors.transaction?.transactionReferenceId}
+          error={errors.transaction?.transactionReference}
         >
           <div className="flex gap-2">
             <input
-              {...register('transaction.transactionReferenceId')}
+              {...register('transaction.transactionReference')}
               className={`${inputClass} flex-1`}
-              placeholder="e.g. TXN-2026-001"
+              placeholder="e.g. TEST001"
             />
             <button
               type="button"
@@ -42,9 +40,9 @@ export default function Step1Transaction() {
           </div>
         </FormField>
 
-        <FormField label="Channel Name" required error={errors.transaction?.channelName}>
+        <FormField label="Transaction Channel" required error={errors.transaction?.transactionChannel}>
           <input
-            {...register('transaction.channelName')}
+            {...register('transaction.transactionChannel')}
             className={inputClass}
             placeholder="e.g. Residential Connections"
           />
@@ -52,7 +50,7 @@ export default function Step1Transaction() {
 
         <FormField label="Transaction Date" required error={errors.transaction?.transactionDate}>
           <input
-            type="date"
+            type="datetime-local"
             {...register('transaction.transactionDate')}
             className={inputClass}
           />
@@ -70,9 +68,9 @@ export default function Step1Transaction() {
           />
         </FormField>
 
-        <FormField label="Source" required>
+        <FormField label="Transaction Source" required>
           <input
-            {...register('transaction.source')}
+            {...register('transaction.transactionSource')}
             className={`${inputClass} bg-gray-50`}
             readOnly
             value="EXTERNAL"

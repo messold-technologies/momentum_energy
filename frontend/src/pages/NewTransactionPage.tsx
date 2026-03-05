@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useForm, FormProvider } from 'react-hook-form';
+import { useForm, FormProvider, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { v4 as uuidv4 } from 'uuid';
 import { ArrowLeft, ArrowRight, Send, Save } from 'lucide-react';
@@ -36,33 +36,42 @@ function getDefaultValues(): TransactionPayload {
   }
   return {
     transaction: {
-      transactionReferenceId: uuidv4().slice(0, 20).toUpperCase(),
-      channelName: '',
-      transactionDate: new Date().toISOString().split('T')[0],
-      source: 'EXTERNAL',
+      transactionReference: uuidv4().slice(0, 20).toUpperCase(),
+      transactionChannel: '',
+      transactionDate: new Date().toISOString().slice(0, 16),
+      transactionSource: 'EXTERNAL',
     },
     customer: {
       customerType: 'RESIDENT',
       communicationPreference: 'EMAIL',
-      promotionConsent: false,
-    } as TransactionPayload['customer'],
-    contacts: {
-      primaryContact: {
-        salutation: '',
-        firstName: '',
-        lastName: '',
-        dateOfBirth: '',
-        email: '',
-        address: {
-          streetNumber: '',
-          streetName: '',
-          suburb: '',
-          state: '',
-          postcode: '',
-        },
-        phones: [{ type: 'MOBILE', number: '' }],
+      promotionAllowed: true,
+      residentIdentity: {
+        passport: {},
+        drivingLicense: {},
+        medicare: {},
       },
-    },
+      contacts: {
+        primaryContact: {
+          salutation: '',
+          firstName: '',
+          middleName: '',
+          lastName: '',
+          countryOfBirth: '',
+          dateOfBirth: '',
+          email: '',
+          addresses: [
+            {
+              streetNumber: '',
+              streetName: '',
+              suburb: '',
+              state: '',
+              postCode: '',
+            },
+          ],
+          contactPhones: [{ contactPhoneType: 'MOBILE', phone: '' }],
+        },
+      },
+    } as TransactionPayload['customer'],
     service: {
       serviceType: 'POWER',
       serviceSubType: 'TRANSFER',
@@ -70,19 +79,18 @@ function getDefaultValues(): TransactionPayload {
       servicedAddress: {
         streetNumber: '',
         streetName: '',
+        streetTypeCode: '',
         suburb: '',
         state: '',
-        postcode: '',
+        postCode: '',
       },
-      offer: {
-        offerCode: '',
-        quoteDate: new Date().toISOString().split('T')[0],
-      },
-      billingDetails: {
-        contractTerm: 'OPEN',
-        paymentMethod: 'DIRECT_DEBIT',
+      serviceBilling: {
+        serviceOfferCode: '',
+        offerQuoteDate: new Date().toISOString().split('T')[0],
+        contractTermCode: 'OPEN',
+        paymentMethod: 'Direct Debit Via Bank Account',
         billCycleCode: '',
-        billDelivery: 'EMAIL',
+        billDeliveryMethod: 'EMAIL',
       },
     },
   };
@@ -91,32 +99,35 @@ function getDefaultValues(): TransactionPayload {
 function cleanPayload(data: TransactionPayload): TransactionPayload {
   const cleaned = structuredClone(data);
 
+  // Ensure transactionDate is full ISO datetime
+  if (cleaned.transaction.transactionDate && !cleaned.transaction.transactionDate.includes('T')) {
+    cleaned.transaction.transactionDate = `${cleaned.transaction.transactionDate}T00:00:00Z`;
+  } else if (cleaned.transaction.transactionDate && !cleaned.transaction.transactionDate.endsWith('Z')) {
+    cleaned.transaction.transactionDate = `${cleaned.transaction.transactionDate}:00Z`;
+  }
+
   if (cleaned.customer.customerType === 'RESIDENT') {
-    delete cleaned.customer.industry;
-    delete cleaned.customer.entityName;
-    delete cleaned.customer.tradingName;
-    delete cleaned.customer.trusteeName;
-    delete cleaned.customer.abn;
-    delete cleaned.customer.acn;
-    if (!cleaned.customer.passport?.documentId) delete cleaned.customer.passport;
-    if (!cleaned.customer.drivingLicense?.documentId) delete cleaned.customer.drivingLicense;
-    if (!cleaned.customer.medicareCard?.documentId) delete cleaned.customer.medicareCard;
+    delete cleaned.customer.companyIdentity;
+    const ri = cleaned.customer.residentIdentity;
+    if (ri) {
+      if (!ri.passport?.documentId) delete ri.passport;
+      if (!ri.drivingLicense?.documentId) delete ri.drivingLicense;
+      if (!ri.medicare?.documentId) delete ri.medicare;
+    }
   } else {
-    delete cleaned.customer.passport;
-    delete cleaned.customer.drivingLicense;
-    delete cleaned.customer.medicareCard;
+    delete cleaned.customer.residentIdentity;
   }
 
-  if (!cleaned.contacts.secondaryContact?.firstName) {
-    delete cleaned.contacts.secondaryContact;
+  if (!cleaned.customer.contacts.secondaryContact?.firstName) {
+    delete cleaned.customer.contacts.secondaryContact;
   }
 
-  if (cleaned.service.serviceSubType !== 'MOVE_IN') {
+  if (cleaned.service.serviceSubType !== 'MOVE IN') {
     delete cleaned.service.serviceStartDate;
   }
 
-  if (!cleaned.service.concession?.cardType) {
-    delete cleaned.service.concession;
+  if (!cleaned.service.serviceBilling.concession?.cardType) {
+    delete cleaned.service.serviceBilling.concession;
   }
 
   return cleaned;
@@ -134,13 +145,12 @@ export default function NewTransactionPage() {
 
   const methods = useForm<TransactionPayload>({
     defaultValues: getDefaultValues(),
-    resolver: zodResolver(schemas[step]),
+    resolver: zodResolver(schemas[step]) as unknown as Resolver<TransactionPayload>,
     mode: 'onTouched',
   });
 
   const formValues = methods.watch();
 
-  // Auto-save draft
   useEffect(() => {
     const timeout = setTimeout(() => {
       localStorage.setItem(DRAFT_KEY, JSON.stringify(formValues));
@@ -192,9 +202,9 @@ export default function NewTransactionPage() {
 
   if (submitResult) {
     return (
-      <div className="max-w-2xl mx-auto">
+      <div className="max-w-6xl mx-auto">
         <div
-          className={`rounded-2xl p-8 text-center ${
+          className={`rounded-2xl p-2 text-center ${
             submitResult.success ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'
           }`}
         >
@@ -242,7 +252,7 @@ export default function NewTransactionPage() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto">
+    <div className="max-w-6xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">New Transaction</h1>

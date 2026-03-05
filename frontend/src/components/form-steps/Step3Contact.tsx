@@ -1,24 +1,25 @@
-import { useFormContext, useFieldArray } from 'react-hook-form';
+import { useFormContext, useFieldArray, type FieldError, type FieldErrors } from 'react-hook-form';
 import FormField, { inputClass, selectClass } from '../ui/FormField';
 import { Plus, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
 import { useState } from 'react';
+import type { TransactionPayload } from '../../lib/types';
 
-const SALUTATIONS = ['Mr', 'Mrs', 'Ms', 'Miss', 'Dr', 'Prof'];
+const SALUTATIONS = ['Mr.', 'Ms.', 'Mrs.', 'Dr.', 'Prof.'];
 const STATES = ['VIC', 'NSW', 'QLD', 'SA', 'WA', 'TAS', 'NT', 'ACT'];
 const PHONE_TYPES = ['MOBILE', 'HOME', 'WORK'] as const;
 
 function PhoneFields({ basePath }: { basePath: string }) {
-  const { register, control, formState: { errors } } = useFormContext();
-  const { fields, append, remove } = useFieldArray({ control, name: `${basePath}.phones` });
+  const { register, control, formState } = useFormContext();
+  const { fields, append, remove } = useFieldArray({ control, name: `${basePath}.contactPhones` });
 
   const getNestedError = (index: number, field: string) => {
     const parts = basePath.split('.');
-    let err: Record<string, unknown> = errors;
+    let err: Record<string, unknown> = formState.errors;
     for (const p of parts) {
       err = err?.[p] as Record<string, unknown>;
       if (!err) return undefined;
     }
-    const phones = err?.phones as Array<Record<string, { message?: string }>> | undefined;
+    const phones = err?.contactPhones as Array<Record<string, { message?: string }>> | undefined;
     return phones?.[index]?.[field];
   };
 
@@ -30,7 +31,7 @@ function PhoneFields({ basePath }: { basePath: string }) {
         </label>
         <button
           type="button"
-          onClick={() => append({ type: 'MOBILE', number: '' })}
+          onClick={() => append({ contactPhoneType: 'MOBILE', phone: '' })}
           className="inline-flex items-center gap-1 text-xs text-primary-600 hover:text-primary-700 cursor-pointer"
         >
           <Plus className="w-3.5 h-3.5" /> Add Phone
@@ -40,10 +41,10 @@ function PhoneFields({ basePath }: { basePath: string }) {
         <p className="text-xs text-danger-500">At least one phone number is required</p>
       )}
       {fields.map((field, index) => (
-        <div key={field.id} className="flex gap-2">
+        <div key={field.id} className="flex gap-2 items-start">
           <select
-            {...register(`${basePath}.phones.${index}.type`)}
-            className={`${selectClass} w-28 shrink-0`}
+            {...register(`${basePath}.contactPhones.${index}.contactPhoneType`)}
+            className="w-24 shrink-0 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none bg-white"
           >
             {PHONE_TYPES.map((t) => (
               <option key={t} value={t}>
@@ -51,15 +52,15 @@ function PhoneFields({ basePath }: { basePath: string }) {
               </option>
             ))}
           </select>
-          <div className="flex-1">
+          <div className="flex-1 min-w-0">
             <input
-              {...register(`${basePath}.phones.${index}.number`)}
+              {...register(`${basePath}.contactPhones.${index}.phone`)}
               className={inputClass}
               placeholder="04XX XXX XXX"
             />
-            {getNestedError(index, 'number') && (
+            {getNestedError(index, 'phone') && (
               <p className="mt-0.5 text-xs text-danger-500">
-                {(getNestedError(index, 'number') as { message?: string })?.message}
+                {(getNestedError(index, 'phone') as { message?: string })?.message}
               </p>
             )}
           </div>
@@ -79,16 +80,18 @@ function PhoneFields({ basePath }: { basePath: string }) {
 }
 
 function AddressFields({ basePath }: { basePath: string }) {
-  const { register, formState: { errors } } = useFormContext();
+  const { register, formState } = useFormContext();
 
-  const getErr = (field: string) => {
+  const getErr = (field: string): FieldError | undefined => {
     const parts = `${basePath}.${field}`.split('.');
-    let err: unknown = errors;
+    let err: unknown = formState.errors;
     for (const p of parts) {
       err = (err as Record<string, unknown>)?.[p];
       if (!err) return undefined;
     }
-    return err as { message?: string } | undefined;
+    const e = err as { message?: string } | undefined;
+    if (!e?.message) return undefined;
+    return { type: 'validation', message: e.message };
   };
 
   return (
@@ -127,9 +130,9 @@ function AddressFields({ basePath }: { basePath: string }) {
           ))}
         </select>
       </FormField>
-      <FormField label="Postcode" required error={getErr('postcode')}>
+      <FormField label="Post Code" required error={getErr('postCode')}>
         <input
-          {...register(`${basePath}.postcode`)}
+          {...register(`${basePath}.postCode`)}
           className={inputClass}
           placeholder="3000"
           maxLength={4}
@@ -140,7 +143,8 @@ function AddressFields({ basePath }: { basePath: string }) {
 }
 
 export default function Step3Contact() {
-  const { register, formState: { errors } } = useFormContext();
+  const { register, formState } = useFormContext();
+  const errors = formState.errors as FieldErrors<TransactionPayload>;
   const [showSecondary, setShowSecondary] = useState(false);
 
   return (
@@ -158,10 +162,10 @@ export default function Step3Contact() {
           <FormField
             label="Salutation"
             required
-            error={errors.contacts?.primaryContact?.salutation}
+            error={errors.customer?.contacts?.primaryContact?.salutation}
           >
             <select
-              {...register('contacts.primaryContact.salutation')}
+              {...register('customer.contacts.primaryContact.salutation')}
               className={selectClass}
             >
               <option value="">Select...</option>
@@ -175,16 +179,16 @@ export default function Step3Contact() {
           <FormField
             label="First Name"
             required
-            error={errors.contacts?.primaryContact?.firstName}
+            error={errors.customer?.contacts?.primaryContact?.firstName}
           >
             <input
-              {...register('contacts.primaryContact.firstName')}
+              {...register('customer.contacts.primaryContact.firstName')}
               className={inputClass}
             />
           </FormField>
-          <FormField label="Middle Name" error={errors.contacts?.primaryContact?.middleName}>
+          <FormField label="Middle Name" error={errors.customer?.contacts?.primaryContact?.middleName}>
             <input
-              {...register('contacts.primaryContact.middleName')}
+              {...register('customer.contacts.primaryContact.middleName')}
               className={inputClass}
               placeholder="Optional"
             />
@@ -192,43 +196,50 @@ export default function Step3Contact() {
           <FormField
             label="Last Name"
             required
-            error={errors.contacts?.primaryContact?.lastName}
+            error={errors.customer?.contacts?.primaryContact?.lastName}
           >
             <input
-              {...register('contacts.primaryContact.lastName')}
+              {...register('customer.contacts.primaryContact.lastName')}
               className={inputClass}
             />
           </FormField>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
           <FormField
             label="Date of Birth"
             required
-            error={errors.contacts?.primaryContact?.dateOfBirth}
+            error={errors.customer?.contacts?.primaryContact?.dateOfBirth}
           >
             <input
               type="date"
-              {...register('contacts.primaryContact.dateOfBirth')}
+              {...register('customer.contacts.primaryContact.dateOfBirth')}
               className={inputClass}
             />
           </FormField>
-          <FormField label="Email" error={errors.contacts?.primaryContact?.email}>
+          <FormField label="Email" error={errors.customer?.contacts?.primaryContact?.email}>
             <input
               type="email"
-              {...register('contacts.primaryContact.email')}
+              {...register('customer.contacts.primaryContact.email')}
               className={inputClass}
               placeholder="contact@example.com"
+            />
+          </FormField>
+          <FormField label="Country of Birth" error={errors.customer?.contacts?.primaryContact?.countryOfBirth}>
+            <input
+              {...register('customer.contacts.primaryContact.countryOfBirth')}
+              className={inputClass}
+              placeholder="e.g. Australia"
             />
           </FormField>
         </div>
 
         <div>
           <p className="text-sm font-medium text-gray-700 mb-3">Address</p>
-          <AddressFields basePath="contacts.primaryContact.address" />
+          <AddressFields basePath="customer.contacts.primaryContact.addresses.0" />
         </div>
 
-        <PhoneFields basePath="contacts.primaryContact" />
+        <PhoneFields basePath="customer.contacts.primaryContact" />
       </div>
 
       {/* Secondary contact toggle */}
@@ -251,7 +262,7 @@ export default function Step3Contact() {
             <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
               <FormField label="Salutation">
                 <select
-                  {...register('contacts.secondaryContact.salutation')}
+                  {...register('customer.contacts.secondaryContact.salutation')}
                   className={selectClass}
                 >
                   <option value="">Select...</option>
@@ -264,19 +275,19 @@ export default function Step3Contact() {
               </FormField>
               <FormField label="First Name">
                 <input
-                  {...register('contacts.secondaryContact.firstName')}
+                  {...register('customer.contacts.secondaryContact.firstName')}
                   className={inputClass}
                 />
               </FormField>
               <FormField label="Middle Name">
                 <input
-                  {...register('contacts.secondaryContact.middleName')}
+                  {...register('customer.contacts.secondaryContact.middleName')}
                   className={inputClass}
                 />
               </FormField>
               <FormField label="Last Name">
                 <input
-                  {...register('contacts.secondaryContact.lastName')}
+                  {...register('customer.contacts.secondaryContact.lastName')}
                   className={inputClass}
                 />
               </FormField>
@@ -285,14 +296,14 @@ export default function Step3Contact() {
               <FormField label="Date of Birth">
                 <input
                   type="date"
-                  {...register('contacts.secondaryContact.dateOfBirth')}
+                  {...register('customer.contacts.secondaryContact.dateOfBirth')}
                   className={inputClass}
                 />
               </FormField>
               <FormField label="Email">
                 <input
                   type="email"
-                  {...register('contacts.secondaryContact.email')}
+                  {...register('customer.contacts.secondaryContact.email')}
                   className={inputClass}
                 />
               </FormField>

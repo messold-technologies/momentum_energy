@@ -1,15 +1,17 @@
-import { useFormContext, useWatch } from 'react-hook-form';
+import { useFormContext, useWatch, type FieldErrors } from 'react-hook-form';
 import FormField, { inputClass, selectClass } from '../ui/FormField';
 import { useState } from 'react';
+import type { TransactionPayload } from '../../lib/types';
 
 const STATES = ['VIC', 'NSW', 'QLD', 'SA', 'WA', 'TAS', 'NT', 'ACT'];
+const STREET_TYPES = [
+  'ST', 'AVE', 'RD', 'CRES', 'BLVD', 'WAY', 'HWY', 'DR', 'CT', 'PL',
+  'LN', 'TCE', 'CL', 'GR', 'PDE', 'CIR', 'LOOP', 'RISE', 'TRK', 'RUN',
+];
 
 export default function Step4Service() {
-  const {
-    register,
-    formState: { errors },
-    control,
-  } = useFormContext();
+  const { register, formState, control } = useFormContext();
+  const errors = formState.errors as FieldErrors<TransactionPayload>;
 
   const serviceType = useWatch({ control, name: 'service.serviceType' });
   const serviceSubType = useWatch({ control, name: 'service.serviceSubType' });
@@ -59,7 +61,7 @@ export default function Step4Service() {
           <select {...register('service.serviceSubType')} className={selectClass}>
             <option value="">Select...</option>
             <option value="TRANSFER">Transfer</option>
-            <option value="MOVE_IN">Move In</option>
+            <option value="MOVE IN">Move In</option>
           </select>
         </FormField>
 
@@ -76,7 +78,7 @@ export default function Step4Service() {
           />
         </FormField>
 
-        {serviceSubType === 'MOVE_IN' && (
+        {serviceSubType === 'MOVE IN' && (
           <FormField
             label="Service Start Date"
             required
@@ -90,8 +92,8 @@ export default function Step4Service() {
           </FormField>
         )}
 
-        <FormField label="Meter ID" error={errors.service?.meterId} hint="Optional">
-          <input {...register('service.meterId')} className={inputClass} placeholder="Optional" />
+        <FormField label="Service Meter ID" error={errors.service?.serviceMeterId} hint="Optional">
+          <input {...register('service.serviceMeterId')} className={inputClass} placeholder="Optional" />
         </FormField>
 
         <FormField label="Lot Number" error={errors.service?.lotNumber} hint="Optional">
@@ -131,6 +133,20 @@ export default function Step4Service() {
           >
             <input {...register('service.servicedAddress.streetName')} className={inputClass} />
           </FormField>
+          <FormField
+            label="Street Type"
+            required
+            error={errors.service?.servicedAddress?.streetTypeCode}
+          >
+            <select {...register('service.servicedAddress.streetTypeCode')} className={selectClass}>
+              <option value="">Select...</option>
+              {STREET_TYPES.map((st) => (
+                <option key={st} value={st}>
+                  {st}
+                </option>
+              ))}
+            </select>
+          </FormField>
           <FormField label="Suburb" required error={errors.service?.servicedAddress?.suburb}>
             <input {...register('service.servicedAddress.suburb')} className={inputClass} />
           </FormField>
@@ -144,9 +160,9 @@ export default function Step4Service() {
               ))}
             </select>
           </FormField>
-          <FormField label="Postcode" required error={errors.service?.servicedAddress?.postcode}>
+          <FormField label="Post Code" required error={errors.service?.servicedAddress?.postCode}>
             <input
-              {...register('service.servicedAddress.postcode')}
+              {...register('service.servicedAddress.postCode')}
               className={inputClass}
               maxLength={4}
             />
@@ -168,13 +184,13 @@ export default function Step4Service() {
         </div>
       </div>
 
-      {/* Offer */}
+      {/* Billing */}
       <div className="border-t pt-5">
-        <p className="text-sm font-medium text-gray-900 mb-4">Offer Details</p>
+        <p className="text-sm font-medium text-gray-900 mb-4">Billing Details</p>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-          <FormField label="Offer Code" required error={errors.service?.offer?.offerCode}>
+          <FormField label="Offer Code" required error={errors.service?.serviceBilling?.serviceOfferCode}>
             <input
-              {...register('service.offer.offerCode')}
+              {...register('service.serviceBilling.serviceOfferCode')}
               className={inputClass}
               placeholder="e.g. OFFER-2026-VIC"
             />
@@ -182,25 +198,18 @@ export default function Step4Service() {
           <FormField
             label="Quote Date"
             required
-            error={errors.service?.offer?.quoteDate}
+            error={errors.service?.serviceBilling?.offerQuoteDate}
             hint="Must not be older than 14 days"
           >
             <input
               type="date"
-              {...register('service.offer.quoteDate')}
+              {...register('service.serviceBilling.offerQuoteDate')}
               className={inputClass}
             />
           </FormField>
-        </div>
-      </div>
-
-      {/* Billing */}
-      <div className="border-t pt-5">
-        <p className="text-sm font-medium text-gray-900 mb-4">Billing Details</p>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-          <FormField label="Service Plan" error={errors.service?.billingDetails?.servicePlan}>
+          <FormField label="Service Plan Code" error={errors.service?.serviceBilling?.servicePlanCode}>
             <input
-              {...register('service.billingDetails.servicePlan')}
+              {...register('service.serviceBilling.servicePlanCode')}
               className={inputClass}
               placeholder="Optional"
             />
@@ -208,43 +217,43 @@ export default function Step4Service() {
           <FormField
             label="Contract Term"
             required
-            error={errors.service?.billingDetails?.contractTerm}
+            error={errors.service?.serviceBilling?.contractTermCode}
           >
-            <select {...register('service.billingDetails.contractTerm')} className={selectClass}>
+            <select {...register('service.serviceBilling.contractTermCode')} className={selectClass}>
               <option value="OPEN">Open</option>
               <option value="12MTH">12 Months</option>
               <option value="24MTH">24 Months</option>
               <option value="36MTH">36 Months</option>
             </select>
           </FormField>
-          <FormField label="Contract Date" error={errors.service?.billingDetails?.contractDate}>
+          <FormField label="Contract Date" error={errors.service?.serviceBilling?.contractDate}>
             <input
               type="date"
-              {...register('service.billingDetails.contractDate')}
+              {...register('service.serviceBilling.contractDate')}
               className={inputClass}
             />
           </FormField>
           <FormField
             label="Payment Method"
             required
-            error={errors.service?.billingDetails?.paymentMethod}
+            error={errors.service?.serviceBilling?.paymentMethod}
           >
-            <select {...register('service.billingDetails.paymentMethod')} className={selectClass}>
-              <option value="DIRECT_DEBIT">Direct Debit</option>
-              <option value="CHEQUE">Cheque</option>
+            <select {...register('service.serviceBilling.paymentMethod')} className={selectClass}>
+              <option value="Direct Debit Via Bank Account">Direct Debit Via Bank Account</option>
+              <option value="Cheque">Cheque</option>
             </select>
           </FormField>
           <FormField
             label="Bill Cycle"
             required
-            error={errors.service?.billingDetails?.billCycleCode}
+            error={errors.service?.serviceBilling?.billCycleCode}
             hint={
               serviceType === 'GAS'
                 ? 'GAS only supports Bi-Monthly'
                 : 'POWER supports Monthly or Quarterly'
             }
           >
-            <select {...register('service.billingDetails.billCycleCode')} className={selectClass}>
+            <select {...register('service.serviceBilling.billCycleCode')} className={selectClass}>
               <option value="">Select...</option>
               {billCycleOptions.map((o) => (
                 <option key={o.value} value={o.value}>
@@ -254,11 +263,11 @@ export default function Step4Service() {
             </select>
           </FormField>
           <FormField
-            label="Bill Delivery"
+            label="Bill Delivery Method"
             required
-            error={errors.service?.billingDetails?.billDelivery}
+            error={errors.service?.serviceBilling?.billDeliveryMethod}
           >
-            <select {...register('service.billingDetails.billDelivery')} className={selectClass}>
+            <select {...register('service.serviceBilling.billDeliveryMethod')} className={selectClass}>
               <option value="EMAIL">Email</option>
               <option value="POST">Post</option>
             </select>
@@ -280,40 +289,40 @@ export default function Step4Service() {
 
         {showConcession && (
           <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-5">
-            <FormField label="Card Type" required error={errors.service?.concession?.cardType}>
+            <FormField label="Card Type" required error={errors.service?.serviceBilling?.concession?.cardType}>
               <input
-                {...register('service.concession.cardType')}
+                {...register('service.serviceBilling.concession.cardType')}
                 className={inputClass}
                 placeholder="e.g. Pensioner"
               />
             </FormField>
-            <FormField label="Card Number" required error={errors.service?.concession?.cardNumber}>
+            <FormField label="Card Number" required error={errors.service?.serviceBilling?.concession?.cardNumber}>
               <input
-                {...register('service.concession.cardNumber')}
+                {...register('service.serviceBilling.concession.cardNumber')}
                 className={inputClass}
               />
             </FormField>
-            <FormField label="Start Date" required error={errors.service?.concession?.startDate}>
+            <FormField label="Start Date" required error={errors.service?.serviceBilling?.concession?.startDate}>
               <input
                 type="date"
-                {...register('service.concession.startDate')}
+                {...register('service.serviceBilling.concession.startDate')}
                 className={inputClass}
               />
             </FormField>
-            <FormField label="End Date" required error={errors.service?.concession?.endDate}>
+            <FormField label="End Date" required error={errors.service?.serviceBilling?.concession?.endDate}>
               <input
                 type="date"
-                {...register('service.concession.endDate')}
+                {...register('service.serviceBilling.concession.endDate')}
                 className={inputClass}
               />
             </FormField>
             <FormField
               label="Card Holder Name"
               required
-              error={errors.service?.concession?.holderName}
+              error={errors.service?.serviceBilling?.concession?.holderName}
             >
               <input
-                {...register('service.concession.holderName')}
+                {...register('service.serviceBilling.concession.holderName')}
                 className={inputClass}
               />
             </FormField>

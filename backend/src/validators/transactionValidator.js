@@ -1,16 +1,5 @@
 import { body, validationResult } from 'express-validator';
 
-
-// Helper to check date is not in the past
-const isNotPastDate = (value) => {
-  const date = new Date(value);
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  if (date < today) throw new Error('Date cannot be in the past');
-  return true;
-};
-
-// Check transaction date is within 3 days
 const isWithin3Days = (value) => {
   const date = new Date(value);
   const threeDaysAgo = new Date();
@@ -19,7 +8,6 @@ const isWithin3Days = (value) => {
   return true;
 };
 
-// Check quote date is within 14 days
 const isWithin14Days = (value) => {
   const date = new Date(value);
   const fourteenDaysAgo = new Date();
@@ -28,7 +16,6 @@ const isWithin14Days = (value) => {
   return true;
 };
 
-// Check age is 18+
 const isOver18 = (value) => {
   const dob = new Date(value);
   const eighteenYearsAgo = new Date();
@@ -37,72 +24,82 @@ const isOver18 = (value) => {
   return true;
 };
 
-// Check document is not expired
 const isNotExpired = (value) => {
   const expDate = new Date(value);
   if (expDate < new Date()) throw new Error('Identity document must not be expired');
   return true;
 };
 
+const isNotPastDate = (value) => {
+  const date = new Date(value);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  if (date < today) throw new Error('Date cannot be in the past');
+  return true;
+};
+
 const transactionValidationRules = [
-  // Transaction metadata
-  body('transaction.transactionReferenceId').notEmpty().withMessage('Transaction reference ID is required'),
-  body('transaction.channelName').notEmpty().withMessage('Channel name is required'),
+  // Transaction
+  body('transaction.transactionReference')
+    .notEmpty().withMessage('Transaction reference is required')
+    .matches(/^[A-Za-z0-9\-]{1,30}$/).withMessage('Max 30 chars: letters, numbers, hyphens only'),
+  body('transaction.transactionChannel')
+    .notEmpty().withMessage('Transaction channel is required')
+    .matches(/^[A-Za-z0-9\s]+$/).withMessage('Letters, numbers, and spaces only'),
   body('transaction.transactionDate').isISO8601().custom(isWithin3Days),
-  body('transaction.source').equals('EXTERNAL').withMessage('Source must be EXTERNAL'),
+  body('transaction.transactionSource').equals('EXTERNAL').withMessage('Transaction source must be EXTERNAL'),
 
   // Customer
   body('customer.customerType').isIn(['RESIDENT', 'COMPANY']).withMessage('Customer type must be RESIDENT or COMPANY'),
-  body('customer.promotionConsent').equals('true').withMessage('Promotion consent must be accepted'),
+  body('customer.promotionAllowed').equals('true').withMessage('Customer consent must be obtained'),
 
-  // Resident-specific
-  body('customer.passport').optional().custom((value, { req }) => {
-    if (value && !value.expiryDate) throw new Error('Passport expiry date is required');
-    if (value && !value.countryOfBirth) throw new Error('Passport country of birth is required');
-    if (value?.expiryDate) isNotExpired(value.expiryDate);
+  // Resident identity
+  body('customer.residentIdentity.passport').optional().custom((value) => {
+    if (value?.documentId && !value.documentExpiryDate) throw new Error('Passport expiry date is required');
+    if (value?.documentId && !value.issuingCountry) throw new Error('Passport issuing country is required');
+    if (value?.documentExpiryDate) isNotExpired(value.documentExpiryDate);
     return true;
   }),
-  body('customer.drivingLicense').optional().custom((value) => {
-    if (value && !value.expiryDate) throw new Error('Driving license expiry date is required');
-    if (value?.expiryDate) isNotExpired(value.expiryDate);
+  body('customer.residentIdentity.drivingLicense').optional().custom((value) => {
+    if (value?.documentId && !value.documentExpiryDate) throw new Error('Driving license expiry date is required');
+    if (value?.documentExpiryDate) isNotExpired(value.documentExpiryDate);
     return true;
   }),
-  body('customer.medicareCard').optional().custom((value) => {
-    if (value && !value.expiryDate) throw new Error('Medicare card expiry date is required');
-    if (value?.expiryDate) isNotExpired(value.expiryDate);
+  body('customer.residentIdentity.medicare').optional().custom((value) => {
+    if (value?.documentId && !value.documentExpiryDate) throw new Error('Medicare expiry date is required');
+    if (value?.documentExpiryDate) isNotExpired(value.documentExpiryDate);
     return true;
   }),
 
-  // Company-specific
-  body('customer.abn').optional().matches(/^\d{11}$/).withMessage('ABN must be 11 digits'),
-  body('customer.acn').optional().matches(/^\d{9}$/).withMessage('ACN must be 9 digits'),
+  // Company identity
+  body('customer.companyIdentity.abn.documentId').optional().matches(/^\d{11}$/).withMessage('ABN must be 11 digits'),
+  body('customer.companyIdentity.acn.documentId').optional().matches(/^\d{9}$/).withMessage('ACN must be 9 digits'),
 
   // Primary contact
-  body('contacts.primaryContact.firstName').notEmpty().withMessage('Primary contact first name required'),
-  body('contacts.primaryContact.lastName').notEmpty().withMessage('Primary contact last name required'),
-  body('contacts.primaryContact.dateOfBirth').isISO8601().custom(isOver18),
-  body('contacts.primaryContact.email').optional().isEmail().withMessage('Primary contact email must be valid'),
+  body('customer.contacts.primaryContact.firstName').notEmpty().withMessage('Primary contact first name required'),
+  body('customer.contacts.primaryContact.lastName').notEmpty().withMessage('Primary contact last name required'),
+  body('customer.contacts.primaryContact.dateOfBirth').isISO8601().custom(isOver18),
+  body('customer.contacts.primaryContact.email').optional().isEmail().withMessage('Primary contact email must be valid'),
 
   // Service
   body('service.serviceType').isIn(['GAS', 'POWER']).withMessage('Service type must be GAS or POWER'),
-  body('service.serviceSubType').isIn(['TRANSFER', 'MOVE_IN']).withMessage('Service sub-type must be TRANSFER or MOVE_IN'),
+  body('service.serviceSubType').isIn(['TRANSFER', 'MOVE IN']).withMessage('Service sub-type must be TRANSFER or MOVE IN'),
   body('service.serviceConnectionId').notEmpty().withMessage('NMI/MIRN is required'),
 
-  // MOVE_IN requires start date
+  // MOVE IN requires start date
   body('service.serviceStartDate').custom((value, { req }) => {
-    if (req.body.service?.serviceSubType === 'MOVE_IN') {
+    if (req.body.service?.serviceSubType === 'MOVE IN') {
       if (!value) throw new Error('Service start date is required for MOVE IN');
       isNotPastDate(value);
     }
     return true;
   }),
 
-  // Offer
-  body('service.offer.offerCode').notEmpty().withMessage('Offer code is required'),
-  body('service.offer.quoteDate').isISO8601().custom(isWithin14Days),
+  // Service billing
+  body('service.serviceBilling.serviceOfferCode').notEmpty().withMessage('Offer code is required'),
+  body('service.serviceBilling.offerQuoteDate').isISO8601().custom(isWithin14Days),
 
-  // Bill cycle validation
-  body('service.billingDetails.billCycleCode').custom((value, { req }) => {
+  body('service.serviceBilling.billCycleCode').custom((value, { req }) => {
     const serviceType = req.body.service?.serviceType;
     if (serviceType === 'GAS' && value !== 'Bi-Monthly') {
       throw new Error('GAS service must use Bi-Monthly bill cycle');

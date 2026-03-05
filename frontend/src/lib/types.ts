@@ -1,57 +1,77 @@
+// === Transaction ===
+
 export interface TransactionInfo {
-  transactionReferenceId: string;
-  channelName: string;
+  transactionReference: string;
+  transactionChannel: string;
   transactionDate: string;
   transactionVerificationCode?: string;
-  source: 'EXTERNAL';
+  transactionSource: 'EXTERNAL';
 }
+
+// === Identity Documents ===
 
 export interface PassportIdentity {
   documentId: string;
-  expiryDate: string;
-  countryOfBirth: string;
+  documentNumber?: string;
+  documentExpiryDate: string;
+  issuingCountry: string;
 }
 
 export interface DrivingLicenseIdentity {
   documentId: string;
-  expiryDate: string;
+  documentNumber?: string;
+  documentExpiryDate: string;
   issuingState: string;
 }
 
-export interface MedicareCardIdentity {
+export interface MedicareIdentity {
   documentId: string;
-  referenceNumber: string;
-  expiryDate: string;
+  documentNumber: string;
+  documentExpiryDate: string;
 }
+
+export interface ResidentIdentity {
+  passport?: PassportIdentity;
+  drivingLicense?: DrivingLicenseIdentity;
+  medicare?: MedicareIdentity;
+}
+
+export interface CompanyIdentity {
+  industry: string;
+  entityName: string;
+  tradingName: string;
+  trusteeName?: string;
+  abn: { documentId: string };
+  acn?: { documentId: string };
+}
+
+// === Customer ===
 
 export interface CustomerInfo {
   customerType: 'RESIDENT' | 'COMPANY';
   customerSubType?: string;
   communicationPreference: 'EMAIL' | 'POST';
-  promotionConsent: boolean;
-  passport?: PassportIdentity;
-  drivingLicense?: DrivingLicenseIdentity;
-  medicareCard?: MedicareCardIdentity;
-  industry?: string;
-  entityName?: string;
-  tradingName?: string;
-  trusteeName?: string;
-  abn?: string;
-  acn?: string;
+  promotionAllowed: true;
+  residentIdentity?: ResidentIdentity;
+  companyIdentity?: CompanyIdentity;
+  contacts: ContactInfo;
 }
 
-export interface Phone {
-  type: 'WORK' | 'HOME' | 'MOBILE';
-  number: string;
+// === Contacts ===
+
+export interface ContactPhone {
+  contactPhoneType: 'WORK' | 'HOME' | 'MOBILE';
+  phone: string;
 }
 
 export interface Address {
+  addressType?: string;
   unitNumber?: string;
   streetNumber: string;
   streetName: string;
   suburb: string;
   state: string;
-  postcode: string;
+  postCode: string;
 }
 
 export interface Contact {
@@ -59,10 +79,11 @@ export interface Contact {
   firstName: string;
   middleName?: string;
   lastName: string;
+  countryOfBirth?: string;
   dateOfBirth: string;
   email?: string;
-  address: Address;
-  phones: Phone[];
+  addresses: Address[];
+  contactPhones: ContactPhone[];
 }
 
 export interface ContactInfo {
@@ -70,29 +91,18 @@ export interface ContactInfo {
   secondaryContact?: Partial<Contact>;
 }
 
+// === Service ===
+
 export interface ServicedAddress {
+  unitNumber?: string;
   streetNumber: string;
   streetName: string;
-  unitNumber?: string;
+  streetTypeCode: string;
   suburb: string;
   state: string;
-  postcode: string;
+  postCode: string;
   accessInstructions?: string;
   safetyInstructions?: string;
-}
-
-export interface Offer {
-  offerCode: string;
-  quoteDate: string;
-}
-
-export interface BillingDetails {
-  servicePlan?: string;
-  contractTerm: 'OPEN' | '12MTH' | '24MTH' | '36MTH';
-  contractDate?: string;
-  paymentMethod: 'DIRECT_DEBIT' | 'CHEQUE';
-  billCycleCode: string;
-  billDelivery: 'EMAIL' | 'POST';
 }
 
 export interface Concession {
@@ -103,23 +113,35 @@ export interface Concession {
   holderName: string;
 }
 
-export interface ServiceInfo {
-  serviceType: 'GAS' | 'POWER';
-  serviceSubType: 'TRANSFER' | 'MOVE_IN';
-  serviceConnectionId: string;
-  serviceStartDate?: string;
-  meterId?: string;
-  lotNumber?: string;
-  servicedAddress: ServicedAddress;
-  offer: Offer;
-  billingDetails: BillingDetails;
+export interface ServiceBilling {
+  offerQuoteDate: string;
+  serviceOfferCode: string;
+  servicePlanCode?: string;
+  contractTermCode: 'OPEN' | '12MTH' | '24MTH' | '36MTH';
+  contractDate?: string;
+  paymentMethod: 'Direct Debit Via Bank Account' | 'Cheque';
+  billCycleCode: string;
+  billDeliveryMethod: 'EMAIL' | 'POST';
   concession?: Concession;
 }
+
+export interface ServiceInfo {
+  serviceType: 'GAS' | 'POWER';
+  serviceSubType: 'TRANSFER' | 'MOVE IN';
+  serviceConnectionId: string;
+  serviceMeterId?: string;
+  serviceStartDate?: string;
+  estimatedAnnualKwhs?: number;
+  lotNumber?: string;
+  servicedAddress: ServicedAddress;
+  serviceBilling: ServiceBilling;
+}
+
+// === Top-Level Payload ===
 
 export interface TransactionPayload {
   transaction: TransactionInfo;
   customer: CustomerInfo;
-  contacts: ContactInfo;
   service: ServiceInfo;
 }
 

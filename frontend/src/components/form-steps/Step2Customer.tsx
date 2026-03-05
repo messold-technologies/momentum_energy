@@ -1,5 +1,6 @@
-import { useFormContext, useWatch } from 'react-hook-form';
+import { useFormContext, useWatch, type FieldErrors } from 'react-hook-form';
 import FormField, { inputClass, selectClass } from '../ui/FormField';
+import type { TransactionPayload } from '../../lib/types';
 
 const RESIDENT_SUB_TYPES = ['OWNER_OCCUPIER', 'TENANT', 'PROPERTY_MANAGER'];
 const COMPANY_SUB_TYPES = ['SOLE_TRADER', 'PARTNERSHIP', 'TRUST', 'COMPANY'];
@@ -14,32 +15,29 @@ const INDUSTRIES = [
   'Mining',
   'Retail',
   'Technology',
-  'Transport',
+  'Utilities',
   'Other',
 ];
 const STATES = ['VIC', 'NSW', 'QLD', 'SA', 'WA', 'TAS', 'NT', 'ACT'];
 
 export default function Step2Customer() {
-  const {
-    register,
-    formState: { errors },
-    control,
-    setValue,
-  } = useFormContext();
+  const { register, formState, control, setValue } = useFormContext();
+  const errors = formState.errors as FieldErrors<TransactionPayload>;
 
   const customerType = useWatch({ control, name: 'customer.customerType' });
-  const hasPassport = useWatch({ control, name: 'customer.passport.documentId' });
-  const hasDL = useWatch({ control, name: 'customer.drivingLicense.documentId' });
-  const hasMC = useWatch({ control, name: 'customer.medicareCard.documentId' });
+  const hasPassport = useWatch({ control, name: 'customer.residentIdentity.passport.documentId' });
+  const hasDL = useWatch({ control, name: 'customer.residentIdentity.drivingLicense.documentId' });
+  const hasMC = useWatch({ control, name: 'customer.residentIdentity.medicare.documentId' });
 
-  function clearIdentitySection(section: 'passport' | 'drivingLicense' | 'medicareCard') {
+  function clearIdentitySection(section: 'passport' | 'drivingLicense' | 'medicare') {
+    const base = `customer.residentIdentity.${section}`;
     const fields =
       section === 'passport'
-        ? ['documentId', 'expiryDate', 'countryOfBirth']
+        ? ['documentId', 'documentNumber', 'documentExpiryDate', 'issuingCountry']
         : section === 'drivingLicense'
-          ? ['documentId', 'expiryDate', 'issuingState']
-          : ['documentId', 'referenceNumber', 'expiryDate'];
-    fields.forEach((f) => setValue(`customer.${section}.${f}`, ''));
+          ? ['documentId', 'documentNumber', 'documentExpiryDate', 'issuingState']
+          : ['documentId', 'documentNumber', 'documentExpiryDate'];
+    fields.forEach((f) => setValue(`${base}.${f}`, ''));
   }
 
   return (
@@ -97,11 +95,11 @@ export default function Step2Customer() {
           </select>
         </FormField>
 
-        <FormField label="Promotion Consent" required error={errors.customer?.promotionConsent}>
+        <FormField label="Promotion Consent" required error={errors.customer?.promotionAllowed}>
           <label className="flex items-center gap-2 mt-1 cursor-pointer">
             <input
               type="checkbox"
-              {...register('customer.promotionConsent')}
+              {...register('customer.promotionAllowed')}
               className="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500"
             />
             <span className="text-sm text-gray-700">Customer agrees to receive promotions</span>
@@ -116,12 +114,12 @@ export default function Step2Customer() {
             Identity Documents{' '}
             <span className="text-gray-500 font-normal">(at least one required)</span>
           </p>
-          {errors.customer?.passport?.message &&
+          {errors.customer?.residentIdentity?.passport?.message &&
             !hasPassport &&
             !hasDL &&
             !hasMC && (
               <p className="text-xs text-danger-500">
-                {errors.customer.passport.message as string}
+                {errors.customer.residentIdentity.passport.message as string}
               </p>
             )}
 
@@ -142,27 +140,31 @@ export default function Step2Customer() {
                 </button>
               )}
             </summary>
-            <div className="px-4 pb-4 grid grid-cols-1 md:grid-cols-3 gap-4">
-              <FormField label="Document ID" error={errors.customer?.passport?.documentId}>
+            <div className="px-4 pb-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+              <FormField label="Document ID" error={errors.customer?.residentIdentity?.passport?.documentId}>
                 <input
-                  {...register('customer.passport.documentId')}
+                  {...register('customer.residentIdentity.passport.documentId')}
                   className={inputClass}
                   placeholder="Passport number"
                 />
               </FormField>
-              <FormField label="Expiry Date" error={errors.customer?.passport?.expiryDate}>
+              <FormField label="Document Number" error={errors.customer?.residentIdentity?.passport?.documentNumber} hint="Optional">
+                <input
+                  {...register('customer.residentIdentity.passport.documentNumber')}
+                  className={inputClass}
+                  placeholder="Optional"
+                />
+              </FormField>
+              <FormField label="Expiry Date" error={errors.customer?.residentIdentity?.passport?.documentExpiryDate}>
                 <input
                   type="date"
-                  {...register('customer.passport.expiryDate')}
+                  {...register('customer.residentIdentity.passport.documentExpiryDate')}
                   className={inputClass}
                 />
               </FormField>
-              <FormField
-                label="Country of Birth"
-                error={errors.customer?.passport?.countryOfBirth}
-              >
+              <FormField label="Issuing Country" error={errors.customer?.residentIdentity?.passport?.issuingCountry}>
                 <input
-                  {...register('customer.passport.countryOfBirth')}
+                  {...register('customer.residentIdentity.passport.issuingCountry')}
                   className={inputClass}
                   placeholder="e.g. Australia"
                 />
@@ -187,27 +189,31 @@ export default function Step2Customer() {
                 </button>
               )}
             </summary>
-            <div className="px-4 pb-4 grid grid-cols-1 md:grid-cols-3 gap-4">
-              <FormField label="Document ID" error={errors.customer?.drivingLicense?.documentId}>
+            <div className="px-4 pb-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+              <FormField label="Document ID" error={errors.customer?.residentIdentity?.drivingLicense?.documentId}>
                 <input
-                  {...register('customer.drivingLicense.documentId')}
+                  {...register('customer.residentIdentity.drivingLicense.documentId')}
                   className={inputClass}
                   placeholder="License number"
                 />
               </FormField>
-              <FormField label="Expiry Date" error={errors.customer?.drivingLicense?.expiryDate}>
+              <FormField label="Document Number" error={errors.customer?.residentIdentity?.drivingLicense?.documentNumber} hint="Optional">
+                <input
+                  {...register('customer.residentIdentity.drivingLicense.documentNumber')}
+                  className={inputClass}
+                  placeholder="Optional"
+                />
+              </FormField>
+              <FormField label="Expiry Date" error={errors.customer?.residentIdentity?.drivingLicense?.documentExpiryDate}>
                 <input
                   type="date"
-                  {...register('customer.drivingLicense.expiryDate')}
+                  {...register('customer.residentIdentity.drivingLicense.documentExpiryDate')}
                   className={inputClass}
                 />
               </FormField>
-              <FormField
-                label="Issuing State"
-                error={errors.customer?.drivingLicense?.issuingState}
-              >
+              <FormField label="Issuing State" error={errors.customer?.residentIdentity?.drivingLicense?.issuingState}>
                 <select
-                  {...register('customer.drivingLicense.issuingState')}
+                  {...register('customer.residentIdentity.drivingLicense.issuingState')}
                   className={selectClass}
                 >
                   <option value="">Select...</option>
@@ -221,7 +227,7 @@ export default function Step2Customer() {
             </div>
           </details>
 
-          {/* Medicare Card */}
+          {/* Medicare */}
           <details className="group border rounded-lg" open={!!hasMC}>
             <summary className="flex items-center justify-between px-4 py-3 cursor-pointer text-sm font-medium text-gray-700 hover:bg-gray-50 rounded-lg">
               Medicare Card
@@ -230,7 +236,7 @@ export default function Step2Customer() {
                   type="button"
                   onClick={(e) => {
                     e.preventDefault();
-                    clearIdentitySection('medicareCard');
+                    clearIdentitySection('medicare');
                   }}
                   className="text-xs text-gray-500 hover:text-danger-500 cursor-pointer"
                 >
@@ -239,27 +245,24 @@ export default function Step2Customer() {
               )}
             </summary>
             <div className="px-4 pb-4 grid grid-cols-1 md:grid-cols-3 gap-4">
-              <FormField label="Document ID" error={errors.customer?.medicareCard?.documentId}>
+              <FormField label="Document ID" error={errors.customer?.residentIdentity?.medicare?.documentId}>
                 <input
-                  {...register('customer.medicareCard.documentId')}
+                  {...register('customer.residentIdentity.medicare.documentId')}
                   className={inputClass}
                   placeholder="Card number"
                 />
               </FormField>
-              <FormField
-                label="Reference Number"
-                error={errors.customer?.medicareCard?.referenceNumber}
-              >
+              <FormField label="Document Number" error={errors.customer?.residentIdentity?.medicare?.documentNumber}>
                 <input
-                  {...register('customer.medicareCard.referenceNumber')}
+                  {...register('customer.residentIdentity.medicare.documentNumber')}
                   className={inputClass}
                   placeholder="Reference number"
                 />
               </FormField>
-              <FormField label="Expiry Date" error={errors.customer?.medicareCard?.expiryDate}>
+              <FormField label="Expiry Date" error={errors.customer?.residentIdentity?.medicare?.documentExpiryDate}>
                 <input
                   type="date"
-                  {...register('customer.medicareCard.expiryDate')}
+                  {...register('customer.residentIdentity.medicare.documentExpiryDate')}
                   className={inputClass}
                 />
               </FormField>
@@ -273,8 +276,8 @@ export default function Step2Customer() {
         <div className="space-y-5 border-t pt-5">
           <p className="text-sm font-medium text-gray-900">Company Details</p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            <FormField label="Industry" error={errors.customer?.industry}>
-              <select {...register('customer.industry')} className={selectClass}>
+            <FormField label="Industry" error={errors.customer?.companyIdentity?.industry}>
+              <select {...register('customer.companyIdentity.industry')} className={selectClass}>
                 <option value="">Select industry...</option>
                 {INDUSTRIES.map((i) => (
                   <option key={i} value={i}>
@@ -284,42 +287,42 @@ export default function Step2Customer() {
               </select>
             </FormField>
 
-            <FormField label="Entity Name" required error={errors.customer?.entityName}>
+            <FormField label="Entity Name" required error={errors.customer?.companyIdentity?.entityName}>
               <input
-                {...register('customer.entityName')}
+                {...register('customer.companyIdentity.entityName')}
                 className={inputClass}
                 placeholder="Legal entity name"
               />
             </FormField>
 
-            <FormField label="Trading Name" error={errors.customer?.tradingName}>
+            <FormField label="Trading Name" required error={errors.customer?.companyIdentity?.tradingName}>
               <input
-                {...register('customer.tradingName')}
+                {...register('customer.companyIdentity.tradingName')}
+                className={inputClass}
+                placeholder="Trading name"
+              />
+            </FormField>
+
+            <FormField label="Trustee Name" error={errors.customer?.companyIdentity?.trusteeName}>
+              <input
+                {...register('customer.companyIdentity.trusteeName')}
                 className={inputClass}
                 placeholder="Optional"
               />
             </FormField>
 
-            <FormField label="Trustee Name" error={errors.customer?.trusteeName}>
+            <FormField label="ABN" required error={errors.customer?.companyIdentity?.abn?.documentId} hint="11 digits">
               <input
-                {...register('customer.trusteeName')}
-                className={inputClass}
-                placeholder="Optional"
-              />
-            </FormField>
-
-            <FormField label="ABN" required error={errors.customer?.abn} hint="11 digits">
-              <input
-                {...register('customer.abn')}
+                {...register('customer.companyIdentity.abn.documentId')}
                 className={inputClass}
                 placeholder="12345678901"
                 maxLength={11}
               />
             </FormField>
 
-            <FormField label="ACN" error={errors.customer?.acn} hint="9 digits (optional)">
+            <FormField label="ACN" error={errors.customer?.companyIdentity?.acn?.documentId} hint="9 digits (optional)">
               <input
-                {...register('customer.acn')}
+                {...register('customer.companyIdentity.acn.documentId')}
                 className={inputClass}
                 placeholder="123456789"
                 maxLength={9}

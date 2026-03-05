@@ -6,6 +6,7 @@
 backend/
 ├── .env / .env.example
 ├── package.json
+├── ecosystem.config.cjs
 └── src/
     ├── server.js                          # Entry point — Express app setup
     ├── config/
@@ -113,6 +114,82 @@ Returns `ok` + timestamp + environment
 ### `GET /health/detailed` — Detailed health check
 
 Tests Momentum API connectivity by attempting to get an OAuth token
+
+---
+
+## Request Payload Structure (Momentum API spec)
+
+```json
+{
+  "transaction": {
+    "transactionReference": "TEST001",
+    "transactionChannel": "Residential Connections",
+    "transactionDate": "2024-11-10T11:18:25Z",
+    "transactionVerificationCode": "0403157861",
+    "transactionSource": "EXTERNAL"
+  },
+  "customer": {
+    "customerType": "RESIDENT",
+    "customerSubType": "OWNER_OCCUPIER",
+    "communicationPreference": "EMAIL",
+    "promotionAllowed": true,
+    "residentIdentity": {
+      "passport": { "documentId": "", "documentExpiryDate": "", "issuingCountry": "" },
+      "drivingLicense": { "documentId": "", "documentExpiryDate": "", "issuingState": "" },
+      "medicare": { "documentId": "", "documentNumber": "", "documentExpiryDate": "" }
+    },
+    "companyIdentity": {
+      "industry": "", "entityName": "", "tradingName": "", "trusteeName": "",
+      "abn": { "documentId": "" }, "acn": { "documentId": "" }
+    },
+    "contacts": {
+      "primaryContact": {
+        "salutation": "Mr.", "firstName": "", "lastName": "",
+        "dateOfBirth": "", "email": "",
+        "addresses": [{ "streetNumber": "", "streetName": "", "suburb": "", "state": "", "postCode": "" }],
+        "contactPhones": [{ "contactPhoneType": "MOBILE", "phone": "" }]
+      }
+    }
+  },
+  "service": {
+    "serviceType": "POWER",
+    "serviceSubType": "TRANSFER",
+    "serviceConnectionId": "",
+    "serviceMeterId": "",
+    "servicedAddress": {
+      "streetNumber": "", "streetName": "", "streetTypeCode": "ST",
+      "suburb": "", "state": "", "postCode": ""
+    },
+    "serviceBilling": {
+      "serviceOfferCode": "", "offerQuoteDate": "",
+      "contractTermCode": "OPEN",
+      "paymentMethod": "Direct Debit Via Bank Account",
+      "billCycleCode": "Monthly",
+      "billDeliveryMethod": "EMAIL"
+    }
+  }
+}
+```
+
+---
+
+## Backend Validation Rules
+
+| Field | Validation |
+|---|---|
+| `transaction.transactionReference` | Required, `^[A-Za-z0-9\-]{1,30}$` |
+| `transaction.transactionChannel` | Required, `^[A-Za-z0-9\s]+$` |
+| `transaction.transactionDate` | ISO 8601, within 3 days |
+| `transaction.transactionSource` | Must be `EXTERNAL` |
+| `customer.promotionAllowed` | Must be `true` |
+| `customer.contacts.primaryContact.dateOfBirth` | ISO 8601, age 18+ |
+| `service.serviceSubType` | `TRANSFER` or `MOVE IN` |
+| `service.serviceStartDate` | Required if `MOVE IN` |
+| `service.serviceBilling.offerQuoteDate` | ISO 8601, within 14 days |
+| `service.serviceBilling.billCycleCode` | GAS: `Bi-Monthly`. POWER: `Monthly` or `Quarterly` |
+| Identity doc expiry dates | Must not be in the past |
+| ABN | 11 digits |
+| ACN | 9 digits |
 
 ---
 
