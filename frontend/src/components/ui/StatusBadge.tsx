@@ -1,7 +1,6 @@
 import type { TransactionStatus } from '../../lib/types';
 
 const statusConfig: Record<string, { bg: string; text: string; label: string }> = {
-  PENDING_SUBMISSION: { bg: 'bg-yellow-50', text: 'text-yellow-700', label: 'Pending' },
   SUBMITTED: { bg: 'bg-blue-50', text: 'text-blue-700', label: 'Submitted' },
   ACCEPTED: { bg: 'bg-green-50', text: 'text-green-700', label: 'Accepted' },
   FAILED: { bg: 'bg-red-50', text: 'text-red-700', label: 'Failed' },
@@ -10,7 +9,6 @@ const statusConfig: Record<string, { bg: string; text: string; label: string }> 
   VALIDATION_FAILED: { bg: 'bg-orange-50', text: 'text-orange-700', label: 'Validation Failed' },
   ONHOLD: { bg: 'bg-purple-50', text: 'text-purple-700', label: 'On Hold' },
   PENDING: { bg: 'bg-yellow-50', text: 'text-yellow-700', label: 'Pending' },
-  SUBMISSION_FAILED: { bg: 'bg-red-50', text: 'text-red-700', label: 'Submission Failed' },
 };
 
 export default function StatusBadge({ status }: { status: TransactionStatus | string }) {

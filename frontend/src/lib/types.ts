@@ -123,28 +123,7 @@ export interface TransactionPayload {
   service: ServiceInfo;
 }
 
-export interface TransactionRecord {
-  id: string;
-  internal_reference: string;
-  sales_transaction_id: string | null;
-  status: string;
-  service_type: string;
-  service_subtype: string;
-  channel_name: string;
-  customer_type: string;
-  customer_name: string;
-  customer_email: string;
-  service_address: string;
-  offer_code: string;
-  submission_payload: TransactionPayload;
-  momentum_response: Record<string, unknown> | null;
-  error_details: Record<string, unknown> | null;
-  created_at: string;
-  updated_at: string;
-}
-
 export type TransactionStatus =
-  | 'PENDING_SUBMISSION'
   | 'SUBMITTED'
   | 'ACCEPTED'
   | 'FAILED'
@@ -152,5 +131,4 @@ export type TransactionStatus =
   | 'REJECTED'
   | 'VALIDATION_FAILED'
   | 'ONHOLD'
-  | 'PENDING'
-  | 'SUBMISSION_FAILED';
+  | 'PENDING';
