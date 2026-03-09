@@ -51,7 +51,7 @@ const customerValidation = [
     .withMessage('communicationPreference must be POST or EMAIL'),
 
   body('customer.promotionAllowed')
-    .equals(true)
+    .custom((value) => value === true || value === 'true')
     .withMessage('Customer consent must be obtained (promotionAllowed must be true)'),
 ];
 
