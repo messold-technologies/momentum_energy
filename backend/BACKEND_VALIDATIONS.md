@@ -20,15 +20,15 @@ Validations run on `POST /api/transactions` via the `validate` middleware. On fa
 
 ---
 
-## Transaction
+## Transaction (per CAF spec)
 
-| Field | Rule | Error Message |
-|-------|------|---------------|
-| `transaction.transactionReference` | Regex `^[A-Za-z0-9-]{1,30}$` | "transactionReference must be 1-30 chars: letters, numbers, hyphen" |
-| `transaction.transactionChannel` | Regex `^[A-Za-z0-9\s]+$` | "transactionChannel must contain letters, numbers and spaces only" |
-| `transaction.transactionDate` | Valid ISO 8601 date | "transactionDate must be ISO 8601 datetime" |
-| `transaction.transactionVerificationCode` | Optional; regex `^[A-Za-z0-9-]{1,30}$` | "transactionVerificationCode invalid" |
-| `transaction.transactionSource` | Must equal `EXTERNAL` | "transactionSource must be EXTERNAL" |
+| Field | Description | Required | Rule | Error Message |
+|-------|-------------|----------|------|---------------|
+| `transaction.transactionReference` | Transaction reference, unique customer id from channel | Yes | Regex `^[A-Za-z0-9-]{1,30}$` | "transactionReference is required" / "must be 1-30 chars: letters, numbers, hyphen" |
+| `transaction.transactionChannel` | Source/channel name submitting the sales | Yes | Regex `^[A-Za-z0-9\s]+$` | "transactionChannel is required" / "must contain letters, numbers and spaces only" |
+| `transaction.transactionDate` | Agreement date of the sales | Yes | ISO 8601; within 3 working days of today | "transactionDate is required" / "must be ISO 8601 datetime" / "Transaction date must not be more than 3 working days..." |
+| `transaction.transactionVerificationCode` | Verification code from channel | No | Regex `^[A-Za-z0-9-]{1,30}$` | "must be 1-30 chars: letters, numbers, hyphen" |
+| `transaction.transactionSource` | Source of the transaction | Yes | Enum `EXTERNAL` | "transactionSource is required" / "must be EXTERNAL" |
 
 ---
 
@@ -129,7 +129,7 @@ Validations run on `POST /api/transactions` via the `validate` middleware. On fa
 | `service.serviceType` | Must be `GAS` or `POWER` | "serviceType must be GAS or POWER" |
 | `service.serviceSubType` | Must be `TRANSFER` or `MOVE IN` | "serviceSubType must be TRANSFER or MOVE IN" |
 | `service.serviceConnectionId` | Regex `^[0-9A-Za-z]+$`; POWER: 10 chars (NMI), GAS: 11 chars (MIRN) | "NMI must be 10 characters for POWER service" / "MIRN must be 11 characters for GAS service" |
-| `service.serviceStartDate` | Optional; ISO 8601 | "serviceStartDate must be ISO 8601" |
+| `service.serviceStartDate` | Optional; ISO 8601; when provided must be today or future (no past dates) | "serviceStartDate must be ISO 8601" / "Move-in date / service start date cannot be in the past" |
 | `service.serviceMeterId` | Optional; regex `^[a-zA-Z0-9,./&:-]+$` | "serviceMeterId invalid" |
 
 ---

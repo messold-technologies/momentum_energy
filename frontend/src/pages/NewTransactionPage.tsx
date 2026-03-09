@@ -100,11 +100,27 @@ function getDefaultValues(): TransactionPayload {
 function cleanPayload(data: TransactionPayload): TransactionPayload {
   const cleaned = structuredClone(data);
 
-  // Ensure transactionDate is full ISO datetime
-  if (cleaned.transaction.transactionDate && !cleaned.transaction.transactionDate.includes('T')) {
-    cleaned.transaction.transactionDate = `${cleaned.transaction.transactionDate}T00:00:00Z`;
-  } else if (cleaned.transaction.transactionDate && !cleaned.transaction.transactionDate.endsWith('Z')) {
-    cleaned.transaction.transactionDate = `${cleaned.transaction.transactionDate}:00Z`;
+  // Transaction: omit empty optional fields
+  if (!cleaned.transaction.transactionVerificationCode?.trim()) {
+    delete cleaned.transaction.transactionVerificationCode;
+  }
+
+  // Ensure transactionDate is full ISO datetime (YYYY-MM-DDTHH:MM:SS.000Z)
+  if (cleaned.transaction.transactionDate) {
+    let txDate = cleaned.transaction.transactionDate;
+    if (!txDate.includes('T')) {
+      txDate = `${txDate}T00:00:00.000Z`;
+    } else if (!txDate.endsWith('Z')) {
+      // "2024-11-10T11:18" -> add :00.000Z; "2024-11-10T11:18:00" -> add .000Z
+      txDate = /T\d{2}:\d{2}:\d{2}$/.test(txDate) ? `${txDate}.000Z` : `${txDate}:00.000Z`;
+    }
+    cleaned.transaction.transactionDate = txDate;
+  }
+
+  // Contacts: add contactType (required by Momentum API)
+  cleaned.customer.contacts.primaryContact.contactType = 'PRIMARY';
+  if (cleaned.customer.contacts.secondaryContact) {
+    cleaned.customer.contacts.secondaryContact.contactType = 'SECONDARY';
   }
 
   // Ensure dateOfBirth is ISO 8601 (date input gives YYYY-MM-DD)
@@ -118,19 +134,29 @@ function cleanPayload(data: TransactionPayload): TransactionPayload {
     sc.dateOfBirth = `${scDob}T00:00:00.000Z`;
   }
 
+  // Addresses: set addressType to POSTAL when missing (Momentum expects it)
+  for (const addr of cleaned.customer.contacts.primaryContact.addresses) {
+    if (!addr.addressType?.trim()) addr.addressType = 'POSTAL';
+  }
+  if (cleaned.customer.contacts.secondaryContact?.addresses) {
+    for (const addr of cleaned.customer.contacts.secondaryContact.addresses) {
+      if (!addr.addressType?.trim()) addr.addressType = 'POSTAL';
+    }
+  }
+
   if (cleaned.customer.customerType === 'RESIDENT') {
     delete cleaned.customer.companyIdentity;
     const ri = cleaned.customer.residentIdentity;
     if (ri) {
-      if (!ri.passport?.documentId) delete ri.passport;
-      if (!ri.drivingLicense?.documentId) delete ri.drivingLicense;
-      if (!ri.medicare?.documentId) delete ri.medicare;
+      if (!ri.passport?.documentId?.trim()) delete ri.passport;
+      if (!ri.drivingLicense?.documentId?.trim()) delete ri.drivingLicense;
+      if (!ri.medicare?.documentId?.trim()) delete ri.medicare;
     }
   } else {
     delete cleaned.customer.residentIdentity;
   }
 
-  if (!cleaned.customer.contacts.secondaryContact?.firstName) {
+  if (!cleaned.customer.contacts.secondaryContact?.firstName?.trim()) {
     delete cleaned.customer.contacts.secondaryContact;
   }
 
@@ -143,15 +169,24 @@ function cleanPayload(data: TransactionPayload): TransactionPayload {
     delete cleaned.service.serviceStartDate;
   }
 
-  // Ensure offerQuoteDate is ISO 8601
-  const oqd = cleaned.service?.serviceBilling?.offerQuoteDate;
+  // Service billing: ensure dates are ISO 8601, add contractDate if missing
+  const sb = cleaned.service.serviceBilling;
+  const oqd = sb.offerQuoteDate;
   if (oqd && !oqd.includes('T')) {
-    cleaned.service.serviceBilling.offerQuoteDate = `${oqd}T00:00:00.000Z`;
+    sb.offerQuoteDate = `${oqd}T00:00:00.000Z`;
+  }
+  if (!sb.contractDate && oqd) {
+    sb.contractDate = sb.offerQuoteDate;
+  } else if (sb.contractDate && !sb.contractDate.includes('T')) {
+    sb.contractDate = `${sb.contractDate}T00:00:00.000Z`;
   }
 
-  if (!cleaned.service.serviceBilling.concession?.cardType) {
-    delete cleaned.service.serviceBilling.concession;
+  if (!sb.concession?.cardType?.trim()) {
+    delete sb.concession;
   }
+
+  // Omit empty optional strings from serviceBilling
+  if (!sb.servicePlanCode?.trim()) delete sb.servicePlanCode;
 
   return cleaned;
 }

@@ -1,6 +1,45 @@
 import { z } from 'zod';
 import { COUNTRY_CODES } from './countryCodes';
 
+/** Check if date is a weekday (Mon–Fri) */
+function isWeekday(d: Date): boolean {
+  const day = d.getDay();
+  return day >= 1 && day <= 5;
+}
+
+/** Add N working days to a date (negative for past) */
+function addWorkingDays(fromDate: Date, days: number): Date {
+  const d = new Date(fromDate);
+  d.setHours(0, 0, 0, 0);
+  let remaining = Math.abs(days);
+  const increment = days >= 0 ? 1 : -1;
+  while (remaining > 0) {
+    d.setDate(d.getDate() + increment);
+    if (isWeekday(d)) remaining--;
+  }
+  return d;
+}
+
+/** Today's date as YYYY-MM-DD (local timezone) */
+function todayLocal(): string {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+// Transaction field patterns per CAF spec
+const TRANSACTION_REF_REGEX = /^[A-Za-z0-9-]{1,30}$/;
+const TRANSACTION_CHANNEL_REGEX = /^[A-Za-z0-9\s]+$/;
+const TRANSACTION_VERIFICATION_REGEX = /^[A-Za-z0-9-]{1,30}$/;
+// Valid ISO 8601 date/time (YYYY-MM-DD or with time)
+function isValidISO8601(v: string): boolean {
+  if (!v || v.length < 10) return false;
+  const parsed = Date.parse(v);
+  return !Number.isNaN(parsed);
+}
+
 const AU_PHONE_REGEX = /^(0[2378]\d{8}|0\d{9}|13\d{4}|1300\d{6}|1800\d{6})$/;
 const CONTACT_EMAIL_REGEX = /^[a-zA-Z0-9._|%#~`=?&/$^*!}{+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,4}$/;
 const contactPhoneSchema = z.object({
@@ -35,26 +74,44 @@ const addressSchema = z.object({
   postCode: z.string().regex(/^\d{4}$/, 'Postcode must be 4 digits'),
 });
 
-// Step 1: Transaction
-export const step1Schema = z.object({
-  transaction: z.object({
-    transactionReference: z
-      .string()
-      .min(1, 'Transaction reference is required')
-      .regex(/^[A-Za-z0-9-]{1,30}$/, 'Max 30 chars: letters, numbers, hyphens only'),
-    transactionChannel: z
-      .string()
-      .min(1, 'Transaction channel is required')
-      .regex(/^[A-Za-z0-9\s]+$/, 'Letters, numbers, and spaces only'),
-    transactionDate: z.string().min(1, 'Transaction date is required'),
-    transactionVerificationCode: z
-      .string()
-      .regex(/^[A-Za-z0-9-]{1,30}$/, 'Max 30 chars: letters, numbers, hyphens only')
-      .optional()
-      .or(z.literal('')),
-    transactionSource: z.literal('EXTERNAL'),
-  }),
-});
+// Step 1: Transaction (per CAF spec)
+export const step1Schema = z
+  .object({
+    transaction: z.object({
+      transactionReference: z
+        .string()
+        .min(1, 'Transaction reference is required')
+        .regex(TRANSACTION_REF_REGEX, '1-30 chars: letters, numbers, hyphen only'),
+      transactionChannel: z
+        .string()
+        .min(1, 'Transaction channel is required')
+        .regex(TRANSACTION_CHANNEL_REGEX, 'Letters, numbers, and spaces only'),
+      transactionDate: z
+        .string()
+        .min(1, 'Transaction date is required')
+        .refine(isValidISO8601, 'Transaction date must be ISO 8601 format'),
+      transactionVerificationCode: z
+        .string()
+        .optional()
+        .refine((v) => !v || v === '' || TRANSACTION_VERIFICATION_REGEX.test(v), '1-30 chars: letters, numbers, hyphen only'),
+      transactionSource: z.literal('EXTERNAL'),
+    }),
+  })
+  .superRefine((data, ctx) => {
+    const txDateStr = data.transaction.transactionDate?.slice(0, 10);
+    if (!txDateStr || !/^\d{4}-\d{2}-\d{2}$/.test(txDateStr)) return;
+    const txDate = new Date(txDateStr + 'T12:00:00');
+    const today = new Date();
+    today.setHours(12, 0, 0, 0);
+    const minDate = addWorkingDays(today, -3);
+    const maxDate = addWorkingDays(today, 3);
+    if (txDate < minDate) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Transaction date must be within the last 3 working days', path: ['transaction', 'transactionDate'] });
+    }
+    if (txDate > maxDate) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Transaction date must be within the next 3 working days', path: ['transaction', 'transactionDate'] });
+    }
+  });
 
 // Step 2: Customer
 // Only validate document fields when documentId is provided (user chose this document)
@@ -303,7 +360,17 @@ export const step4Schema = z
         .min(1, 'NMI/MIRN is required')
         .regex(/^[0-9A-Za-z]+$/, 'Alphanumeric only'),
       serviceMeterId: z.string().optional(),
-      serviceStartDate: z.string().optional(),
+      serviceStartDate: z
+        .string()
+        .optional()
+        .refine(
+          (v) => {
+            if (!v || !/^\d{4}-\d{2}-\d{2}/.test(v)) return true;
+            const startDate = v.slice(0, 10);
+            return startDate >= todayLocal();
+          },
+          { message: 'Move-in date / service start date cannot be in the past' }
+        ),
       estimatedAnnualKwhs: z.number().optional(),
       lotNumber: z.string().optional(),
       servicedAddress: z.object({

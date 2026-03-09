@@ -3,6 +3,7 @@ const router = express.Router();
 import { v4 as uuidv4 } from 'uuid';
 import { transactionValidationRules, validate } from '../validators/transactionValidator.js';
 import { submitSalesTransaction, getSalesTransactionStatus } from '../services/momentumService.js';
+import { sanitizeBody } from '../utils/sanitizeBody.js';
 import logger from '../config/logger.js';
 
 /**
@@ -19,10 +20,11 @@ router.post(
     try {
       logger.info('Submitting transaction to Momentum', {
         correlationId,
-        reference: req.body.transaction?.transactionReferenceId,
+        reference: req.body.transaction?.transactionReference,
       });
 
-      const result = await submitSalesTransaction(req.body);
+      const body = sanitizeBody(req.body);
+      const result = await submitSalesTransaction(body);
 
       res.status(201).json({
         success: true,

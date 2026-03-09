@@ -1,24 +1,75 @@
 import { body, validationResult } from 'express-validator';
 
+/** Check if date is a weekday (Mon–Fri) */
+function isWeekday(d) {
+  const day = d.getUTCDay();
+  return day >= 1 && day <= 5;
+}
+
+/** Add N working days to a date (negative for past) */
+function addWorkingDays(fromDate, days) {
+  const d = new Date(fromDate);
+  d.setUTCHours(0, 0, 0, 0);
+  let remaining = Math.abs(days);
+  const increment = days >= 0 ? 1 : -1;
+  while (remaining > 0) {
+    d.setUTCDate(d.getUTCDate() + increment);
+    if (isWeekday(d)) remaining--;
+  }
+  return d;
+}
+
+/** Parse ISO string to date-only YYYY-MM-DD */
+function toDateOnly(isoStr) {
+  if (!isoStr) return null;
+  const m = String(isoStr).match(/^(\d{4}-\d{2}-\d{2})/);
+  return m ? m[1] : null;
+}
+
+// Transaction field validations per CAF spec
+const TRANSACTION_REF_REGEX = /^[A-Za-z0-9\-]{1,30}$/;
+const TRANSACTION_CHANNEL_REGEX = /^[A-Za-z0-9\s]+$/;
+const TRANSACTION_VERIFICATION_REGEX = /^[A-Za-z0-9\-]{1,30}$/;
+
 const transactionValidation = [
   body('transaction.transactionReference')
-    .matches(/^[A-Za-z0-9-]{1,30}$/)
+    .notEmpty()
+    .withMessage('transactionReference is required')
+    .matches(TRANSACTION_REF_REGEX)
     .withMessage('transactionReference must be 1-30 chars: letters, numbers, hyphen'),
 
   body('transaction.transactionChannel')
-    .matches(/^[A-Za-z0-9\s]+$/)
+    .notEmpty()
+    .withMessage('transactionChannel is required')
+    .matches(TRANSACTION_CHANNEL_REGEX)
     .withMessage('transactionChannel must contain letters, numbers and spaces only'),
 
   body('transaction.transactionDate')
+    .notEmpty()
+    .withMessage('transactionDate is required')
     .isISO8601()
-    .withMessage('transactionDate must be ISO 8601 datetime'),
+    .withMessage('transactionDate must be ISO 8601 datetime')
+    .custom((value) => {
+      const txDate = toDateOnly(value);
+      if (!txDate) return true;
+      const tx = new Date(txDate + 'T12:00:00Z');
+      const today = new Date();
+      today.setUTCHours(12, 0, 0, 0);
+      const minDate = addWorkingDays(today, -3);
+      const maxDate = addWorkingDays(today, 3);
+      if (tx < minDate) throw new Error('Transaction date must not be more than 3 working days in the past');
+      if (tx > maxDate) throw new Error('Transaction date must not be more than 3 working days in the future');
+      return true;
+    }),
 
   body('transaction.transactionVerificationCode')
-    .optional()
-    .matches(/^[A-Za-z0-9-]{1,30}$/)
-    .withMessage('transactionVerificationCode invalid'),
+    .optional({ values: 'falsy' })
+    .matches(TRANSACTION_VERIFICATION_REGEX)
+    .withMessage('transactionVerificationCode must be 1-30 chars: letters, numbers, hyphen'),
 
   body('transaction.transactionSource')
+    .notEmpty()
+    .withMessage('transactionSource is required')
     .equals('EXTERNAL')
     .withMessage('transactionSource must be EXTERNAL'),
 ];
@@ -280,7 +331,17 @@ const serviceValidation = [
   body('service.serviceStartDate')
     .optional()
     .isISO8601()
-    .withMessage('serviceStartDate must be ISO 8601'),
+    .withMessage('serviceStartDate must be ISO 8601')
+    .custom((value) => {
+      if (!value) return true;
+      const startDate = toDateOnly(value);
+      if (!startDate) return true;
+      const today = new Date().toISOString().slice(0, 10);
+      if (startDate < today) {
+        throw new Error('Move-in date / service start date cannot be in the past');
+      }
+      return true;
+    }),
 
   body('service.serviceMeterId')
     .optional()

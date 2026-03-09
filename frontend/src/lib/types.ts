@@ -75,6 +75,7 @@ export interface Address {
 }
 
 export interface Contact {
+  contactType?: 'PRIMARY' | 'SECONDARY';
   salutation: string;
   firstName: string;
   middleName?: string;
