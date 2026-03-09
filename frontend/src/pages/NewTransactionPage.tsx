@@ -43,8 +43,9 @@ function getDefaultValues(): TransactionPayload {
     },
     customer: {
       customerType: 'RESIDENT',
+      customerSubType: 'RESIDENT',
       communicationPreference: 'EMAIL',
-      promotionAllowed: true,
+      promotionAllowed: false,
       residentIdentity: {
         passport: {},
         drivingLicense: {},
@@ -106,6 +107,17 @@ function cleanPayload(data: TransactionPayload): TransactionPayload {
     cleaned.transaction.transactionDate = `${cleaned.transaction.transactionDate}:00Z`;
   }
 
+  // Ensure dateOfBirth is ISO 8601 (date input gives YYYY-MM-DD)
+  const dob = cleaned.customer?.contacts?.primaryContact?.dateOfBirth;
+  if (dob && !dob.includes('T')) {
+    cleaned.customer.contacts.primaryContact.dateOfBirth = `${dob}T00:00:00.000Z`;
+  }
+  const sc = cleaned.customer?.contacts?.secondaryContact;
+  const scDob = sc?.dateOfBirth;
+  if (sc && scDob && !scDob.includes('T')) {
+    sc.dateOfBirth = `${scDob}T00:00:00.000Z`;
+  }
+
   if (cleaned.customer.customerType === 'RESIDENT') {
     delete cleaned.customer.companyIdentity;
     const ri = cleaned.customer.residentIdentity;
@@ -122,8 +134,19 @@ function cleanPayload(data: TransactionPayload): TransactionPayload {
     delete cleaned.customer.contacts.secondaryContact;
   }
 
-  if (cleaned.service.serviceSubType !== 'MOVE IN') {
+  if (cleaned.service.serviceSubType === 'MOVE IN' && cleaned.service.serviceStartDate) {
+    const sd = cleaned.service.serviceStartDate;
+    if (!sd.includes('T')) {
+      cleaned.service.serviceStartDate = `${sd}T00:00:00.000Z`;
+    }
+  } else if (cleaned.service.serviceSubType !== 'MOVE IN') {
     delete cleaned.service.serviceStartDate;
+  }
+
+  // Ensure offerQuoteDate is ISO 8601
+  const oqd = cleaned.service?.serviceBilling?.offerQuoteDate;
+  if (oqd && !oqd.includes('T')) {
+    cleaned.service.serviceBilling.offerQuoteDate = `${oqd}T00:00:00.000Z`;
   }
 
   if (!cleaned.service.serviceBilling.concession?.cardType) {

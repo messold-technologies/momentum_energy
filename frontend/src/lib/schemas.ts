@@ -1,18 +1,36 @@
 import { z } from 'zod';
+import { COUNTRY_CODES } from './countryCodes';
 
+const AU_PHONE_REGEX = /^(0[2378]\d{8}|0\d{9}|13\d{4}|1300\d{6}|1800\d{6})$/;
+const CONTACT_EMAIL_REGEX = /^[a-zA-Z0-9._|%#~`=?&/$^*!}{+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,4}$/;
 const contactPhoneSchema = z.object({
   contactPhoneType: z.enum(['WORK', 'HOME', 'MOBILE']),
-  phone: z.string().min(8, 'Phone number must be at least 8 digits').max(15),
+  phone: z
+    .string()
+    .min(1, 'Phone number is required')
+    .regex(AU_PHONE_REGEX, 'Must be a valid Australian phone number (e.g. 0412345678, 1300123456)'),
 });
 
 const addressSchema = z.object({
-  addressType: z.string().optional(),
-  unitNumber: z.string().optional(),
-  streetNumber: z.string().min(1, 'Street number is required'),
-  streetName: z.string().min(1, 'Street name is required'),
-  suburb: z.string().min(1, 'Suburb is required'),
-  state: z.enum(['VIC', 'NSW', 'QLD', 'SA', 'WA', 'TAS', 'NT', 'ACT'], {
-    message: 'State is required',
+  addressType: z.string().optional().refine((v) => !v || /^[A-Za-z]+$/.test(v), 'addressType must be letters only'),
+  unitNumber: z
+    .string()
+    .optional()
+    .refine((v) => !v || v === '' || /^[a-zA-Z0-9,./&:\s-]+$/.test(v), 'unitNumber invalid'),
+  streetNumber: z
+    .string()
+    .min(1, 'Street number is required')
+    .regex(/^[A-Za-z0-9-]+$/, 'Letters, numbers, hyphen only'),
+  streetName: z
+    .string()
+    .min(1, 'Street name is required')
+    .regex(/^[a-zA-Z0-9'.,/()\s-]+$/, 'Invalid street name'),
+  suburb: z
+    .string()
+    .min(1, 'Suburb is required')
+    .regex(/^[A-Za-z0-9 ]+$/, 'Letters and numbers only'),
+  state: z.enum(['ACT', 'NT', 'WA', 'SA', 'VIC', 'NSW'], {
+    message: 'State must be ACT, NT, WA, SA, VIC, or NSW',
   }),
   postCode: z.string().regex(/^\d{4}$/, 'Postcode must be 4 digits'),
 });
@@ -23,7 +41,7 @@ export const step1Schema = z.object({
     transactionReference: z
       .string()
       .min(1, 'Transaction reference is required')
-      .regex(/^[A-Za-z0-9\-]{1,30}$/, 'Max 30 chars: letters, numbers, hyphens only'),
+      .regex(/^[A-Za-z0-9-]{1,30}$/, 'Max 30 chars: letters, numbers, hyphens only'),
     transactionChannel: z
       .string()
       .min(1, 'Transaction channel is required')
@@ -31,7 +49,7 @@ export const step1Schema = z.object({
     transactionDate: z.string().min(1, 'Transaction date is required'),
     transactionVerificationCode: z
       .string()
-      .regex(/^[A-Za-z0-9\-]{1,30}$/, 'Max 30 chars: letters, numbers, hyphens only')
+      .regex(/^[A-Za-z0-9-]{1,30}$/, 'Max 30 chars: letters, numbers, hyphens only')
       .optional()
       .or(z.literal('')),
     transactionSource: z.literal('EXTERNAL'),
@@ -80,12 +98,14 @@ const medicareSchema = z
     { message: 'Document number and expiry date are required when medicare card is provided', path: ['documentNumber'] }
   );
 
+const COMPANY_SUB_TYPES = ['Incorporation', 'Limited Company', 'NA', 'Partnership', 'Private', 'Sole Trader', 'Trust', 'C&I', 'SME'] as const;
+
 export const step2Schema = z
   .object({
     customer: z.object({
       customerType: z.enum(['RESIDENT', 'COMPANY']),
-      customerSubType: z.string().optional(),
-      communicationPreference: z.enum(['EMAIL', 'POST']),
+      customerSubType: z.string().min(1, 'Customer sub-type is required'),
+      communicationPreference: z.enum(['POST', 'EMAIL']),
       promotionAllowed: z.literal(true, {
         message: 'Customer consent must be obtained',
       }),
@@ -123,6 +143,13 @@ export const step2Schema = z
   .superRefine((data, ctx) => {
     const c = data.customer;
     if (c.customerType === 'RESIDENT') {
+      if (c.customerSubType !== 'RESIDENT') {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Customer sub-type must be RESIDENT when customer type is RESIDENT',
+          path: ['customer', 'customerSubType'],
+        });
+      }
       const ri = c.residentIdentity;
       const hasPassport = String(ri?.passport?.documentId || '').trim();
       const hasDL = String(ri?.drivingLicense?.documentId || '').trim();
@@ -136,6 +163,13 @@ export const step2Schema = z
       }
     }
     if (c.customerType === 'COMPANY') {
+      if (!COMPANY_SUB_TYPES.includes(c.customerSubType as (typeof COMPANY_SUB_TYPES)[number])) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `Customer sub-type must be one of: ${COMPANY_SUB_TYPES.join(', ')}`,
+          path: ['customer', 'customerSubType'],
+        });
+      }
       const ci = c.companyIdentity;
       if (!ci?.entityName) {
         ctx.addIssue({
@@ -167,28 +201,93 @@ export const step3Schema = z.object({
     contacts: z.object({
       primaryContact: z.object({
         salutation: z.string().min(1, 'Salutation is required'),
-        firstName: z.string().min(1, 'First name is required'),
-        middleName: z.string().optional(),
-        lastName: z.string().min(1, 'Last name is required'),
-        countryOfBirth: z.string().optional(),
+        firstName: z
+          .string()
+          .min(1, 'First name is required')
+          .regex(/^[A-Z][a-zA-Z'-. ]{1,100}$/, 'Must start with uppercase letter, 2-101 chars'),
+        middleName: z
+          .string()
+          .optional()
+          .refine((v) => !v || /^[a-zA-Z'-. ]{1,100}$/.test(v), 'Invalid characters'),
+        lastName: z
+          .string()
+          .min(1, 'Last name is required')
+          .regex(/^[A-Z][a-zA-Z'-. ]{1,100}$/, 'Must start with uppercase letter, 2-101 chars'),
+        countryOfBirth: z
+          .string()
+          .optional()
+          .refine((v) => !v || v === '' || COUNTRY_CODES.includes(v as (typeof COUNTRY_CODES)[number]), 'Invalid ISO country code'),
         dateOfBirth: z.string().min(1, 'Date of birth is required'),
-        email: z.string().email('Must be a valid email').optional().or(z.literal('')),
+        email: z
+          .string()
+          .min(1, 'Email is required')
+          .regex(CONTACT_EMAIL_REGEX, 'Must be a valid email format'),
         addresses: z.array(addressSchema).min(1, 'At least one address is required'),
         contactPhones: z.array(contactPhoneSchema).min(1, 'At least one phone number is required'),
       }),
       secondaryContact: z
         .object({
-          salutation: z.string().optional(),
-          firstName: z.string().optional(),
-          middleName: z.string().optional(),
-          lastName: z.string().optional(),
-          countryOfBirth: z.string().optional(),
+          salutation: z.enum(['Mr.', 'Ms.', 'Mrs.', 'Dr.', 'Prof.']).optional(),
+          firstName: z
+            .string()
+            .optional()
+            .refine((v) => !v || /^[A-Z][a-zA-Z'-]{1,100}$/.test(v), 'Must start with uppercase, 2-101 chars'),
+          middleName: z
+            .string()
+            .optional()
+            .refine((v) => !v || v === '' || /^[a-zA-Z'-]{1,100}$/.test(v), 'Invalid characters'),
+          lastName: z
+            .string()
+            .optional()
+            .refine((v) => !v || /^[A-Z][a-zA-Z'-]{1,100}$/.test(v), 'Must start with uppercase, 2-101 chars'),
+          countryOfBirth: z
+            .string()
+            .optional()
+            .refine((v) => !v || v === '' || COUNTRY_CODES.includes(v as (typeof COUNTRY_CODES)[number]), 'Invalid ISO country code'),
           dateOfBirth: z.string().optional(),
-          email: z.string().email('Must be a valid email').optional().or(z.literal('')),
+          email: z
+            .string()
+            .optional()
+            .refine((v) => !v || v === '' || CONTACT_EMAIL_REGEX.test(v), 'Invalid email format')
+            .or(z.literal('')),
           addresses: z.array(addressSchema).optional(),
           contactPhones: z.array(contactPhoneSchema).optional(),
         })
-        .optional(),
+        .optional()
+        .superRefine((sc, ctx) => {
+          if (!sc) return;
+          const hasName = sc.firstName || sc.lastName;
+          if (hasName) {
+            if (!sc.salutation) {
+              ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                message: 'Salutation is required when secondary contact is provided',
+                path: ['salutation'],
+              });
+            }
+            if (!sc.firstName) {
+              ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                message: 'First name is required when secondary contact is provided',
+                path: ['firstName'],
+              });
+            }
+            if (!sc.lastName) {
+              ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                message: 'Last name is required when secondary contact is provided',
+                path: ['lastName'],
+              });
+            }
+            if (!sc.dateOfBirth) {
+              ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                message: 'Date of birth is required when secondary contact is provided',
+                path: ['dateOfBirth'],
+              });
+            }
+          }
+        }),
     }),
   }),
 });
@@ -199,19 +298,47 @@ export const step4Schema = z
     service: z.object({
       serviceType: z.enum(['GAS', 'POWER']),
       serviceSubType: z.enum(['TRANSFER', 'MOVE IN']),
-      serviceConnectionId: z.string().min(1, 'NMI/MIRN is required'),
+      serviceConnectionId: z
+        .string()
+        .min(1, 'NMI/MIRN is required')
+        .regex(/^[0-9A-Za-z]+$/, 'Alphanumeric only'),
       serviceMeterId: z.string().optional(),
       serviceStartDate: z.string().optional(),
       estimatedAnnualKwhs: z.number().optional(),
       lotNumber: z.string().optional(),
       servicedAddress: z.object({
-        unitNumber: z.string().optional(),
-        streetNumber: z.string().min(1, 'Street number is required'),
-        streetName: z.string().min(1, 'Street name is required'),
-        streetTypeCode: z.string().min(1, 'Street type is required'),
-        suburb: z.string().min(1, 'Suburb is required'),
-        state: z.enum(['VIC', 'NSW', 'QLD', 'SA', 'WA', 'TAS', 'NT', 'ACT'], {
-          message: 'State is required',
+        name: z
+          .string()
+          .optional()
+          .refine((v) => !v || /^[A-Z][a-zA-Z'-]{1,100}$/.test(v), 'Must start with uppercase, 2-101 chars'),
+        unitType: z
+          .enum(['APT', 'CTGE', 'DUP', 'F', 'FY', 'HSE', 'KSK', 'MB', 'MSNT', 'OFF', 'PTHS', 'RM', 'SE', 'SHED', 'SHOP', 'SITE', 'SL', 'STU', 'TNCY', 'TNHS', 'U', 'VLLA', 'WARD', 'WE'])
+          .optional(),
+        unitNumber: z
+          .string()
+          .optional()
+          .refine((v) => !v || /^[a-zA-Z0-9,./&:\s-]+$/.test(v), 'Invalid unit number'),
+        floorType: z.enum(['FLOOR', 'LEVEL', 'GROUND']).optional(),
+        floorNumber: z
+          .string()
+          .optional()
+          .refine((v) => !v || /^[a-zA-Z0-9,./&:\s-]+$/.test(v), 'Invalid floor number'),
+        streetNumberSuffix: z
+          .enum(['CN', 'E', 'EX', 'LR', 'N', 'NE', 'NW', 'S', 'SE', 'SW', 'UP', 'W'])
+          .optional(),
+        streetNameSuffix: z.string().optional().refine((v) => !v || /^[A-Za-z- ]+$/.test(v), 'Invalid'),
+        streetNumber: z
+          .string()
+          .min(1, 'Street number is required')
+          .regex(/^[A-Za-z0-9-]+$/, 'Letters, numbers, hyphen only'),
+        streetName: z
+          .string()
+          .min(1, 'Street name is required')
+          .regex(/^[a-zA-Z0-9'.,/()\s-]+$/, 'Invalid street name'),
+        streetTypeCode: z.string().optional(),
+        suburb: z.string().min(1, 'Suburb is required').regex(/^[A-Za-z0-9 ]+$/, 'Invalid suburb'),
+        state: z.enum(['ACT', 'NT', 'WA', 'SA', 'VIC', 'NSW'], {
+          message: 'State must be ACT, NT, WA, SA, VIC, or NSW',
         }),
         postCode: z.string().regex(/^\d{4}$/, 'Postcode must be 4 digits'),
         accessInstructions: z.string().optional(),
@@ -219,7 +346,10 @@ export const step4Schema = z
       }),
       serviceBilling: z.object({
         offerQuoteDate: z.string().min(1, 'Quote date is required'),
-        serviceOfferCode: z.string().min(1, 'Offer code is required'),
+        serviceOfferCode: z
+          .string()
+          .min(1, 'Offer code is required')
+          .regex(/^[a-zA-Z0-9]{15}(?:[a-zA-Z0-9]{3})?$/, 'Must be 15 or 18 alphanumeric characters'),
         servicePlanCode: z.string().optional(),
         contractTermCode: z.enum(['OPEN', '12MTH', '24MTH', '36MTH']),
         contractDate: z.string().optional(),
@@ -245,6 +375,20 @@ export const step4Schema = z
         code: z.ZodIssueCode.custom,
         message: 'Service start date is required for Move In',
         path: ['service', 'serviceStartDate'],
+      });
+    }
+    if (s.serviceType === 'POWER' && s.serviceConnectionId.length !== 10) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'NMI must be 10 characters for POWER service',
+        path: ['service', 'serviceConnectionId'],
+      });
+    }
+    if (s.serviceType === 'GAS' && s.serviceConnectionId.length !== 11) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'MIRN must be 11 characters for GAS service',
+        path: ['service', 'serviceConnectionId'],
       });
     }
     if (s.serviceType === 'GAS' && s.serviceBilling.billCycleCode !== 'Bi-Monthly') {

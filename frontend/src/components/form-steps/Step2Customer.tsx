@@ -1,9 +1,11 @@
+import { useEffect } from 'react';
 import { useFormContext, useWatch, type FieldErrors } from 'react-hook-form';
 import FormField, { inputClass, selectClass } from '../ui/FormField';
 import type { TransactionPayload } from '../../lib/types';
 
-const RESIDENT_SUB_TYPES = ['OWNER_OCCUPIER', 'TENANT', 'PROPERTY_MANAGER'];
-const COMPANY_SUB_TYPES = ['SOLE_TRADER', 'PARTNERSHIP', 'TRUST', 'COMPANY'];
+// RESIDENT customerType: subType must be RESIDENT. COMPANY: one of Incorporation, Limited Company, NA, etc.
+const RESIDENT_SUB_TYPES = ['RESIDENT'] as const;
+const COMPANY_SUB_TYPES = ['Incorporation', 'Limited Company', 'NA', 'Partnership', 'Private', 'Sole Trader', 'Trust', 'C&I', 'SME'] as const;
 const INDUSTRIES = [
   'Agriculture',
   'Construction',
@@ -25,7 +27,16 @@ export default function Step2Customer() {
   const errors = formState.errors as FieldErrors<TransactionPayload>;
 
   const customerType = useWatch({ control, name: 'customer.customerType' });
+  const customerSubType = useWatch({ control, name: 'customer.customerSubType' });
   const hasPassport = useWatch({ control, name: 'customer.residentIdentity.passport.documentId' });
+
+  useEffect(() => {
+    if (customerType === 'RESIDENT' && customerSubType !== 'RESIDENT' && customerSubType !== '') {
+      setValue('customer.customerSubType', 'RESIDENT');
+    } else if (customerType === 'COMPANY' && customerSubType === 'RESIDENT') {
+      setValue('customer.customerSubType', '');
+    }
+  }, [customerType, customerSubType, setValue]);
   const hasDL = useWatch({ control, name: 'customer.residentIdentity.drivingLicense.documentId' });
   const hasMC = useWatch({ control, name: 'customer.residentIdentity.medicare.documentId' });
 
@@ -73,12 +84,12 @@ export default function Step2Customer() {
           </div>
         </FormField>
 
-        <FormField label="Customer Sub-Type" error={errors.customer?.customerSubType}>
+        <FormField label="Customer Sub-Type" required error={errors.customer?.customerSubType}>
           <select {...register('customer.customerSubType')} className={selectClass}>
             <option value="">Select...</option>
             {(customerType === 'COMPANY' ? COMPANY_SUB_TYPES : RESIDENT_SUB_TYPES).map((st) => (
               <option key={st} value={st}>
-                {st.replace(/_/g, ' ')}
+                {st}
               </option>
             ))}
           </select>
@@ -90,8 +101,9 @@ export default function Step2Customer() {
           error={errors.customer?.communicationPreference}
         >
           <select {...register('customer.communicationPreference')} className={selectClass}>
-            <option value="EMAIL">Email</option>
+            <option value="">Select...</option>
             <option value="POST">Post</option>
+            <option value="EMAIL">Email</option>
           </select>
         </FormField>
 
@@ -99,7 +111,9 @@ export default function Step2Customer() {
           <label className="flex items-center gap-2 mt-1 cursor-pointer">
             <input
               type="checkbox"
-              {...register('customer.promotionAllowed')}
+              {...register('customer.promotionAllowed', {
+                setValueAs: (v) => v === true || v === 'on',
+              })}
               className="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500"
             />
             <span className="text-sm text-gray-700">Customer agrees to receive promotions</span>

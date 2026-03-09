@@ -51,7 +51,7 @@ export interface CustomerInfo {
   customerType: 'RESIDENT' | 'COMPANY';
   customerSubType?: string;
   communicationPreference: 'EMAIL' | 'POST';
-  promotionAllowed: true;
+  promotionAllowed: boolean; // Must be true for submit (customer consent required)
   residentIdentity?: ResidentIdentity;
   companyIdentity?: CompanyIdentity;
   contacts: ContactInfo;
@@ -93,11 +93,24 @@ export interface ContactInfo {
 
 // === Service ===
 
+export const UNIT_TYPES = [
+  'APT', 'CTGE', 'DUP', 'F', 'FY', 'HSE', 'KSK', 'MB', 'MSNT', 'OFF', 'PTHS',
+  'RM', 'SE', 'SHED', 'SHOP', 'SITE', 'SL', 'STU', 'TNCY', 'TNHS', 'U', 'VLLA', 'WARD', 'WE',
+] as const;
+export const FLOOR_TYPES = ['FLOOR', 'LEVEL', 'GROUND'] as const;
+export const STREET_NUMBER_SUFFIXES = ['CN', 'E', 'EX', 'LR', 'N', 'NE', 'NW', 'S', 'SE', 'SW', 'UP', 'W'] as const;
+
 export interface ServicedAddress {
+  name?: string;
+  unitType?: (typeof UNIT_TYPES)[number];
   unitNumber?: string;
+  floorType?: (typeof FLOOR_TYPES)[number];
+  floorNumber?: string;
+  streetNumberSuffix?: (typeof STREET_NUMBER_SUFFIXES)[number];
+  streetNameSuffix?: string;
   streetNumber: string;
   streetName: string;
-  streetTypeCode: string;
+  streetTypeCode?: string;
   suburb: string;
   state: string;
   postCode: string;

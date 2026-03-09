@@ -3,9 +3,11 @@ import FormField, { inputClass, selectClass } from '../ui/FormField';
 import { Plus, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
 import { useState } from 'react';
 import type { TransactionPayload } from '../../lib/types';
+import { COUNTRY_CODES } from '../../lib/countryCodes';
 
 const SALUTATIONS = ['Mr.', 'Ms.', 'Mrs.', 'Dr.', 'Prof.'];
-const STATES = ['VIC', 'NSW', 'QLD', 'SA', 'WA', 'TAS', 'NT', 'ACT'];
+// Must match backend: ACT, NT, WA, SA, VIC, NSW only
+const STATES = ['ACT', 'NT', 'WA', 'SA', 'VIC', 'NSW'] as const;
 const PHONE_TYPES = ['MOBILE', 'HOME', 'WORK'] as const;
 
 function PhoneFields({ basePath }: { basePath: string }) {
@@ -96,6 +98,13 @@ function AddressFields({ basePath }: { basePath: string }) {
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <FormField label="Address Type" error={getErr('addressType')}>
+        <input
+          {...register(`${basePath}.addressType`)}
+          className={inputClass}
+          placeholder="Optional - letters only"
+        />
+      </FormField>
       <FormField label="Unit Number" error={getErr('unitNumber')}>
         <input
           {...register(`${basePath}.unitNumber`)}
@@ -217,7 +226,7 @@ export default function Step3Contact() {
               className={inputClass}
             />
           </FormField>
-          <FormField label="Email" error={errors.customer?.contacts?.primaryContact?.email}>
+          <FormField label="Email" required error={errors.customer?.contacts?.primaryContact?.email}>
             <input
               type="email"
               {...register('customer.contacts.primaryContact.email')}
@@ -226,11 +235,17 @@ export default function Step3Contact() {
             />
           </FormField>
           <FormField label="Country of Birth" error={errors.customer?.contacts?.primaryContact?.countryOfBirth}>
-            <input
+            <select
               {...register('customer.contacts.primaryContact.countryOfBirth')}
-              className={inputClass}
-              placeholder="e.g. Australia"
-            />
+              className={selectClass}
+            >
+              <option value="">Select...</option>
+              {COUNTRY_CODES.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
           </FormField>
         </div>
 
@@ -260,7 +275,11 @@ export default function Step3Contact() {
         {showSecondary && (
           <div className="mt-4 space-y-5 pl-0 md:pl-4 border-l-2 border-gray-200">
             <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
-              <FormField label="Salutation">
+              <FormField
+                label="Salutation"
+                required
+                error={errors.customer?.contacts?.secondaryContact?.salutation}
+              >
                 <select
                   {...register('customer.contacts.secondaryContact.salutation')}
                   className={selectClass}
@@ -273,38 +292,70 @@ export default function Step3Contact() {
                   ))}
                 </select>
               </FormField>
-              <FormField label="First Name">
+              <FormField
+                label="First Name"
+                required
+                error={errors.customer?.contacts?.secondaryContact?.firstName}
+              >
                 <input
                   {...register('customer.contacts.secondaryContact.firstName')}
                   className={inputClass}
+                  placeholder="Start with uppercase"
                 />
               </FormField>
-              <FormField label="Middle Name">
+              <FormField label="Middle Name" error={errors.customer?.contacts?.secondaryContact?.middleName}>
                 <input
                   {...register('customer.contacts.secondaryContact.middleName')}
                   className={inputClass}
+                  placeholder="Optional"
                 />
               </FormField>
-              <FormField label="Last Name">
+              <FormField
+                label="Last Name"
+                required
+                error={errors.customer?.contacts?.secondaryContact?.lastName}
+              >
                 <input
                   {...register('customer.contacts.secondaryContact.lastName')}
                   className={inputClass}
+                  placeholder="Start with uppercase"
                 />
               </FormField>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-              <FormField label="Date of Birth">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+              <FormField
+                label="Country of Birth"
+                error={errors.customer?.contacts?.secondaryContact?.countryOfBirth}
+              >
+                <select
+                  {...register('customer.contacts.secondaryContact.countryOfBirth')}
+                  className={selectClass}
+                >
+                  <option value="">Select...</option>
+                  {COUNTRY_CODES.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </select>
+              </FormField>
+              <FormField
+                label="Date of Birth"
+                required
+                error={errors.customer?.contacts?.secondaryContact?.dateOfBirth}
+              >
                 <input
                   type="date"
                   {...register('customer.contacts.secondaryContact.dateOfBirth')}
                   className={inputClass}
                 />
               </FormField>
-              <FormField label="Email">
+              <FormField label="Email" error={errors.customer?.contacts?.secondaryContact?.email}>
                 <input
                   type="email"
                   {...register('customer.contacts.secondaryContact.email')}
                   className={inputClass}
+                  placeholder="Optional"
                 />
               </FormField>
             </div>

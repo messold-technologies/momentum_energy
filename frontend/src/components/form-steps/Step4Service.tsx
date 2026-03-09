@@ -2,8 +2,14 @@ import { useFormContext, useWatch, type FieldErrors } from 'react-hook-form';
 import FormField, { inputClass, selectClass } from '../ui/FormField';
 import { useState } from 'react';
 import type { TransactionPayload } from '../../lib/types';
+import {
+  UNIT_TYPES,
+  FLOOR_TYPES,
+  STREET_NUMBER_SUFFIXES,
+} from '../../lib/types';
 
-const STATES = ['VIC', 'NSW', 'QLD', 'SA', 'WA', 'TAS', 'NT', 'ACT'];
+// Match backend: ACT, NT, WA, SA, VIC, NSW
+const STATES = ['ACT', 'NT', 'WA', 'SA', 'VIC', 'NSW'] as const;
 const STREET_TYPES = [
   'ST', 'AVE', 'RD', 'CRES', 'BLVD', 'WAY', 'HWY', 'DR', 'CT', 'PL',
   'LN', 'TCE', 'CL', 'GR', 'PDE', 'CIR', 'LOOP', 'RISE', 'TRK', 'RUN',
@@ -69,12 +75,13 @@ export default function Step4Service() {
           label={serviceType === 'GAS' ? 'MIRN' : 'NMI'}
           required
           error={errors.service?.serviceConnectionId}
-          hint="10 or 11 digit connection identifier"
+          hint={serviceType === 'GAS' ? '11 characters (MIRN for GAS)' : '10 characters (NMI for POWER)'}
         >
           <input
             {...register('service.serviceConnectionId')}
             className={inputClass}
-            placeholder="Enter NMI/MIRN"
+            placeholder={serviceType === 'GAS' ? '11-digit MIRN' : '10-digit NMI'}
+            maxLength={serviceType === 'GAS' ? 11 : 10}
           />
         </FormField>
 
@@ -109,9 +116,43 @@ export default function Step4Service() {
       <div className="border-t pt-5">
         <p className="text-sm font-medium text-gray-900 mb-4">Service Address</p>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <FormField label="Unit" error={errors.service?.servicedAddress?.unitNumber}>
+          <FormField label="Property Name" error={errors.service?.servicedAddress?.name}>
+            <input
+              {...register('service.servicedAddress.name')}
+              className={inputClass}
+              placeholder="Optional - start with uppercase"
+            />
+          </FormField>
+          <FormField label="Unit Type" error={errors.service?.servicedAddress?.unitType}>
+            <select {...register('service.servicedAddress.unitType')} className={selectClass}>
+              <option value="">None</option>
+              {UNIT_TYPES.map((ut) => (
+                <option key={ut} value={ut}>
+                  {ut}
+                </option>
+              ))}
+            </select>
+          </FormField>
+          <FormField label="Unit Number" error={errors.service?.servicedAddress?.unitNumber}>
             <input
               {...register('service.servicedAddress.unitNumber')}
+              className={inputClass}
+              placeholder="Optional"
+            />
+          </FormField>
+          <FormField label="Floor Type" error={errors.service?.servicedAddress?.floorType}>
+            <select {...register('service.servicedAddress.floorType')} className={selectClass}>
+              <option value="">None</option>
+              {FLOOR_TYPES.map((ft) => (
+                <option key={ft} value={ft}>
+                  {ft}
+                </option>
+              ))}
+            </select>
+          </FormField>
+          <FormField label="Floor Number" error={errors.service?.servicedAddress?.floorNumber}>
+            <input
+              {...register('service.servicedAddress.floorNumber')}
               className={inputClass}
               placeholder="Optional"
             />
@@ -124,22 +165,40 @@ export default function Step4Service() {
             <input
               {...register('service.servicedAddress.streetNumber')}
               className={inputClass}
+              placeholder="Letters, numbers, hyphen"
             />
+          </FormField>
+          <FormField label="Street Number Suffix" error={errors.service?.servicedAddress?.streetNumberSuffix}>
+            <select {...register('service.servicedAddress.streetNumberSuffix')} className={selectClass}>
+              <option value="">None</option>
+              {STREET_NUMBER_SUFFIXES.map((s) => (
+                <option key={s} value={s}>
+                  {s}
+                </option>
+              ))}
+            </select>
           </FormField>
           <FormField
             label="Street Name"
             required
             error={errors.service?.servicedAddress?.streetName}
           >
-            <input {...register('service.servicedAddress.streetName')} className={inputClass} />
+            <input
+              {...register('service.servicedAddress.streetName')}
+              className={inputClass}
+              placeholder="Letters, numbers, .,/() hyphen"
+            />
           </FormField>
-          <FormField
-            label="Street Type"
-            required
-            error={errors.service?.servicedAddress?.streetTypeCode}
-          >
+          <FormField label="Street Name Suffix" error={errors.service?.servicedAddress?.streetNameSuffix}>
+            <input
+              {...register('service.servicedAddress.streetNameSuffix')}
+              className={inputClass}
+              placeholder="Optional - e.g. N, S, E"
+            />
+          </FormField>
+          <FormField label="Street Type" error={errors.service?.servicedAddress?.streetTypeCode}>
             <select {...register('service.servicedAddress.streetTypeCode')} className={selectClass}>
-              <option value="">Select...</option>
+              <option value="">None</option>
               {STREET_TYPES.map((st) => (
                 <option key={st} value={st}>
                   {st}
@@ -188,11 +247,16 @@ export default function Step4Service() {
       <div className="border-t pt-5">
         <p className="text-sm font-medium text-gray-900 mb-4">Billing Details</p>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-          <FormField label="Offer Code" required error={errors.service?.serviceBilling?.serviceOfferCode}>
+          <FormField
+            label="Offer Code"
+            required
+            error={errors.service?.serviceBilling?.serviceOfferCode}
+            hint="15 or 18 alphanumeric characters"
+          >
             <input
               {...register('service.serviceBilling.serviceOfferCode')}
               className={inputClass}
-              placeholder="e.g. OFFER-2026-VIC"
+              placeholder="15 or 18 alphanumeric chars"
             />
           </FormField>
           <FormField
