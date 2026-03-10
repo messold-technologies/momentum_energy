@@ -40,7 +40,7 @@ function PhoneFields({ basePath }: { basePath: string }) {
         </button>
       </div>
       {fields.length === 0 && (
-        <p className="text-xs text-danger-500">At least one phone number is required</p>
+        <p className="text-xs text-danger-500">At least one phone number is required.</p>
       )}
       {fields.map((field, index) => (
         <div key={field.id} className="flex gap-2 items-start">
