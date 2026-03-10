@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { COUNTRY_CODES } from './countryCodes';
+import { STREET_TYPE_CODES } from './streetTypeCodes';
 
 /** Check if date is a weekday (Mon–Fri) */
 function isWeekday(d: Date): boolean {
@@ -113,49 +114,82 @@ export const step1Schema = z
     }
   });
 
-// Step 2: Customer
-// Only validate document fields when documentId is provided (user chose this document)
+const IDENTITY_DOC_REGEX = /^[A-Za-z0-9-]{1,30}$/;
+
+// Step 2: Customer - Identity documents
 const passportSchema = z
   .object({
-    documentId: z.string().optional(),
+    documentId: z.string().optional().refine((v) => !v || v === '' || IDENTITY_DOC_REGEX.test(v), '1-30 chars: letters, numbers, hyphen'),
     documentNumber: z.string().optional(),
     documentExpiryDate: z.string().optional(),
     issuingCountry: z.string().optional(),
   })
-  .optional();
+  .optional()
+  .superRefine((p, ctx) => {
+    if (!p) return;
+    const hasDoc = String(p.documentId || '').trim();
+    if (!hasDoc) return;
+    if (!p.documentExpiryDate) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Expiry date is required when passport is provided', path: ['documentExpiryDate'] });
+    }
+    if (!p.issuingCountry) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Issuing country (CCA3) is required when passport is provided', path: ['issuingCountry'] });
+    } else if (!COUNTRY_CODES.includes(p.issuingCountry as (typeof COUNTRY_CODES)[number])) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Invalid CCA3 country code', path: ['issuingCountry'] });
+    }
+  });
 
 const drivingLicenseSchema = z
   .object({
-    documentId: z.string().optional(),
+    documentId: z.string().optional().refine((v) => !v || v === '' || IDENTITY_DOC_REGEX.test(v), '1-30 chars: letters, numbers, hyphen'),
     documentNumber: z.string().optional(),
     documentExpiryDate: z.string().optional(),
-    issuingState: z.string().optional(),
+    issuingState: z.enum(['NSW', 'VIC', 'QLD', 'WA', 'SA', 'TAS', 'ACT', 'NT']).optional(),
   })
   .optional()
-  .refine(
-    (d) => {
-      if (!d || !String(d.documentId || '').trim()) return true;
-      return !!(String(d.documentExpiryDate || '').trim() && String(d.issuingState || '').trim());
-    },
-    { message: 'Expiry date and issuing state are required when driving license is provided', path: ['documentExpiryDate'] }
-  );
+  .superRefine((d, ctx) => {
+    if (!d) return;
+    const hasDoc = String(d.documentId || '').trim();
+    if (!hasDoc) return;
+    if (!d.documentExpiryDate) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Expiry date is required when driving license is provided', path: ['documentExpiryDate'] });
+    }
+    if (!d.issuingState) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Issuing state is required when driving license is provided', path: ['issuingState'] });
+    }
+  });
 
 const medicareSchema = z
   .object({
-    documentId: z.string().optional(),
-    documentNumber: z.string().optional(),
+    documentId: z.string().optional().refine((v) => !v || v === '' || IDENTITY_DOC_REGEX.test(v), '1-30 chars: letters, numbers, hyphen'),
+    documentNumber: z.string().optional().refine((v) => !v || v === '' || /^\d{1,30}$/.test(v), '1-30 digits'),
     documentExpiryDate: z.string().optional(),
   })
   .optional()
-  .refine(
-    (m) => {
-      if (!m || !String(m.documentId || '').trim()) return true;
-      return !!(String(m.documentNumber || '').trim() && String(m.documentExpiryDate || '').trim());
-    },
-    { message: 'Document number and expiry date are required when medicare card is provided', path: ['documentNumber'] }
-  );
+  .superRefine((m, ctx) => {
+    if (!m) return;
+    const hasDoc = String(m.documentId || m.documentNumber || '').trim();
+    if (!hasDoc) return;
+    if (!m.documentNumber) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Document number is required when medicare is provided', path: ['documentNumber'] });
+    }
+    if (!m.documentExpiryDate) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Expiry date is required when medicare is provided', path: ['documentExpiryDate'] });
+    }
+  });
 
 const COMPANY_SUB_TYPES = ['Incorporation', 'Limited Company', 'NA', 'Partnership', 'Private', 'Sole Trader', 'Trust', 'C&I', 'SME'] as const;
+
+const INDUSTRIES = [
+  'Agriculture', 'Apparel', 'Banking', 'Biotechnology', 'Chemicals', 'Communications',
+  'Construction', 'Consulting', 'Education', 'Electronics', 'Energy', 'Engineering',
+  'Entertainment', 'Environmental', 'Finance', 'Food & Beverage', 'Government',
+  'Healthcare', 'Hospitality', 'Insurance', 'Machinery', 'Manufacturing', 'Media',
+  'Not For Profit', 'Other', 'Recreation', 'Retail', 'Shipping', 'Technology',
+  'Telecommunications', 'Transportation', 'Utilities',
+] as const;
+
+const COMPANY_NAME_REGEX = /^[A-Za-z0-9][A-Za-z0-9'&@/()., -]{1,100}$/;
 
 export const step2Schema = z
   .object({
@@ -175,10 +209,19 @@ export const step2Schema = z
         .optional(),
       companyIdentity: z
         .object({
-          industry: z.string().optional(),
-          entityName: z.string().optional(),
-          tradingName: z.string().optional(),
-          trusteeName: z.string().optional(),
+          industry: z.enum(INDUSTRIES as unknown as [string, ...string[]]).optional(),
+          entityName: z
+            .string()
+            .optional()
+            .refine((v) => !v || v === '' || COMPANY_NAME_REGEX.test(v), 'Start with alphanumeric, 2-101 chars'),
+          tradingName: z
+            .string()
+            .optional()
+            .refine((v) => !v || v === '' || COMPANY_NAME_REGEX.test(v), 'Start with alphanumeric, 2-101 chars'),
+          trusteeName: z
+            .string()
+            .optional()
+            .refine((v) => !v || v === '' || COMPANY_NAME_REGEX.test(v), 'Invalid format'),
           abn: z.object({
             documentId: z
               .string()
@@ -228,6 +271,13 @@ export const step2Schema = z
         });
       }
       const ci = c.companyIdentity;
+      if (!ci?.industry) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Industry is required for company customers',
+          path: ['customer', 'companyIdentity', 'industry'],
+        });
+      }
       if (!ci?.entityName) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
@@ -257,19 +307,19 @@ export const step3Schema = z.object({
   customer: z.object({
     contacts: z.object({
       primaryContact: z.object({
-        salutation: z.string().min(1, 'Salutation is required'),
+        salutation: z.enum(['Mr.', 'Ms.', 'Mrs.', 'Dr.', 'Prof.'], { message: 'Salutation is required' }),
         firstName: z
           .string()
           .min(1, 'First name is required')
-          .regex(/^[A-Z][a-zA-Z'-. ]{1,100}$/, 'Must start with uppercase letter, 2-101 chars'),
+          .regex(/^[A-Z][a-zA-Z'-]{1,100}$/, 'Must start with uppercase, 2-101 chars (letters, apostrophe, hyphen)'),
         middleName: z
           .string()
           .optional()
-          .refine((v) => !v || /^[a-zA-Z'-. ]{1,100}$/.test(v), 'Invalid characters'),
+          .refine((v) => !v || v === '' || /^[a-zA-Z'-]{1,100}$/.test(v), 'Letters, apostrophe, hyphen only'),
         lastName: z
           .string()
           .min(1, 'Last name is required')
-          .regex(/^[A-Z][a-zA-Z'-. ]{1,100}$/, 'Must start with uppercase letter, 2-101 chars'),
+          .regex(/^[A-Z][a-zA-Z'-]{1,100}$/, 'Must start with uppercase, 2-101 chars (letters, apostrophe, hyphen)'),
         countryOfBirth: z
           .string()
           .optional()
@@ -372,7 +422,10 @@ export const step4Schema = z
           { message: 'Move-in date / service start date cannot be in the past' }
         ),
       estimatedAnnualKwhs: z.number().optional(),
-      lotNumber: z.string().optional(),
+      lotNumber: z
+        .string()
+        .optional()
+        .refine((v) => !v || v === '' || /^[a-zA-Z0-9,./&:-]+$/.test(v), 'Invalid lot number'),
       servicedAddress: z.object({
         name: z
           .string()
@@ -402,14 +455,22 @@ export const step4Schema = z
           .string()
           .min(1, 'Street name is required')
           .regex(/^[a-zA-Z0-9'.,/()\s-]+$/, 'Invalid street name'),
-        streetTypeCode: z.string().optional(),
-        suburb: z.string().min(1, 'Suburb is required').regex(/^[A-Za-z0-9 ]+$/, 'Invalid suburb'),
+        streetTypeCode: z
+          .string()
+          .min(1, 'Street type is required')
+          .refine((v) => STREET_TYPE_CODES.includes(v as (typeof STREET_TYPE_CODES)[number]), 'Invalid street type code'),
+        suburb: z.string().min(1, 'Suburb is required').regex(/^[A-Za-z0-9 ]+$/, 'Letters and numbers only'),
         state: z.enum(['ACT', 'NT', 'WA', 'SA', 'VIC', 'NSW'], {
           message: 'State must be ACT, NT, WA, SA, VIC, or NSW',
         }),
         postCode: z.string().regex(/^\d{4}$/, 'Postcode must be 4 digits'),
-        accessInstructions: z.string().optional(),
-        safetyInstructions: z.string().optional(),
+        accessInstructions: z
+          .string()
+          .optional()
+          .refine((v) => !v || v === '' || /^[A-Za-z\s0-9,.:-]+$/.test(v), 'Invalid characters'),
+        safetyInstructions: z
+          .enum(['NONE', 'CAUTION', 'DOG', 'ELECFENCE', 'NOTKNOWN', 'WORKSONSITE'])
+          .optional(),
       }),
       serviceBilling: z.object({
         offerQuoteDate: z.string().min(1, 'Quote date is required'),
@@ -417,7 +478,22 @@ export const step4Schema = z
           .string()
           .min(1, 'Offer code is required')
           .regex(/^[a-zA-Z0-9]{15}(?:[a-zA-Z0-9]{3})?$/, 'Must be 15 or 18 alphanumeric characters'),
-        servicePlanCode: z.string().optional(),
+        servicePlanCode: z
+          .string()
+          .min(1, 'Service plan is required')
+          .refine(
+            (v) =>
+              [
+                'Bill Boss Electricity',
+                'Suit Yourself Electricity',
+                'Suit Yourself Gas',
+                'Strictly Business',
+                'Warm Welcome',
+                'Warm Welcome Gas',
+                'EV Does It',
+              ].includes(v),
+            'Invalid service plan'
+          ),
         contractTermCode: z.enum(['OPEN', '12MTH', '24MTH', '36MTH']),
         contractDate: z.string().optional(),
         paymentMethod: z.enum(['Direct Debit Via Bank Account', 'Cheque']),

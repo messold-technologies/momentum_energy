@@ -6,14 +6,13 @@ import {
   UNIT_TYPES,
   FLOOR_TYPES,
   STREET_NUMBER_SUFFIXES,
+  SAFETY_INSTRUCTIONS,
+  SERVICE_PLAN_CODES,
 } from '../../lib/types';
+import { STREET_TYPE_CODES } from '../../lib/streetTypeCodes';
 
 // Match backend: ACT, NT, WA, SA, VIC, NSW
 const STATES = ['ACT', 'NT', 'WA', 'SA', 'VIC', 'NSW'] as const;
-const STREET_TYPES = [
-  'ST', 'AVE', 'RD', 'CRES', 'BLVD', 'WAY', 'HWY', 'DR', 'CT', 'PL',
-  'LN', 'TCE', 'CL', 'GR', 'PDE', 'CIR', 'LOOP', 'RISE', 'TRK', 'RUN',
-];
 
 export default function Step4Service() {
   const { register, formState, control } = useFormContext();
@@ -196,10 +195,14 @@ export default function Step4Service() {
               placeholder="Optional - e.g. N, S, E"
             />
           </FormField>
-          <FormField label="Street Type" error={errors.service?.servicedAddress?.streetTypeCode}>
+          <FormField
+            label="Street Type"
+            required
+            error={errors.service?.servicedAddress?.streetTypeCode}
+          >
             <select {...register('service.servicedAddress.streetTypeCode')} className={selectClass}>
-              <option value="">None</option>
-              {STREET_TYPES.map((st) => (
+              <option value="">Select...</option>
+              {STREET_TYPE_CODES.map((st) => (
                 <option key={st} value={st}>
                   {st}
                 </option>
@@ -233,12 +236,15 @@ export default function Step4Service() {
               placeholder="Optional"
             />
           </FormField>
-          <FormField label="Safety Instructions" error={errors.service?.servicedAddress?.safetyInstructions}>
-            <input
-              {...register('service.servicedAddress.safetyInstructions')}
-              className={inputClass}
-              placeholder="Optional"
-            />
+          <FormField label="Safety Instructions" error={errors.service?.servicedAddress?.safetyInstructions} hint="Optional">
+            <select {...register('service.servicedAddress.safetyInstructions')} className={selectClass}>
+              <option value="">None</option>
+              {SAFETY_INSTRUCTIONS.map((s) => (
+                <option key={s} value={s}>
+                  {s}
+                </option>
+              ))}
+            </select>
           </FormField>
         </div>
       </div>
@@ -271,12 +277,19 @@ export default function Step4Service() {
               className={inputClass}
             />
           </FormField>
-          <FormField label="Service Plan Code" error={errors.service?.serviceBilling?.servicePlanCode}>
-            <input
-              {...register('service.serviceBilling.servicePlanCode')}
-              className={inputClass}
-              placeholder="Optional"
-            />
+          <FormField
+            label="Service Plan Code"
+            required
+            error={errors.service?.serviceBilling?.servicePlanCode}
+          >
+            <select {...register('service.serviceBilling.servicePlanCode')} className={selectClass}>
+              <option value="">Select...</option>
+              {SERVICE_PLAN_CODES.map((plan) => (
+                <option key={plan} value={plan}>
+                  {plan}
+                </option>
+              ))}
+            </select>
           </FormField>
           <FormField
             label="Contract Term"

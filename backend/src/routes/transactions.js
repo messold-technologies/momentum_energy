@@ -15,7 +15,7 @@ router.post(
   transactionValidationRules,
   validate,
   async (req, res, next) => {
-    const correlationId = req.headers['x-correlation-id'] || uuidv4();
+    const correlationId = req.headers['x-correlation-id'] || req.headers['id-correlation'] || uuidv4();
 
     try {
       logger.info('Submitting transaction to Momentum', {
@@ -24,7 +24,7 @@ router.post(
       });
 
       const body = sanitizeBody(req.body);
-      const result = await submitSalesTransaction(body);
+      const result = await submitSalesTransaction(body, { correlationId });
 
       res.status(201).json({
         success: true,
@@ -44,7 +44,8 @@ router.post(
 router.get('/:salesTransactionId/status', async (req, res, next) => {
   try {
     const { salesTransactionId } = req.params;
-    const result = await getSalesTransactionStatus(salesTransactionId);
+    const correlationId = req.headers['x-correlation-id'] || req.headers['id-correlation'] || uuidv4();
+    const result = await getSalesTransactionStatus(salesTransactionId, { correlationId });
 
     res.json({
       success: true,

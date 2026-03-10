@@ -1,4 +1,5 @@
 import { body, validationResult } from 'express-validator';
+import { STREET_TYPE_CODES, SAFETY_INSTRUCTIONS, SERVICE_PLAN_CODES } from './streetTypeCodes.js';
 
 /** Check if date is a weekday (Mon–Fri) */
 function isWeekday(d) {
@@ -106,45 +107,7 @@ const customerValidation = [
     .withMessage('Customer consent must be obtained (promotionAllowed must be true)'),
 ];
 
-const identityValidation = [
-  body('customer.residentIdentity.passport.documentId')
-    .optional()
-    .matches(/^[A-Za-z0-9-]{1,30}$/),
-
-  body('customer.residentIdentity.passport.documentExpiryDate')
-    .optional()
-    .isISO8601(),
-
-  body('customer.residentIdentity.passport.issuingCountry')
-    .optional()
-    .isLength({ min: 3, max: 3 }),
-
-  body('customer.residentIdentity.drivingLicense.documentId')
-    .optional()
-    .matches(/^[A-Za-z0-9-]{1,30}$/),
-
-  body('customer.residentIdentity.drivingLicense.documentExpiryDate')
-    .optional()
-    .isISO8601(),
-
-  body('customer.residentIdentity.drivingLicense.issuingState')
-    .optional()
-    .isIn(['NSW', 'VIC', 'QLD', 'WA', 'SA', 'TAS', 'ACT', 'NT']),
-
-  body('customer.residentIdentity.medicare.documentId')
-    .optional()
-    .matches(/^[A-Za-z0-9-]{1,30}$/),
-
-  body('customer.residentIdentity.medicare.documentNumber')
-    .optional()
-    .matches(/^\d{1,30}$/),
-
-  body('customer.residentIdentity.medicare.documentExpiryDate')
-    .optional()
-    .isISO8601(),
-];
-
-// ISO 3166-1 alpha-3 country codes for countryOfBirth
+// ISO 3166-1 alpha-3 country codes (CCA3) - used for countryOfBirth, passport issuingCountry
 const COUNTRY_CODES = [
   'AFG', 'ALA', 'ALB', 'DZA', 'ASM', 'AND', 'AGO', 'AIA', 'ATA', 'ATG', 'ARG', 'ARM', 'ABW', 'AUS', 'AUT', 'AZE',
   'BHS', 'BHR', 'BGD', 'BRB', 'BLR', 'BEL', 'BLZ', 'BEN', 'BMU', 'BTN', 'BOL', 'BES', 'BIH', 'BWA', 'BVT', 'BRA',
@@ -164,23 +127,137 @@ const COUNTRY_CODES = [
   'URY', 'UZB', 'VUT', 'VEN', 'VNM', 'WLF', 'ESH', 'YEM', 'ZMB', 'ZWE',
 ];
 
+const IDENTITY_DOC_REGEX = /^[A-Za-z0-9-]{1,30}$/;
+const ISSUING_STATES = ['NSW', 'VIC', 'QLD', 'WA', 'SA', 'TAS', 'ACT', 'NT'];
+
+const identityValidation = [
+  body('customer.residentIdentity.passport')
+    .optional()
+    .custom((p) => {
+      if (!p) return true;
+      const hasDoc = String(p.documentId || '').trim();
+      if (!hasDoc) return true;
+      if (!p.documentExpiryDate) throw new Error('documentExpiryDate is required when passport is provided');
+      if (!/^\d{4}-\d{2}-\d{2}(T[\d:.]+Z?)?$/.test(p.documentExpiryDate)) {
+        throw new Error('documentExpiryDate must be ISO 8601');
+      }
+      if (!p.issuingCountry) throw new Error('issuingCountry is required when passport is provided');
+      if (!COUNTRY_CODES.includes(p.issuingCountry)) {
+        throw new Error('issuingCountry must be a valid CCA3 country code');
+      }
+      if (p.documentId && !IDENTITY_DOC_REGEX.test(p.documentId)) {
+        throw new Error('documentId must be 1-30 chars: letters, numbers, hyphen');
+      }
+      return true;
+    }),
+
+  body('customer.residentIdentity.drivingLicense')
+    .optional()
+    .custom((d) => {
+      if (!d) return true;
+      const hasDoc = String(d.documentId || '').trim();
+      if (!hasDoc) return true;
+      if (!d.documentExpiryDate) throw new Error('documentExpiryDate is required when driving license is provided');
+      if (!/^\d{4}-\d{2}-\d{2}(T[\d:.]+Z?)?$/.test(d.documentExpiryDate)) {
+        throw new Error('documentExpiryDate must be ISO 8601');
+      }
+      if (!d.issuingState) throw new Error('issuingState is required when driving license is provided');
+      if (!ISSUING_STATES.includes(d.issuingState)) {
+        throw new Error('issuingState must be NSW, VIC, QLD, WA, SA, TAS, ACT, or NT');
+      }
+      if (d.documentId && !IDENTITY_DOC_REGEX.test(d.documentId)) {
+        throw new Error('documentId must be 1-30 chars: letters, numbers, hyphen');
+      }
+      return true;
+    }),
+
+  body('customer.residentIdentity.medicare')
+    .optional()
+    .custom((m) => {
+      if (!m) return true;
+      const hasDoc = String(m.documentId || m.documentNumber || '').trim();
+      if (!hasDoc) return true;
+      if (!m.documentNumber) throw new Error('documentNumber is required when medicare is provided');
+      if (!/^\d{1,30}$/.test(m.documentNumber)) {
+        throw new Error('documentNumber must be 1-30 digits');
+      }
+      if (!m.documentExpiryDate) throw new Error('documentExpiryDate is required when medicare is provided');
+      if (!/^\d{4}-\d{2}-\d{2}(T[\d:.]+Z?)?$/.test(m.documentExpiryDate)) {
+        throw new Error('documentExpiryDate must be ISO 8601');
+      }
+      if (m.documentId && !IDENTITY_DOC_REGEX.test(m.documentId)) {
+        throw new Error('documentId must be 1-30 chars: letters, numbers, hyphen');
+      }
+      return true;
+    }),
+];
+
+const INDUSTRIES = [
+  'Agriculture', 'Apparel', 'Banking', 'Biotechnology', 'Chemicals', 'Communications',
+  'Construction', 'Consulting', 'Education', 'Electronics', 'Energy', 'Engineering',
+  'Entertainment', 'Environmental', 'Finance', 'Food & Beverage', 'Government',
+  'Healthcare', 'Hospitality', 'Insurance', 'Machinery', 'Manufacturing', 'Media',
+  'Not For Profit', 'Other', 'Recreation', 'Retail', 'Shipping', 'Technology',
+  'Telecommunications', 'Transportation', 'Utilities',
+];
+const COMPANY_NAME_REGEX = /^[A-Za-z0-9][A-Za-z0-9'&@/()., -]{1,100}$/;
+
+const companyValidation = [
+  body('customer.companyIdentity')
+    .optional()
+    .custom((ci, { req }) => {
+      if (!ci) return true;
+      const type = req.body?.customer?.customerType;
+      if (type !== 'COMPANY') return true;
+      if (!ci.industry) throw new Error('industry is required when customerType is COMPANY');
+      if (!INDUSTRIES.includes(ci.industry)) {
+        throw new Error('industry must be from the allowed list (e.g. Agriculture, Construction, Finance)');
+      }
+      if (!ci.entityName) throw new Error('entityName is required when customerType is COMPANY');
+      if (!COMPANY_NAME_REGEX.test(ci.entityName)) {
+        throw new Error('entityName must start with alphanumeric, 2-101 chars');
+      }
+      if (!ci.tradingName) throw new Error('tradingName is required when customerType is COMPANY');
+      if (!COMPANY_NAME_REGEX.test(ci.tradingName)) {
+        throw new Error('tradingName must start with alphanumeric, 2-101 chars');
+      }
+      if (ci.trusteeName && !COMPANY_NAME_REGEX.test(ci.trusteeName)) {
+        throw new Error('trusteeName invalid format');
+      }
+      if (!ci.abn?.documentId) throw new Error('ABN is required when customerType is COMPANY');
+      if (!/^\d{11}$/.test(ci.abn.documentId)) {
+        throw new Error('ABN must be exactly 11 digits');
+      }
+      if (ci.acn?.documentId && !/^\d{9}$/.test(ci.acn.documentId)) {
+        throw new Error('ACN must be exactly 9 digits');
+      }
+      return true;
+    }),
+];
+
 // Contact email: permissive format for primary and secondary
 const CONTACT_EMAIL_REGEX = /^[a-zA-Z0-9._|%#~`=?&/$^*!}{+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,4}$/;
 const SALUTATIONS = ['Mr.', 'Ms.', 'Mrs.', 'Dr.', 'Prof.'];
 
 const contactValidation = [
+  body('customer.contacts.primaryContact.salutation')
+    .notEmpty()
+    .withMessage('salutation is required')
+    .isIn(SALUTATIONS)
+    .withMessage('salutation must be Mr., Ms., Mrs., Dr., or Prof.'),
+
   body('customer.contacts.primaryContact.firstName')
-    .matches(/^[A-Z][a-zA-Z'-. ]{1,100}$/)
-    .withMessage('firstName must start with uppercase letter and be 2-101 chars'),
+    .matches(/^[A-Z][a-zA-Z'-]{1,100}$/)
+    .withMessage('firstName must start with uppercase, 2-101 chars'),
 
   body('customer.contacts.primaryContact.middleName')
     .optional()
-    .matches(/^[a-zA-Z'-. ]{1,100}$/)
+    .matches(/^[a-zA-Z'-]{1,100}$/)
     .withMessage('middleName invalid'),
 
   body('customer.contacts.primaryContact.lastName')
-    .matches(/^[A-Z][a-zA-Z'-. ]{1,100}$/)
-    .withMessage('lastName must start with uppercase letter and be 2-101 chars'),
+    .matches(/^[A-Z][a-zA-Z'-]{1,100}$/)
+    .withMessage('lastName must start with uppercase, 2-101 chars'),
 
   body('customer.contacts.primaryContact.dateOfBirth')
     .isISO8601()
@@ -329,16 +406,22 @@ const serviceValidation = [
     }),
 
   body('service.serviceStartDate')
-    .optional()
-    .isISO8601()
-    .withMessage('serviceStartDate must be ISO 8601')
-    .custom((value) => {
-      if (!value) return true;
-      const startDate = toDateOnly(value);
-      if (!startDate) return true;
-      const today = new Date().toISOString().slice(0, 10);
-      if (startDate < today) {
-        throw new Error('Move-in date / service start date cannot be in the past');
+    .custom((value, { req }) => {
+      const subType = req.body?.service?.serviceSubType;
+      if (subType === 'MOVE IN') {
+        if (!value) throw new Error('serviceStartDate is required for MOVE IN');
+      }
+      if (value) {
+        if (!/^\d{4}-\d{2}-\d{2}(T[\d:.]+Z?)?$/.test(value)) {
+          throw new Error('serviceStartDate must be ISO 8601');
+        }
+        const startDate = toDateOnly(value);
+        if (startDate) {
+          const today = new Date().toISOString().slice(0, 10);
+          if (startDate < today) {
+            throw new Error('Move-in date / service start date cannot be in the past');
+          }
+        }
       }
       return true;
     }),
@@ -347,6 +430,11 @@ const serviceValidation = [
     .optional()
     .matches(/^[a-zA-Z0-9,./&:-]+$/)
     .withMessage('serviceMeterId invalid'),
+
+  body('service.lotNumber')
+    .optional()
+    .matches(/^[a-zA-Z0-9,./&:-]+$/)
+    .withMessage('lotNumber invalid'),
 
   // servicedAddress
   body('service.servicedAddress.name')
@@ -396,29 +484,55 @@ const serviceValidation = [
     .matches(/^[a-zA-Z0-9'.,/()\s-]+$/)
     .withMessage('streetName invalid'),
 
+  body('service.servicedAddress.streetTypeCode')
+    .notEmpty()
+    .withMessage('streetTypeCode is required')
+    .isIn(STREET_TYPE_CODES)
+    .withMessage('streetTypeCode must be a valid AS 4590 street type'),
+
   body('service.servicedAddress.suburb')
     .notEmpty()
     .withMessage('suburb is required')
     .matches(/^[A-Za-z0-9 ]+$/)
-    .withMessage('suburb invalid'),
+    .withMessage('suburb must be letters and numbers only'),
 
   body('service.servicedAddress.state')
     .isIn(['ACT', 'NT', 'WA', 'SA', 'VIC', 'NSW'])
     .withMessage('state must be ACT, NT, WA, SA, VIC, or NSW'),
 
   body('service.servicedAddress.postCode')
-    .matches(/^\d{4}$/)
+    .matches(/^[0-9]{4}$/)
     .withMessage('postCode must be 4 digits'),
+
+  body('service.servicedAddress.accessInstructions')
+    .optional()
+    .matches(/^[A-Za-z\s0-9,.:-]+$/)
+    .withMessage('accessInstructions invalid'),
+
+  body('service.servicedAddress.safetyInstructions')
+    .optional()
+    .isIn(SAFETY_INSTRUCTIONS)
+    .withMessage('safetyInstructions must be NONE, CAUTION, DOG, ELECFENCE, NOTKNOWN, or WORKSONSITE'),
 ];
 
 const billingValidation = [
   body('service.serviceBilling.offerQuoteDate')
+    .notEmpty()
+    .withMessage('offerQuoteDate is required')
     .isISO8601()
     .withMessage('offerQuoteDate must be ISO 8601'),
 
   body('service.serviceBilling.serviceOfferCode')
+    .notEmpty()
+    .withMessage('serviceOfferCode is required')
     .matches(/^[a-zA-Z0-9]{15}(?:[a-zA-Z0-9]{3})?$/)
     .withMessage('serviceOfferCode must be 15 or 18 alphanumeric chars'),
+
+  body('service.serviceBilling.servicePlanCode')
+    .notEmpty()
+    .withMessage('servicePlanCode is required')
+    .isIn(SERVICE_PLAN_CODES)
+    .withMessage('servicePlanCode must be a valid plan'),
 
   body('service.serviceBilling.contractTermCode')
     .isIn(['OPEN', '12MTH', '24MTH', '36MTH'])
@@ -441,6 +555,7 @@ const transactionValidationRules = [
   ...transactionValidation,
   ...customerValidation,
   ...identityValidation,
+  ...companyValidation,
   ...contactValidation,
   ...addressValidation,
   ...phoneValidation,
@@ -464,6 +579,7 @@ export {
   transactionValidation,
   customerValidation,
   identityValidation,
+  companyValidation,
   contactValidation,
   addressValidation,
   phoneValidation,

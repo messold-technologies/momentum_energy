@@ -88,6 +88,7 @@ function getDefaultValues(): TransactionPayload {
       serviceBilling: {
         serviceOfferCode: '',
         offerQuoteDate: new Date().toISOString().split('T')[0],
+        servicePlanCode: '',
         contractTermCode: 'OPEN',
         paymentMethod: 'Direct Debit Via Bank Account',
         billCycleCode: '',
@@ -184,9 +185,6 @@ function cleanPayload(data: TransactionPayload): TransactionPayload {
   if (!sb.concession?.cardType?.trim()) {
     delete sb.concession;
   }
-
-  // Omit empty optional strings from serviceBilling
-  if (!sb.servicePlanCode?.trim()) delete sb.servicePlanCode;
 
   return cleaned;
 }

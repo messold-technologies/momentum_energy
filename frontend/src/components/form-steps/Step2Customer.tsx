@@ -2,23 +2,18 @@ import { useEffect } from 'react';
 import { useFormContext, useWatch, type FieldErrors } from 'react-hook-form';
 import FormField, { inputClass, selectClass } from '../ui/FormField';
 import type { TransactionPayload } from '../../lib/types';
+import { COUNTRY_CODES } from '../../lib/countryCodes';
 
 // RESIDENT customerType: subType must be RESIDENT. COMPANY: one of Incorporation, Limited Company, NA, etc.
 const RESIDENT_SUB_TYPES = ['RESIDENT'] as const;
 const COMPANY_SUB_TYPES = ['Incorporation', 'Limited Company', 'NA', 'Partnership', 'Private', 'Sole Trader', 'Trust', 'C&I', 'SME'] as const;
 const INDUSTRIES = [
-  'Agriculture',
-  'Construction',
-  'Education',
-  'Finance',
-  'Healthcare',
-  'Hospitality',
-  'Manufacturing',
-  'Mining',
-  'Retail',
-  'Technology',
-  'Utilities',
-  'Other',
+  'Agriculture', 'Apparel', 'Banking', 'Biotechnology', 'Chemicals', 'Communications',
+  'Construction', 'Consulting', 'Education', 'Electronics', 'Energy', 'Engineering',
+  'Entertainment', 'Environmental', 'Finance', 'Food & Beverage', 'Government',
+  'Healthcare', 'Hospitality', 'Insurance', 'Machinery', 'Manufacturing', 'Media',
+  'Not For Profit', 'Other', 'Recreation', 'Retail', 'Shipping', 'Technology',
+  'Telecommunications', 'Transportation', 'Utilities',
 ];
 const STATES = ['VIC', 'NSW', 'QLD', 'SA', 'WA', 'TAS', 'NT', 'ACT'];
 
@@ -176,12 +171,18 @@ export default function Step2Customer() {
                   className={inputClass}
                 />
               </FormField>
-              <FormField label="Issuing Country" error={errors.customer?.residentIdentity?.passport?.issuingCountry}>
-                <input
+              <FormField label="Issuing Country (CCA3)" error={errors.customer?.residentIdentity?.passport?.issuingCountry}>
+                <select
                   {...register('customer.residentIdentity.passport.issuingCountry')}
-                  className={inputClass}
-                  placeholder="e.g. Australia"
-                />
+                  className={selectClass}
+                >
+                  <option value="">Select...</option>
+                  {COUNTRY_CODES.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </select>
               </FormField>
             </div>
           </details>
@@ -290,7 +291,7 @@ export default function Step2Customer() {
         <div className="space-y-5 border-t pt-5">
           <p className="text-sm font-medium text-gray-900">Company Details</p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            <FormField label="Industry" error={errors.customer?.companyIdentity?.industry}>
+            <FormField label="Industry" required error={errors.customer?.companyIdentity?.industry}>
               <select {...register('customer.companyIdentity.industry')} className={selectClass}>
                 <option value="">Select industry...</option>
                 {INDUSTRIES.map((i) => (

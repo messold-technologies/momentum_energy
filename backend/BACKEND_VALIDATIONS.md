@@ -43,31 +43,39 @@ Validations run on `POST /api/transactions` via the `validate` middleware. On fa
 
 ---
 
-## Resident Identity (all optional)
+## Resident Identity
+
+When an identity document is provided (documentId for passport/drivingLicense, or documentId/documentNumber for medicare), required fields must be filled.
 
 ### Passport
-
-| Field | Rule |
-|-------|------|
-| `documentId` | Optional; regex `^[A-Za-z0-9-]{1,30}$` |
-| `documentExpiryDate` | Optional; ISO 8601 |
-| `issuingCountry` | Optional; 3 chars |
+- `documentId`: Optional; regex `^[A-Za-z0-9-]{1,30}$`
+- `documentNumber`: Optional
+- `documentExpiryDate`: Required when passport provided; ISO 8601
+- `issuingCountry`: Required when passport provided; CCA3 country code (e.g. AUS)
 
 ### Driving License
-
-| Field | Rule |
-|-------|------|
-| `documentId` | Optional; regex `^[A-Za-z0-9-]{1,30}$` |
-| `documentExpiryDate` | Optional; ISO 8601 |
-| `issuingState` | Optional; NSW, VIC, QLD, WA, SA, TAS, ACT, NT |
+- `documentId`: Optional; regex `^[A-Za-z0-9-]{1,30}$`
+- `documentNumber`: Optional
+- `documentExpiryDate`: Required when driving license provided; ISO 8601
+- `issuingState`: Required when driving license provided; NSW, VIC, QLD, WA, SA, TAS, ACT, NT
 
 ### Medicare
+- `documentId`: Optional; regex `^[A-Za-z0-9-]{1,30}$`
+- `documentNumber`: Required when medicare provided; `^[0-9]{1,30}$`
+- `documentExpiryDate`: Required when medicare provided; ISO 8601
+
+---
+
+## Company Identity (when customerType is COMPANY)
 
 | Field | Rule |
 |-------|------|
-| `documentId` | Optional; regex `^[A-Za-z0-9-]{1,30}$` |
-| `documentNumber` | Optional; regex `^\d{1,30}$` |
-| `documentExpiryDate` | Optional; ISO 8601 |
+| `industry` | Required; enum: Agriculture, Apparel, Banking, Biotechnology, Chemicals, Communications, Construction, Consulting, Education, Electronics, Energy, Engineering, Entertainment, Environmental, Finance, Food & Beverage, Government, Healthcare, Hospitality, Insurance, Machinery, Manufacturing, Media, Not For Profit, Other, Recreation, Retail, Shipping, Technology, Telecommunications, Transportation, Utilities |
+| `entityName` | Required; regex `^[A-Za-z0-9][A-Za-z0-9'&@/()., -]{1,100}$` |
+| `tradingName` | Required; regex `^[A-Za-z0-9][A-Za-z0-9'&@/()., -]{1,100}$` |
+| `trusteeName` | Optional; same regex |
+| `abn.documentId` | Required; `^\d{11}$` |
+| `acn.documentId` | Optional; `^\d{9}$` |
 
 ---
 
@@ -75,9 +83,10 @@ Validations run on `POST /api/transactions` via the `validate` middleware. On fa
 
 | Field | Rule | Error Message |
 |-------|------|---------------|
-| `customer.contacts.primaryContact.firstName` | Regex `^[A-Z][a-zA-Z'-. ]{1,100}$` | "firstName must start with uppercase letter and be 2-101 chars" |
-| `customer.contacts.primaryContact.middleName` | Optional; regex `^[a-zA-Z'-. ]{1,100}$` | "middleName invalid" |
-| `customer.contacts.primaryContact.lastName` | Regex `^[A-Z][a-zA-Z'-. ]{1,100}$` | "lastName must start with uppercase letter and be 2-101 chars" |
+| `salutation` | Required; Mr., Ms., Mrs., Dr., Prof. | "salutation is required" |
+| `firstName` | Required; regex `^[A-Z][a-zA-Z'-]{1,100}$` | "firstName must start with uppercase, 2-101 chars" |
+| `middleName` | Optional; regex `^[a-zA-Z'-]{1,100}$` | "middleName invalid" |
+| `lastName` | Required; regex `^[A-Z][a-zA-Z'-]{1,100}$` | "lastName must start with uppercase, 2-101 chars" |
 | `customer.contacts.primaryContact.countryOfBirth` | Optional; ISO 3166-1 alpha-3 country code | "countryOfBirth must be a valid ISO 3166-1 alpha-3 country code" |
 | `customer.contacts.primaryContact.dateOfBirth` | ISO 8601 Date-Only | "dateOfBirth must be ISO 8601" |
 | `customer.contacts.primaryContact.email` | Required; permissive regex `^[a-zA-Z0-9._|%#~`=?&/$^*!}{+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,4}$` | "email must be valid format" |

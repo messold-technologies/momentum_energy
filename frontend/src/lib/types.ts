@@ -101,6 +101,18 @@ export const UNIT_TYPES = [
 export const FLOOR_TYPES = ['FLOOR', 'LEVEL', 'GROUND'] as const;
 export const STREET_NUMBER_SUFFIXES = ['CN', 'E', 'EX', 'LR', 'N', 'NE', 'NW', 'S', 'SE', 'SW', 'UP', 'W'] as const;
 
+export const SAFETY_INSTRUCTIONS = ['NONE', 'CAUTION', 'DOG', 'ELECFENCE', 'NOTKNOWN', 'WORKSONSITE'] as const;
+
+export const SERVICE_PLAN_CODES = [
+  'Bill Boss Electricity',
+  'Suit Yourself Electricity',
+  'Suit Yourself Gas',
+  'Strictly Business',
+  'Warm Welcome',
+  'Warm Welcome Gas',
+  'EV Does It',
+] as const;
+
 export interface ServicedAddress {
   name?: string;
   unitType?: (typeof UNIT_TYPES)[number];
@@ -111,7 +123,7 @@ export interface ServicedAddress {
   streetNameSuffix?: string;
   streetNumber: string;
   streetName: string;
-  streetTypeCode?: string;
+  streetTypeCode: string;
   suburb: string;
   state: string;
   postCode: string;
@@ -130,7 +142,7 @@ export interface Concession {
 export interface ServiceBilling {
   offerQuoteDate: string;
   serviceOfferCode: string;
-  servicePlanCode?: string;
+  servicePlanCode: string;
   contractTermCode: 'OPEN' | '12MTH' | '24MTH' | '36MTH';
   contractDate?: string;
   paymentMethod: 'Direct Debit Via Bank Account' | 'Cheque';

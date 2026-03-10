@@ -10,6 +10,8 @@ export default {
     authUrl: process.env.MOMENTUM_AUTH_URL || 'https://ch2-preprod.api.momentumenergy.com.au/oauth/token',
     clientId: process.env.MOMENTUM_CLIENT_ID,
     clientSecret: process.env.MOMENTUM_CLIENT_SECRET,
+    /** System name for x-source-system header (e.g. PowerMarket, PowerMarket-Web, PowerMarket-Batch) */
+    sourceSystem: process.env.MOMENTUM_SOURCE_SYSTEM || 'PowerMarket',
   },
 
   portal: {

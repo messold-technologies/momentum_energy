@@ -1,10 +1,12 @@
 import axios from 'axios';
+import { v4 as uuidv4 } from 'uuid';
 import config from '../config/index.js';
 import logger from '../config/logger.js';
 import { getAccessToken, clearTokenCache } from './tokenService.js';
 
-async function makeRequest(method, path, data = null) {
+async function makeRequest(method, path, data = null, options = {}) {
   const token = await getAccessToken();
+  const correlationId = options.correlationId || uuidv4();
 
   const axiosConfig = {
     method,
@@ -12,6 +14,8 @@ async function makeRequest(method, path, data = null) {
     headers: {
       Authorization: `Bearer ${token}`,
       'Content-Type': 'application/json',
+      'id-correlation': correlationId,
+      'x-source-system': config.momentum.sourceSystem || 'PowerMarket',
     },
     timeout: 30000,
   };
@@ -35,13 +39,14 @@ async function makeRequest(method, path, data = null) {
   }
 }
 
-async function submitSalesTransaction(transactionPayload) {
+async function submitSalesTransaction(transactionPayload, options = {}) {
   logger.info('Submitting sales transaction to Momentum', {
     reference: transactionPayload.transaction?.transactionReference,
+    correlationId: options.correlationId,
   });
 
   try {
-    const result = await makeRequest('POST', '/echannels/v1/sales-transactions', transactionPayload);
+    const result = await makeRequest('POST', '/echannels/v1/sales-transactions', transactionPayload, options);
     logger.info('Transaction submitted successfully', {
       salesTransactionId: result.salesTransactionId,
       status: result.transactionStatus,
@@ -55,11 +60,11 @@ async function submitSalesTransaction(transactionPayload) {
   }
 }
 
-async function getSalesTransactionStatus(salesTransactionId) {
-  logger.info('Fetching transaction status', { salesTransactionId });
+async function getSalesTransactionStatus(salesTransactionId, options = {}) {
+  logger.info('Fetching transaction status', { salesTransactionId, correlationId: options.correlationId });
 
   try {
-    const result = await makeRequest('GET', `/echannels/v1/sales-transactions/${salesTransactionId}`);
+    const result = await makeRequest('GET', `/echannels/v1/sales-transactions/${salesTransactionId}`, null, options);
     return result;
   } catch (error) {
     const status = error.response?.status;
