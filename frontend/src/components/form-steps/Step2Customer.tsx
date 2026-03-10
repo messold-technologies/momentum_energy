@@ -28,8 +28,13 @@ export default function Step2Customer() {
   useEffect(() => {
     if (customerType === 'RESIDENT' && customerSubType !== 'RESIDENT' && customerSubType !== '') {
       setValue('customer.customerSubType', 'RESIDENT');
-    } else if (customerType === 'COMPANY' && customerSubType === 'RESIDENT') {
-      setValue('customer.customerSubType', '');
+    } else if (customerType === 'COMPANY') {
+      if (customerSubType === 'RESIDENT') {
+        setValue('customer.customerSubType', '');
+      }
+      clearIdentitySection('passport');
+      clearIdentitySection('drivingLicense');
+      clearIdentitySection('medicare');
     }
   }, [customerType, customerSubType, setValue]);
   const hasDL = useWatch({ control, name: 'customer.residentIdentity.drivingLicense.documentId' });

@@ -144,7 +144,7 @@ const drivingLicenseSchema = z
     documentId: z.string().optional().refine((v) => !v || v === '' || IDENTITY_DOC_REGEX.test(v), '1-30 chars: letters, numbers, hyphen'),
     documentNumber: z.string().optional(),
     documentExpiryDate: z.string().optional(),
-    issuingState: z.enum(['NSW', 'VIC', 'QLD', 'WA', 'SA', 'TAS', 'ACT', 'NT']).optional(),
+    issuingState: z.union([z.enum(['NSW', 'VIC', 'QLD', 'WA', 'SA', 'TAS', 'ACT', 'NT']), z.literal('')]).optional(),
   })
   .optional()
   .superRefine((d, ctx) => {
@@ -432,19 +432,19 @@ export const step4Schema = z
           .optional()
           .refine((v) => !v || /^[A-Z][a-zA-Z'-]{1,100}$/.test(v), 'Must start with uppercase, 2-101 chars'),
         unitType: z
-          .enum(['APT', 'CTGE', 'DUP', 'F', 'FY', 'HSE', 'KSK', 'MB', 'MSNT', 'OFF', 'PTHS', 'RM', 'SE', 'SHED', 'SHOP', 'SITE', 'SL', 'STU', 'TNCY', 'TNHS', 'U', 'VLLA', 'WARD', 'WE'])
+          .union([z.enum(['APT', 'CTGE', 'DUP', 'F', 'FY', 'HSE', 'KSK', 'MB', 'MSNT', 'OFF', 'PTHS', 'RM', 'SE', 'SHED', 'SHOP', 'SITE', 'SL', 'STU', 'TNCY', 'TNHS', 'U', 'VLLA', 'WARD', 'WE']), z.literal('')])
           .optional(),
         unitNumber: z
           .string()
           .optional()
           .refine((v) => !v || /^[a-zA-Z0-9,./&:\s-]+$/.test(v), 'Invalid unit number'),
-        floorType: z.enum(['FLOOR', 'LEVEL', 'GROUND']).optional(),
+        floorType: z.union([z.enum(['FLOOR', 'LEVEL', 'GROUND']), z.literal('')]).optional(),
         floorNumber: z
           .string()
           .optional()
           .refine((v) => !v || /^[a-zA-Z0-9,./&:\s-]+$/.test(v), 'Invalid floor number'),
         streetNumberSuffix: z
-          .enum(['CN', 'E', 'EX', 'LR', 'N', 'NE', 'NW', 'S', 'SE', 'SW', 'UP', 'W'])
+          .union([z.enum(['CN', 'E', 'EX', 'LR', 'N', 'NE', 'NW', 'S', 'SE', 'SW', 'UP', 'W']), z.literal('')])
           .optional(),
         streetNameSuffix: z.string().optional().refine((v) => !v || /^[A-Za-z- ]+$/.test(v), 'Invalid'),
         streetNumber: z
@@ -469,7 +469,7 @@ export const step4Schema = z
           .optional()
           .refine((v) => !v || v === '' || /^[A-Za-z\s0-9,.:-]+$/.test(v), 'Invalid characters'),
         safetyInstructions: z
-          .enum(['NONE', 'CAUTION', 'DOG', 'ELECFENCE', 'NOTKNOWN', 'WORKSONSITE'])
+          .union([z.enum(['NONE', 'CAUTION', 'DOG', 'ELECFENCE', 'NOTKNOWN', 'WORKSONSITE']), z.literal('')])
           .optional(),
       }),
       serviceBilling: z.object({

@@ -220,12 +220,17 @@ export default function NewTransactionPage() {
       if (step < STEPS.length - 1) {
         setStep(step + 1);
       }
+    } else {
+      console.log('Validation failed:', methods.formState.errors);
     }
   }
 
   async function handleSubmit() {
     const valid = await methods.trigger();
-    if (!valid) return;
+    if (!valid) {
+      console.log('Validation failed:', methods.formState.errors);
+      return;
+    }
 
     setSubmitting(true);
     try {
