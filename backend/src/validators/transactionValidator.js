@@ -251,7 +251,7 @@ const contactValidation = [
     .withMessage('firstName must start with uppercase, 2-101 chars'),
 
   body('customer.contacts.primaryContact.middleName')
-    .optional()
+    .optional({ values: 'falsy' })
     .matches(/^[a-zA-Z'-]{1,100}$/)
     .withMessage('middleName invalid'),
 
@@ -268,13 +268,13 @@ const contactValidation = [
     .withMessage('email must be valid format'),
 
   body('customer.contacts.primaryContact.countryOfBirth')
-    .optional()
+    .optional({ values: 'falsy' })
     .isIn(COUNTRY_CODES)
     .withMessage('countryOfBirth must be a valid ISO 3166-1 alpha-3 country code'),
 
   // Secondary contact
   body('customer.contacts.secondaryContact.countryOfBirth')
-    .optional()
+    .optional({ values: 'falsy' })
     .isIn(COUNTRY_CODES)
     .withMessage('countryOfBirth must be a valid ISO 3166-1 alpha-3 country code'),
 
@@ -293,7 +293,7 @@ const contactValidation = [
     }),
 
   body('customer.contacts.secondaryContact.email')
-    .optional()
+    .optional({ values: 'falsy' })
     .matches(CONTACT_EMAIL_REGEX)
     .withMessage('secondary contact email invalid format'),
 
@@ -322,14 +322,14 @@ const contactValidation = [
     }),
 
   body('customer.contacts.secondaryContact.addresses.*.addressType')
-    .optional()
+    .optional({ values: 'falsy' })
     .matches(/^[A-Za-z]+$/)
     .withMessage('addressType must be letters only'),
 ];
 
 const addressValidation = [
   body('customer.contacts.primaryContact.addresses.*.addressType')
-    .optional()
+    .optional({ values: 'falsy' })
     .matches(/^[A-Za-z]+$/)
     .withMessage('addressType must be letters only'),
 
@@ -346,7 +346,7 @@ const addressValidation = [
     .withMessage('streetName invalid'),
 
   body('customer.contacts.primaryContact.addresses.*.unitNumber')
-    .optional()
+    .optional({ values: 'falsy' })
     .matches(/^[a-zA-Z0-9,./&:\s-]+$/)
     .withMessage('unitNumber invalid'),
 
@@ -427,48 +427,48 @@ const serviceValidation = [
     }),
 
   body('service.serviceMeterId')
-    .optional()
+    .optional({ values: 'falsy' })
     .matches(/^[a-zA-Z0-9,./&:-]+$/)
     .withMessage('serviceMeterId invalid'),
 
   body('service.lotNumber')
-    .optional()
+    .optional({ values: 'falsy' })
     .matches(/^[a-zA-Z0-9,./&:-]+$/)
     .withMessage('lotNumber invalid'),
 
   // servicedAddress
   body('service.servicedAddress.name')
-    .optional()
+    .optional({ values: 'falsy' })
     .matches(/^[A-Z][a-zA-Z'-]{1,100}$/)
     .withMessage('Property name must start with uppercase, 2-101 chars'),
 
   body('service.servicedAddress.unitType')
-    .optional()
+    .optional({ values: 'falsy' })
     .isIn(UNIT_TYPES)
     .withMessage(`unitType must be one of: ${UNIT_TYPES.join(', ')}`),
 
   body('service.servicedAddress.unitNumber')
-    .optional()
+    .optional({ values: 'falsy' })
     .matches(/^[a-zA-Z0-9,./&:\s-]+$/)
     .withMessage('unitNumber invalid'),
 
   body('service.servicedAddress.floorType')
-    .optional()
+    .optional({ values: 'falsy' })
     .isIn(FLOOR_TYPES)
     .withMessage('floorType must be FLOOR, LEVEL, or GROUND'),
 
   body('service.servicedAddress.floorNumber')
-    .optional()
+    .optional({ values: 'falsy' })
     .matches(/^[a-zA-Z0-9,./&:\s-]+$/)
     .withMessage('floorNumber invalid'),
 
   body('service.servicedAddress.streetNumberSuffix')
-    .optional()
+    .optional({ values: 'falsy' })
     .isIn(STREET_NUMBER_SUFFIXES)
     .withMessage(`streetNumberSuffix must be one of: ${STREET_NUMBER_SUFFIXES.join(', ')}`),
 
   body('service.servicedAddress.streetNameSuffix')
-    .optional()
+    .optional({ values: 'falsy' })
     .matches(/^[A-Za-z- ]+$/)
     .withMessage('streetNameSuffix invalid'),
 
@@ -505,12 +505,12 @@ const serviceValidation = [
     .withMessage('postCode must be 4 digits'),
 
   body('service.servicedAddress.accessInstructions')
-    .optional()
+    .optional({ values: 'falsy' })
     .matches(/^[A-Za-z\s0-9,.:-]+$/)
     .withMessage('accessInstructions invalid'),
 
   body('service.servicedAddress.safetyInstructions')
-    .optional()
+    .optional({ values: 'falsy' })
     .isIn(SAFETY_INSTRUCTIONS)
     .withMessage('safetyInstructions must be NONE, CAUTION, DOG, ELECFENCE, NOTKNOWN, or WORKSONSITE'),
 ];
