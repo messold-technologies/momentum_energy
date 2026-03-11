@@ -25,6 +25,41 @@ const DRAFT_KEY = 'momentum_draft_transaction';
 
 const schemas = [step1Schema, step2Schema, step3Schema, step4Schema];
 
+/** Extract user-friendly error message from API error (Momentum API, validation, or generic) */
+function extractErrorMessage(err: unknown): string {
+  if (!err || typeof err !== 'object' || !('response' in err)) return 'Submission failed';
+  const data = (err as { response?: { data?: unknown } }).response?.data;
+  if (!data || typeof data !== 'object') return 'Submission failed';
+
+  const d = data as {
+    momentumError?: {
+      errors?: Array<{ errorMessage?: string; errorDescription?: string }>;
+      message?: string;
+    };
+    details?: Array<{ message?: string }>;
+    error?: string;
+  };
+
+  // Momentum API errors: use errorMessage or errorDescription from each error
+  if (d.momentumError?.errors?.length) {
+    const messages = d.momentumError.errors
+      .map((e) => e.errorMessage || e.errorDescription)
+      .filter(Boolean);
+    if (messages.length) return messages.join(' • ');
+  }
+
+  // Momentum API simple response (e.g. { message: 'Offer not found' })
+  if (d.momentumError?.message) return d.momentumError.message;
+
+  // Validation errors (details array)
+  if (Array.isArray(d.details) && d.details.length) {
+    const msgs = d.details.map((x) => x.message).filter(Boolean);
+    if (msgs.length) return msgs.join(' • ');
+  }
+
+  return d.error || 'Submission failed';
+}
+
 function getDefaultValues(): TransactionPayload {
   const saved = localStorage.getItem(DRAFT_KEY);
   if (saved) {
@@ -277,13 +312,8 @@ export default function NewTransactionPage() {
         salesTransactionId: result.data?.salesTransactionId,
       });
     } catch (err: unknown) {
-      const msg =
-        err && typeof err === 'object' && 'response' in err
-          ? (err as { response?: { data?: { error?: string; details?: Array<{ message: string }> } } })
-              .response?.data?.details?.map((d) => d.message).join(', ') ||
-            (err as { response?: { data?: { error?: string } } }).response?.data?.error
-          : 'Submission failed';
-      setSubmitResult({ success: false, error: msg || 'Submission failed' });
+      const msg = extractErrorMessage(err);
+      setSubmitResult({ success: false, error: msg });
     } finally {
       setSubmitting(false);
     }
