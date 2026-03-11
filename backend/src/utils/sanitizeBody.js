@@ -1,8 +1,15 @@
-/** Convert date to yyyy-MM-dd (Momentum API expects this format) */
+/** Extract yyyy-MM-dd from date string */
 function toDateOnly(value) {
   if (!value) return value;
   const m = String(value).match(/^(\d{4}-\d{2}-\d{2})/);
   return m ? m[1] : value;
+}
+
+/** Convert to full ISO date-time yyyy-MM-ddTHH:mm:ss.000Z (for billing dates) */
+function toDateTime(value) {
+  if (!value) return value;
+  const d = toDateOnly(value);
+  return d ? `${d}T00:00:00.000Z` : value;
 }
 
 /** Remove key if value is empty/falsy */
@@ -22,9 +29,9 @@ function omitIfEmpty(obj, key) {
 function sanitizeBody(body) {
   const cleaned = JSON.parse(JSON.stringify(body));
 
-  // Transaction: Momentum requires transactionVerificationCode
+  // Transaction: Momentum requires transactionVerificationCode (pattern: A-Za-z0-9-)
   if (!cleaned.transaction?.transactionVerificationCode?.trim()) {
-    cleaned.transaction.transactionVerificationCode = 'N/A';
+    cleaned.transaction.transactionVerificationCode = 'OPTIONAL';
   }
 
   // Add contactType (required by Momentum API)
@@ -79,12 +86,12 @@ function sanitizeBody(body) {
     for (const key of optionalKeys) omitIfEmpty(sa, key);
   }
 
-  // Service billing: dates as yyyy-MM-dd
+  // Service billing: Momentum expects full ISO date-time for offerQuoteDate/contractDate
   const sb = cleaned.service?.serviceBilling;
   if (sb) {
-    if (sb.offerQuoteDate) sb.offerQuoteDate = toDateOnly(sb.offerQuoteDate);
+    if (sb.offerQuoteDate) sb.offerQuoteDate = toDateTime(sb.offerQuoteDate);
     if (!sb.contractDate && sb.offerQuoteDate) sb.contractDate = sb.offerQuoteDate;
-    else if (sb.contractDate) sb.contractDate = toDateOnly(sb.contractDate);
+    else if (sb.contractDate) sb.contractDate = toDateTime(sb.contractDate);
   }
 
   return cleaned;

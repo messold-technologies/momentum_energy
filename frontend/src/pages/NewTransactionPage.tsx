@@ -116,9 +116,9 @@ function omitIfEmpty(obj: Record<string, unknown>, key: string): void {
 function cleanPayload(data: TransactionPayload): TransactionPayload {
   const cleaned = structuredClone(data);
 
-  // Transaction: Momentum API requires transactionVerificationCode - use placeholder when empty
+  // Transaction: Momentum API requires transactionVerificationCode - use placeholder when empty (pattern: A-Za-z0-9-)
   if (!cleaned.transaction.transactionVerificationCode?.trim()) {
-    cleaned.transaction.transactionVerificationCode = 'N/A';
+    cleaned.transaction.transactionVerificationCode = 'OPTIONAL';
   }
 
   // Ensure transactionDate is full ISO datetime (YYYY-MM-DDTHH:MM:SS.000Z)
@@ -203,13 +203,18 @@ function cleanPayload(data: TransactionPayload): TransactionPayload {
     omitIfEmpty(sa, key);
   }
 
-  // Service billing: dates as yyyy-MM-dd, add contractDate when missing
+  // Service billing: Momentum expects full ISO date-time (yyyy-MM-ddTHH:mm:ss.000Z) for offerQuoteDate/contractDate
+  const toDateTime = (v: string) => {
+    if (!v) return v;
+    const d = toDateOnly(v);
+    return d ? `${d}T00:00:00.000Z` : v;
+  };
   const sb = cleaned.service.serviceBilling;
-  sb.offerQuoteDate = toDateOnly(sb.offerQuoteDate);
+  sb.offerQuoteDate = toDateTime(sb.offerQuoteDate);
   if (!sb.contractDate && sb.offerQuoteDate) {
     sb.contractDate = sb.offerQuoteDate;
   } else if (sb.contractDate) {
-    sb.contractDate = toDateOnly(sb.contractDate);
+    sb.contractDate = toDateTime(sb.contractDate);
   }
 
   if (!sb.concession?.cardType?.trim()) {
