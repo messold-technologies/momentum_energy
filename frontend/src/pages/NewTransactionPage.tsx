@@ -98,12 +98,27 @@ function getDefaultValues(): TransactionPayload {
   };
 }
 
+/** Convert date to yyyy-MM-dd (Momentum API expects this format) */
+function toDateOnly(value: string): string {
+  if (!value) return value;
+  const m = value.match(/^(\d{4}-\d{2}-\d{2})/);
+  return m ? m[1] : value;
+}
+
+/** Remove key if value is empty/falsy */
+function omitIfEmpty(obj: Record<string, unknown>, key: string): void {
+  const v = obj[key];
+  if (v === undefined || v === null || (typeof v === 'string' && !v.trim())) {
+    delete obj[key];
+  }
+}
+
 function cleanPayload(data: TransactionPayload): TransactionPayload {
   const cleaned = structuredClone(data);
 
-  // Transaction: omit empty optional fields
+  // Transaction: Momentum API requires transactionVerificationCode - use placeholder when empty
   if (!cleaned.transaction.transactionVerificationCode?.trim()) {
-    delete cleaned.transaction.transactionVerificationCode;
+    cleaned.transaction.transactionVerificationCode = 'N/A';
   }
 
   // Ensure transactionDate is full ISO datetime (YYYY-MM-DDTHH:MM:SS.000Z)
@@ -112,7 +127,6 @@ function cleanPayload(data: TransactionPayload): TransactionPayload {
     if (!txDate.includes('T')) {
       txDate = `${txDate}T00:00:00.000Z`;
     } else if (!txDate.endsWith('Z')) {
-      // "2024-11-10T11:18" -> add :00.000Z; "2024-11-10T11:18:00" -> add .000Z
       txDate = /T\d{2}:\d{2}:\d{2}$/.test(txDate) ? `${txDate}.000Z` : `${txDate}:00.000Z`;
     }
     cleaned.transaction.transactionDate = txDate;
@@ -124,24 +138,31 @@ function cleanPayload(data: TransactionPayload): TransactionPayload {
     cleaned.customer.contacts.secondaryContact.contactType = 'SECONDARY';
   }
 
-  // Ensure dateOfBirth is ISO 8601 (date input gives YYYY-MM-DD)
+  // dateOfBirth: Momentum expects yyyy-MM-dd
   const dob = cleaned.customer?.contacts?.primaryContact?.dateOfBirth;
-  if (dob && !dob.includes('T')) {
-    cleaned.customer.contacts.primaryContact.dateOfBirth = `${dob}T00:00:00.000Z`;
+  if (dob) {
+    cleaned.customer.contacts.primaryContact.dateOfBirth = toDateOnly(dob);
   }
   const sc = cleaned.customer?.contacts?.secondaryContact;
   const scDob = sc?.dateOfBirth;
-  if (sc && scDob && !scDob.includes('T')) {
-    sc.dateOfBirth = `${scDob}T00:00:00.000Z`;
+  if (sc && scDob) {
+    sc.dateOfBirth = toDateOnly(scDob);
   }
 
-  // Addresses: set addressType to POSTAL when missing (Momentum expects it)
+  // Omit empty optional contact fields (Momentum rejects empty strings)
+  omitIfEmpty(cleaned.customer.contacts.primaryContact as unknown as Record<string, unknown>, 'middleName');
+  const scObj = cleaned.customer.contacts.secondaryContact as unknown as Record<string, unknown>;
+  if (scObj) omitIfEmpty(scObj, 'middleName');
+
+  // Addresses: set addressType to POSTAL when missing; omit empty unitNumber
   for (const addr of cleaned.customer.contacts.primaryContact.addresses) {
     if (!addr.addressType?.trim()) addr.addressType = 'POSTAL';
+    omitIfEmpty(addr as unknown as Record<string, unknown>, 'unitNumber');
   }
   if (cleaned.customer.contacts.secondaryContact?.addresses) {
     for (const addr of cleaned.customer.contacts.secondaryContact.addresses) {
       if (!addr.addressType?.trim()) addr.addressType = 'POSTAL';
+      omitIfEmpty(addr as unknown as Record<string, unknown>, 'unitNumber');
     }
   }
 
@@ -155,31 +176,40 @@ function cleanPayload(data: TransactionPayload): TransactionPayload {
     }
   } else {
     delete cleaned.customer.residentIdentity;
+    const ci = cleaned.customer.companyIdentity;
+    if (ci) {
+      omitIfEmpty(ci as unknown as Record<string, unknown>, 'trusteeName');
+      if (ci.acn && !ci.acn.documentId?.trim()) delete ci.acn;
+    }
   }
 
   if (!cleaned.customer.contacts.secondaryContact?.firstName?.trim()) {
     delete cleaned.customer.contacts.secondaryContact;
   }
 
+  // Service: omit empty optionals; serviceStartDate as yyyy-MM-dd
+  omitIfEmpty(cleaned.service as unknown as Record<string, unknown>, 'serviceMeterId');
+  omitIfEmpty(cleaned.service as unknown as Record<string, unknown>, 'lotNumber');
   if (cleaned.service.serviceSubType === 'MOVE IN' && cleaned.service.serviceStartDate) {
-    const sd = cleaned.service.serviceStartDate;
-    if (!sd.includes('T')) {
-      cleaned.service.serviceStartDate = `${sd}T00:00:00.000Z`;
-    }
+    cleaned.service.serviceStartDate = toDateOnly(cleaned.service.serviceStartDate);
   } else if (cleaned.service.serviceSubType !== 'MOVE IN') {
     delete cleaned.service.serviceStartDate;
   }
 
-  // Service billing: ensure dates are ISO 8601, add contractDate if missing
-  const sb = cleaned.service.serviceBilling;
-  const oqd = sb.offerQuoteDate;
-  if (oqd && !oqd.includes('T')) {
-    sb.offerQuoteDate = `${oqd}T00:00:00.000Z`;
+  // servicedAddress: omit empty optional fields (Momentum rejects empty strings and invalid enums)
+  const sa = cleaned.service.servicedAddress as unknown as Record<string, unknown>;
+  const optionalAddressKeys = ['name', 'unitType', 'unitNumber', 'floorType', 'floorNumber', 'streetNumberSuffix', 'streetNameSuffix', 'accessInstructions', 'safetyInstructions'];
+  for (const key of optionalAddressKeys) {
+    omitIfEmpty(sa, key);
   }
-  if (!sb.contractDate && oqd) {
+
+  // Service billing: dates as yyyy-MM-dd, add contractDate when missing
+  const sb = cleaned.service.serviceBilling;
+  sb.offerQuoteDate = toDateOnly(sb.offerQuoteDate);
+  if (!sb.contractDate && sb.offerQuoteDate) {
     sb.contractDate = sb.offerQuoteDate;
-  } else if (sb.contractDate && !sb.contractDate.includes('T')) {
-    sb.contractDate = `${sb.contractDate}T00:00:00.000Z`;
+  } else if (sb.contractDate) {
+    sb.contractDate = toDateOnly(sb.contractDate);
   }
 
   if (!sb.concession?.cardType?.trim()) {

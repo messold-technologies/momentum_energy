@@ -315,7 +315,7 @@ export const step3Schema = z.object({
         middleName: z
           .string()
           .optional()
-          .refine((v) => !v || v === '' || /^[a-zA-Z'-]{1,100}$/.test(v), 'Letters, apostrophe, hyphen only'),
+          .refine((v) => !v || v === '' || /^[a-zA-Z'\-.\s]{1,100}$/.test(v), 'Letters, apostrophe, hyphen, period, space only'),
         lastName: z
           .string()
           .min(1, 'Last name is required')
@@ -342,7 +342,7 @@ export const step3Schema = z.object({
           middleName: z
             .string()
             .optional()
-            .refine((v) => !v || v === '' || /^[a-zA-Z'-]{1,100}$/.test(v), 'Invalid characters'),
+            .refine((v) => !v || v === '' || /^[a-zA-Z'\-.\s]{1,100}$/.test(v), 'Letters, apostrophe, hyphen, period, space only'),
           lastName: z
             .string()
             .optional()

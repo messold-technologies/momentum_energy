@@ -252,7 +252,7 @@ const contactValidation = [
 
   body('customer.contacts.primaryContact.middleName')
     .optional({ values: 'falsy' })
-    .matches(/^[a-zA-Z'-]{1,100}$/)
+    .matches(/^[a-zA-Z'\-.\s]{1,100}$/)
     .withMessage('middleName invalid'),
 
   body('customer.contacts.primaryContact.lastName')
@@ -315,7 +315,7 @@ const contactValidation = [
           throw new Error('lastName must start with uppercase, 2-101 chars');
         }
       }
-      if (value.middleName && !/^[a-zA-Z'-]{1,100}$/.test(value.middleName)) {
+      if (value.middleName && !/^[a-zA-Z'\-.\s]{1,100}$/.test(value.middleName)) {
         throw new Error('middleName invalid');
       }
       return true;
