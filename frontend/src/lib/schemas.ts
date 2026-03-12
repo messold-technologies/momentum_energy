@@ -1,44 +1,42 @@
 import { z } from 'zod';
+import {
+  addBusinessDays,
+  differenceInYears,
+  endOfDay,
+  isBefore,
+  isPast,
+  isValid,
+  parseISO,
+  startOfDay,
+} from 'date-fns';
 import { COUNTRY_CODES } from './countryCodes';
 import { STREET_TYPE_CODES } from './streetTypeCodes';
 
-/** Check if date is a weekday (Mon–Fri) */
-function isWeekday(d: Date): boolean {
-  const day = d.getDay();
-  return day >= 1 && day <= 5;
+/** True if date string (yyyy-mm-dd) is at least 18 years ago (person is 18+ today) */
+function isAtLeast18YearsOld(dateStr: string): boolean {
+  if (!dateStr || dateStr.length < 10) return false;
+  const birthDate = parseISO(dateStr.slice(0, 10));
+  if (!isValid(birthDate)) return false;
+  const today = startOfDay(new Date());
+  return differenceInYears(today, birthDate) >= 18;
 }
 
-/** Add N working days to a date (negative for past) */
-function addWorkingDays(fromDate: Date, days: number): Date {
-  const d = new Date(fromDate);
-  d.setHours(0, 0, 0, 0);
-  let remaining = Math.abs(days);
-  const increment = days >= 0 ? 1 : -1;
-  while (remaining > 0) {
-    d.setDate(d.getDate() + increment);
-    if (isWeekday(d)) remaining--;
-  }
-  return d;
-}
-
-/** Today's date as YYYY-MM-DD (local timezone) */
-function todayLocal(): string {
-  const d = new Date();
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
+/** True if date string (yyyy-mm-dd) is today or in the future (document not expired) */
+function isDateNotExpired(dateStr: string): boolean {
+  if (!dateStr || dateStr.length < 10) return false;
+  const expiryDate = parseISO(dateStr.slice(0, 10));
+  if (!isValid(expiryDate)) return false;
+  return !isPast(endOfDay(expiryDate));
 }
 
 // Transaction field patterns per CAF spec
 const TRANSACTION_REF_REGEX = /^[A-Za-z0-9-]{1,30}$/;
 const TRANSACTION_CHANNEL_REGEX = /^[A-Za-z0-9\s]+$/;
 const TRANSACTION_VERIFICATION_REGEX = /^[A-Za-z0-9-]{1,30}$/;
-// Valid ISO 8601 date/time (YYYY-MM-DD or with time)
+/** Valid ISO 8601 date/time (YYYY-MM-DD or with time) */
 function isValidISO8601(v: string): boolean {
   if (!v || v.length < 10) return false;
-  const parsed = Date.parse(v);
-  return !Number.isNaN(parsed);
+  return isValid(parseISO(v));
 }
 
 const AU_PHONE_REGEX = /^(0[2378]\d{8}|0\d{9}|13\d{4}|1300\d{6}|1800\d{6})$/;
@@ -101,11 +99,10 @@ export const step1Schema = z
   .superRefine((data, ctx) => {
     const txDateStr = data.transaction.transactionDate?.slice(0, 10);
     if (!txDateStr || !/^\d{4}-\d{2}-\d{2}$/.test(txDateStr)) return;
-    const txDate = new Date(txDateStr + 'T12:00:00');
-    const today = new Date();
-    today.setHours(12, 0, 0, 0);
-    const minDate = addWorkingDays(today, -3);
-    const maxDate = addWorkingDays(today, 3);
+    const txDate = startOfDay(parseISO(txDateStr));
+    const today = startOfDay(new Date());
+    const minDate = addBusinessDays(today, -3);
+    const maxDate = addBusinessDays(today, 3);
     if (txDate < minDate) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Transaction date must be within the last 3 working days', path: ['transaction', 'transactionDate'] });
     }
@@ -131,6 +128,8 @@ const passportSchema = z
     if (!hasDoc) return;
     if (!p.documentExpiryDate) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Expiry date is required when passport is provided', path: ['documentExpiryDate'] });
+    } else if (!isDateNotExpired(p.documentExpiryDate)) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Customer Passport Expiry Date has expired', path: ['documentExpiryDate'] });
     }
     if (!p.issuingCountry) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Issuing country (CCA3) is required when passport is provided', path: ['issuingCountry'] });
@@ -153,6 +152,8 @@ const drivingLicenseSchema = z
     if (!hasDoc) return;
     if (!d.documentExpiryDate) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Expiry date is required when driving license is provided', path: ['documentExpiryDate'] });
+    } else if (!isDateNotExpired(d.documentExpiryDate)) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Driving license expiry date has expired', path: ['documentExpiryDate'] });
     }
     if (!d.issuingState) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Issuing state is required when driving license is provided', path: ['issuingState'] });
@@ -175,6 +176,8 @@ const medicareSchema = z
     }
     if (!m.documentExpiryDate) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Expiry date is required when medicare is provided', path: ['documentExpiryDate'] });
+    } else if (!isDateNotExpired(m.documentExpiryDate)) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Medicare expiry date has expired', path: ['documentExpiryDate'] });
     }
   });
 
@@ -324,7 +327,10 @@ export const step3Schema = z.object({
           .string()
           .optional()
           .refine((v) => !v || v === '' || COUNTRY_CODES.includes(v as (typeof COUNTRY_CODES)[number]), 'Invalid ISO country code'),
-        dateOfBirth: z.string().min(1, 'Date of birth is required'),
+        dateOfBirth: z
+          .string()
+          .min(1, 'Date of birth is required')
+          .refine(isAtLeast18YearsOld, 'DOB must be equal or older than 18 years'),
         email: z
           .string()
           .min(1, 'Email is required')
@@ -392,6 +398,12 @@ export const step3Schema = z.object({
                 message: 'Date of birth is required when secondary contact is provided',
                 path: ['dateOfBirth'],
               });
+            } else if (!isAtLeast18YearsOld(sc.dateOfBirth)) {
+              ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                message: 'DOB must be equal or older than 18 years',
+                path: ['dateOfBirth'],
+              });
             }
           }
         }),
@@ -416,8 +428,9 @@ export const step4Schema = z
         .refine(
           (v) => {
             if (!v || !/^\d{4}-\d{2}-\d{2}/.test(v)) return true;
-            const startDate = v.slice(0, 10);
-            return startDate >= todayLocal();
+            const start = parseISO(v.slice(0, 10));
+            if (!isValid(start)) return true;
+            return !isBefore(startOfDay(start), startOfDay(new Date()));
           },
           { message: 'Move-in date / service start date cannot be in the past' }
         ),
@@ -552,3 +565,6 @@ export const step4Schema = z
       });
     }
   });
+
+/** Combined schema for full-form validation (e.g. on submit) so all steps are validated */
+export const fullSchema = step1Schema.and(step2Schema).and(step3Schema).and(step4Schema);

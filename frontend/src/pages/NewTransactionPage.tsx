@@ -10,7 +10,7 @@ import Step1Transaction from '../components/form-steps/Step1Transaction';
 import Step2Customer from '../components/form-steps/Step2Customer';
 import Step3Contact from '../components/form-steps/Step3Contact';
 import Step4Service from '../components/form-steps/Step4Service';
-import { step1Schema, step2Schema, step3Schema, step4Schema } from '../lib/schemas';
+import { step1Schema, step2Schema, step3Schema, step4Schema, fullSchema } from '../lib/schemas';
 import { transactionApi } from '../lib/api';
 import type { TransactionPayload } from '../lib/types';
 
@@ -318,9 +318,18 @@ export default function NewTransactionPage() {
 
   async function handleSubmit() {
     setValidationError(null);
-    const valid = await methods.trigger();
-    if (!valid) {
-      setValidationError(formatValidationErrors(methods.formState.errors as Record<string, unknown>));
+    // Run full-form validation so we catch step 1–3 rules (e.g. DOB 18+, passport expiry) even when on step 4
+    const payload = methods.getValues();
+    const fullResult = fullSchema.safeParse(payload);
+    if (!fullResult.success) {
+      const err = fullResult.error;
+      const messages: string[] = [];
+      for (const issue of err.issues) {
+        const path = issue.path.join('.');
+        if (path) methods.setError(path as 'transaction' | 'customer' | 'service', { type: 'manual', message: issue.message });
+        if (issue.message) messages.push(issue.message);
+      }
+      setValidationError(messages.join(' • '));
       return;
     }
 
@@ -418,15 +427,6 @@ export default function NewTransactionPage() {
 
       <Stepper steps={STEPS} currentStep={step} />
 
-      {validationError && (
-        <div
-          role="alert"
-          className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"
-        >
-          {validationError}
-        </div>
-      )}
-
       <div className="bg-white rounded-xl border border-gray-200 p-6 lg:p-8">
         <FormProvider {...methods}>
           <form onSubmit={(e) => e.preventDefault()}>
@@ -481,6 +481,15 @@ export default function NewTransactionPage() {
             </button>
           )}
         </div>
+
+        {validationError && (
+          <div
+            role="alert"
+            className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"
+          >
+            {validationError}
+          </div>
+        )}
       </div>
     </div>
   );
