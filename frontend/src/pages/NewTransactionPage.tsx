@@ -25,6 +25,25 @@ const DRAFT_KEY = 'momentum_draft_transaction';
 
 const schemas = [step1Schema, step2Schema, step3Schema, step4Schema];
 
+/** Flatten react-hook-form errors into a single user-friendly message */
+function formatValidationErrors(errors: Record<string, unknown>): string {
+  const messages: string[] = [];
+  function collect(obj: unknown, path = ''): void {
+    if (!obj || typeof obj !== 'object') return;
+    const record = obj as Record<string, unknown>;
+    if (typeof record.message === 'string' && record.message) {
+      messages.push(record.message);
+      return;
+    }
+    for (const key of Object.keys(record)) {
+      if (key === 'message') continue;
+      collect(record[key], path ? `${path}.${key}` : key);
+    }
+  }
+  collect(errors);
+  return messages.length ? messages.slice(0, 5).join(' • ') : 'Please fix the errors in the form.';
+}
+
 /** Extract user-friendly error message from API error (Momentum API, validation, or generic) */
 function extractErrorMessage(err: unknown): string {
   if (!err || typeof err !== 'object' || !('response' in err)) return 'Submission failed';
@@ -267,6 +286,7 @@ export default function NewTransactionPage() {
     salesTransactionId?: string;
     error?: string;
   } | null>(null);
+  const [validationError, setValidationError] = useState<string | null>(null);
   const navigate = useNavigate();
 
   const methods = useForm<TransactionPayload>({
@@ -285,20 +305,22 @@ export default function NewTransactionPage() {
   }, [formValues]);
 
   async function handleNext() {
+    setValidationError(null);
     const valid = await methods.trigger();
     if (valid) {
       if (step < STEPS.length - 1) {
         setStep(step + 1);
       }
     } else {
-      console.log('Validation failed:', methods.formState.errors);
+      setValidationError(formatValidationErrors(methods.formState.errors as Record<string, unknown>));
     }
   }
 
   async function handleSubmit() {
+    setValidationError(null);
     const valid = await methods.trigger();
     if (!valid) {
-      console.log('Validation failed:', methods.formState.errors);
+      setValidationError(formatValidationErrors(methods.formState.errors as Record<string, unknown>));
       return;
     }
 
@@ -324,6 +346,7 @@ export default function NewTransactionPage() {
     methods.reset(getDefaultValues());
     setStep(0);
     setSubmitResult(null);
+    setValidationError(null);
   }
 
   if (submitResult) {
@@ -395,6 +418,15 @@ export default function NewTransactionPage() {
 
       <Stepper steps={STEPS} currentStep={step} />
 
+      {validationError && (
+        <div
+          role="alert"
+          className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"
+        >
+          {validationError}
+        </div>
+      )}
+
       <div className="bg-white rounded-xl border border-gray-200 p-6 lg:p-8">
         <FormProvider {...methods}>
           <form onSubmit={(e) => e.preventDefault()}>
@@ -408,7 +440,10 @@ export default function NewTransactionPage() {
         <div className="flex items-center justify-between mt-8 pt-6 border-t border-gray-200">
           <button
             type="button"
-            onClick={() => setStep(Math.max(0, step - 1))}
+            onClick={() => {
+              setValidationError(null);
+              setStep(Math.max(0, step - 1));
+            }}
             disabled={step === 0}
             className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
           >
