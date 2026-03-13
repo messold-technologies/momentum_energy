@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useForm, FormProvider, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { v4 as uuidv4 } from 'uuid';
@@ -288,6 +288,16 @@ export default function NewTransactionPage() {
   } | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // When arriving via "New Transaction" link (?fresh=1), clear draft so form starts empty
+  const isFresh = searchParams.get('fresh') === '1';
+  if (isFresh) {
+    localStorage.removeItem(DRAFT_KEY);
+  }
+  useEffect(() => {
+    if (isFresh) setSearchParams({}, { replace: true });
+  }, [isFresh, setSearchParams]);
 
   const methods = useForm<TransactionPayload>({
     defaultValues: getDefaultValues(),
@@ -296,6 +306,17 @@ export default function NewTransactionPage() {
   });
 
   const formValues = methods.watch();
+
+  useEffect(() => {
+    if (searchParams.get('fresh') === '1') {
+      localStorage.removeItem(DRAFT_KEY);
+      methods.reset(getDefaultValues());
+      setStep(0);
+      setSubmitResult(null);
+      setValidationError(null);
+      setSearchParams({}, { replace: true });
+    }
+  }, [searchParams, setSearchParams, methods]);
 
   useEffect(() => {
     const timeout = setTimeout(() => {
@@ -337,7 +358,7 @@ export default function NewTransactionPage() {
     try {
       const payload = cleanPayload(methods.getValues());
       const result = await transactionApi.submit(payload);
-      localStorage.removeItem(DRAFT_KEY);
+      // Do not clear draft on success - user can go back to edit and resubmit
       setSubmitResult({
         success: true,
         salesTransactionId: result.data?.salesTransactionId,
@@ -382,20 +403,36 @@ export default function NewTransactionPage() {
             </p>
           )}
           {submitResult.error && <p className="text-sm text-red-700 mb-4">{submitResult.error}</p>}
-          <div className="flex gap-3 justify-center mt-6">
+          <div className="flex gap-3 justify-center mt-6 flex-wrap">
             {submitResult.success && (
+              <>
+                <button
+                  onClick={() => navigate(`/transactions/${submitResult.salesTransactionId}`)}
+                  className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 text-sm font-medium cursor-pointer"
+                >
+                  View Transaction
+                </button>
+                <button
+                  onClick={() => setSubmitResult(null)}
+                  className="px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-sm font-medium text-gray-700 cursor-pointer"
+                >
+                  Back to form
+                </button>
+              </>
+            )}
+            {submitResult.error && (
               <button
-                onClick={() => navigate(`/transactions/${submitResult.salesTransactionId}`)}
+                onClick={() => setSubmitResult(null)}
                 className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 text-sm font-medium cursor-pointer"
               >
-                View Transaction
+                Edit and resubmit
               </button>
             )}
             <button
               onClick={handleClearDraft}
               className="px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-sm font-medium text-gray-700 cursor-pointer"
             >
-              New Transaction
+              Start new
             </button>
             <button
               onClick={() => navigate('/')}

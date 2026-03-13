@@ -3,18 +3,23 @@ import {
   Zap,
   LayoutDashboard,
   FilePlus,
+  FileText,
   Menu,
   X,
+  LogOut,
 } from 'lucide-react';
 import { useState } from 'react';
+import { useAuth } from '../../contexts/AuthContext';
 
 const navItems = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard },
-  { to: '/transactions/new', label: 'New Transaction', icon: FilePlus },
+  { to: '/transactions/new?fresh=1', label: 'New Transaction', icon: FilePlus },
+  { to: '/form-responses', label: 'Form Responses', icon: FileText },
 ];
 
 export default function AppLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const { user, logout } = useAuth();
 
   return (
     <div className="min-h-screen bg-gray-50 flex">
@@ -69,8 +74,19 @@ export default function AppLayout() {
           ))}
         </nav>
 
-        <div className="border-t border-gray-200 p-4">
-          <p className="text-xs text-gray-400">Momentum Energy Sales Portal</p>
+        <div className="border-t border-gray-200 p-4 space-y-2">
+          {user && (
+            <p className="text-xs text-gray-600 truncate" title={user.email}>
+              {user.name}
+            </p>
+          )}
+          <button
+            onClick={() => { logout(); setSidebarOpen(false); }}
+            className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900 cursor-pointer"
+          >
+            <LogOut className="w-4 h-4" />
+            Log out
+          </button>
         </div>
       </aside>
 

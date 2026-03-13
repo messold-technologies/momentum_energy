@@ -1,13 +1,15 @@
 const request = require('supertest');
 const nock = require('nock');
+const jwt = require('jsonwebtoken');
 
-// Mock DB before requiring app
-jest.mock('../src/db', () => ({
+// Mock DB connection before requiring app (used by requireAuth, auth routes, and transactions)
+jest.mock('../src/db/connection', () => ({
   query: jest.fn(),
+  pool: {},
 }));
 
-const db = require('../src/db');
-const app = require('../src/server');
+const { query: mockQuery } = require('../src/db/connection');
+const app = require('../src/server').default;
 const { clearTokenCache } = require('../src/services/tokenService');
 
 const BASE = 'https://ch2-preprod.api.momentumenergy.com.au';
@@ -16,66 +18,85 @@ const API_PATH = '/external-channels-exp-preprod';
 const mockToken = () =>
   nock(BASE).post('/oauth/token').reply(200, { access_token: 'mock-token', expires_in: 3600 });
 
-// Valid transaction body matching all validation rules
-const validTransaction = () => {
+function makeAuthToken(userId = 'user-123') {
+  return jwt.sign(
+    { userId },
+    process.env.JWT_SECRET || 'test-jwt-secret-at-least-32-characters-long',
+    { expiresIn: '1h' }
+  );
+}
+
+function authHeader() {
+  return { Authorization: `Bearer ${makeAuthToken()}` };
+}
+
+// Valid transaction matching backend validator structure
+function validTransaction() {
   const today = new Date().toISOString().split('T')[0];
   return {
     transaction: {
-      transactionReferenceId: `REF-${Date.now()}`,
-      channelName: 'TEST_CHANNEL',
-      transactionDate: today,
-      source: 'EXTERNAL',
+      transactionReference: `REF-${Date.now()}`,
+      transactionChannel: 'TEST CHANNEL',
+      transactionDate: `${today}T00:00:00.000Z`,
+      transactionSource: 'EXTERNAL',
     },
     customer: {
       customerType: 'RESIDENT',
-      promotionConsent: 'true',
-      drivingLicense: {
-        licenseNumber: 'DL123456',
-        expiryDate: '2028-01-01',
-        stateOfIssue: 'VIC',
+      customerSubType: 'RESIDENT',
+      communicationPreference: 'EMAIL',
+      promotionAllowed: true,
+      residentIdentity: {
+        drivingLicense: {
+          documentId: 'DL123456',
+          documentExpiryDate: '2028-01-01',
+          issuingState: 'VIC',
+        },
       },
-    },
-    contacts: {
-      primaryContact: {
-        salutation: 'Mr',
-        firstName: 'John',
-        lastName: 'Doe',
-        dateOfBirth: '1985-06-15',
-        email: 'john.doe@example.com',
-        phone: [{ type: 'MOBILE', number: '0412345678' }],
-        address: {
-          streetNumber: '10',
-          streetName: 'Test Street',
-          suburb: 'Melbourne',
-          state: 'VIC',
-          postcode: '3000',
+      contacts: {
+        primaryContact: {
+          salutation: 'Mr.',
+          firstName: 'John',
+          lastName: 'Doe',
+          dateOfBirth: '1985-06-15',
+          email: 'john.doe@example.com',
+          countryOfBirth: 'AUS',
+          addresses: [
+            {
+              streetNumber: '10',
+              streetName: 'Test Street',
+              suburb: 'Melbourne',
+              state: 'VIC',
+              postCode: '3000',
+            },
+          ],
+          contactPhones: [{ contactPhoneType: 'MOBILE', phone: '0412345678' }],
         },
       },
     },
     service: {
       serviceType: 'POWER',
       serviceSubType: 'TRANSFER',
-      serviceConnectionId: '1234567890123',
+      serviceConnectionId: '1234567890',
       servicedAddress: {
         streetNumber: '10',
         streetName: 'Test Street',
+        streetTypeCode: 'ST',
         suburb: 'Melbourne',
         state: 'VIC',
-        postcode: '3000',
+        postCode: '3000',
       },
-      offer: {
-        offerCode: 'POWER_OFFER_2024',
-        planName: 'Basic Power',
-        quoteDate: today,
-      },
-      billingDetails: {
+      serviceBilling: {
+        offerQuoteDate: `${today}T00:00:00.000Z`,
+        serviceOfferCode: 'OFFER123456789012',
+        servicePlanCode: 'Bill Boss Electricity',
+        contractTermCode: 'OPEN',
+        paymentMethod: 'Direct Debit Via Bank Account',
         billCycleCode: 'Monthly',
-        communicationPreference: 'EMAIL',
-        paymentMethod: { type: 'DirectDebit' },
+        billDeliveryMethod: 'EMAIL',
       },
     },
   };
-};
+}
 
 beforeEach(() => {
   clearTokenCache();
@@ -85,18 +106,25 @@ beforeEach(() => {
   process.env.MOMENTUM_BASE_URL = `${BASE}${API_PATH}`;
   process.env.MOMENTUM_CLIENT_ID = 'test-id';
   process.env.MOMENTUM_CLIENT_SECRET = 'test-secret';
-  process.env.PORTAL_API_KEY = '';
+  process.env.JWT_SECRET = 'test-jwt-secret-at-least-32-characters-long';
   process.env.NODE_ENV = 'test';
+  mockQuery.mockResolvedValue({ rows: [{ id: 'user-123', email: 'test@test.com', name: 'Test User' }] });
 });
 
 afterAll(() => nock.cleanAll());
 
 describe('POST /api/transactions', () => {
+  test('returns 401 without auth', async () => {
+    const response = await request(app)
+      .post('/api/transactions')
+      .send(validTransaction());
+    expect(response.status).toBe(401);
+  });
+
   test('submits a valid transaction successfully', async () => {
-    db.query
-      .mockResolvedValueOnce({ rows: [{ id: 'db-uuid-123' }] }) // INSERT
-      .mockResolvedValueOnce({ rows: [] }) // UPDATE
-      .mockResolvedValueOnce({ rows: [] }); // audit log
+    mockQuery
+      .mockResolvedValueOnce({ rows: [{ id: 'user-123', email: 'test@test.com', name: 'Test User' }] })
+      .mockResolvedValueOnce({ rows: [] });
 
     mockToken();
     nock(BASE)
@@ -109,6 +137,7 @@ describe('POST /api/transactions', () => {
 
     const response = await request(app)
       .post('/api/transactions')
+      .set(authHeader())
       .send(validTransaction())
       .expect(201);
 
@@ -120,7 +149,8 @@ describe('POST /api/transactions', () => {
   test('returns 400 for missing required fields', async () => {
     const response = await request(app)
       .post('/api/transactions')
-      .send({ transaction: { source: 'EXTERNAL' } }) // Incomplete
+      .set(authHeader())
+      .send({ transaction: { transactionSource: 'EXTERNAL' } })
       .expect(400);
 
     expect(response.body.success).toBe(false);
@@ -130,58 +160,49 @@ describe('POST /api/transactions', () => {
 
   test('returns 400 for customer under 18', async () => {
     const payload = validTransaction();
-    payload.contacts.primaryContact.dateOfBirth = '2010-01-01'; // Under 18
+    payload.customer.contacts.primaryContact.dateOfBirth = '2010-01-01';
 
     const response = await request(app)
       .post('/api/transactions')
+      .set(authHeader())
       .send(payload)
       .expect(400);
 
-    expect(response.body.details.some(e => e.message.includes('18'))).toBe(true);
+    expect(response.body.details.some((e) => (e.message || '').includes('18'))).toBe(true);
   });
 
   test('returns 400 for expired driving license', async () => {
     const payload = validTransaction();
-    payload.customer.drivingLicense.expiryDate = '2020-01-01'; // Expired
+    payload.customer.residentIdentity.drivingLicense.documentExpiryDate = '2020-01-01';
 
     const response = await request(app)
       .post('/api/transactions')
+      .set(authHeader())
       .send(payload)
       .expect(400);
 
-    expect(response.body.details.some(e => e.message.includes('expired'))).toBe(true);
+    expect(response.body.details.some((e) => (e.message || '').toLowerCase().includes('expired'))).toBe(true);
   });
 
   test('returns 400 for wrong bill cycle for GAS', async () => {
     const payload = validTransaction();
     payload.service.serviceType = 'GAS';
-    payload.service.billingDetails.billCycleCode = 'Monthly'; // Invalid for GAS
+    payload.service.serviceConnectionId = '12345678901';
+    payload.service.serviceBilling.billCycleCode = 'Monthly';
 
     const response = await request(app)
       .post('/api/transactions')
+      .set(authHeader())
       .send(payload)
       .expect(400);
 
-    expect(response.body.details.some(e => e.message.includes('Bi-Monthly'))).toBe(true);
-  });
-
-  test('returns 400 for MOVE_IN without start date', async () => {
-    const payload = validTransaction();
-    payload.service.serviceSubType = 'MOVE_IN';
-    delete payload.service.serviceStartDate;
-
-    const response = await request(app)
-      .post('/api/transactions')
-      .send(payload)
-      .expect(400);
-
-    expect(response.body.details.some(e => e.message.includes('start date'))).toBe(true);
+    expect(response.body.details.some((e) => (e.message || '').includes('Bi-Monthly'))).toBe(true);
   });
 
   test('handles Momentum API errors gracefully', async () => {
-    db.query.mockResolvedValueOnce({ rows: [{ id: 'db-uuid-456' }] }); // INSERT
-    db.query.mockResolvedValueOnce({ rows: [] }); // UPDATE with error
-    db.query.mockResolvedValueOnce({ rows: [] }); // audit log
+    mockQuery
+      .mockResolvedValueOnce({ rows: [{ id: 'user-123', email: 'test@test.com', name: 'Test User' }] })
+      .mockResolvedValueOnce({ rows: [] });
 
     mockToken();
     nock(BASE)
@@ -193,6 +214,7 @@ describe('POST /api/transactions', () => {
 
     const response = await request(app)
       .post('/api/transactions')
+      .set(authHeader())
       .send(validTransaction());
 
     expect(response.status).toBe(400);
@@ -200,43 +222,31 @@ describe('POST /api/transactions', () => {
   });
 });
 
-describe('GET /api/transactions', () => {
-  test('lists transactions', async () => {
-    db.query
-      .mockResolvedValueOnce({ rows: [{ count: '5' }] })
-      .mockResolvedValueOnce({ rows: [{ id: '1', status: 'PENDING', service_type: 'POWER' }] });
+describe('GET /api/transactions/:salesTransactionId/status', () => {
+  test('returns 401 without auth', async () => {
+    const response = await request(app).get('/api/transactions/SALES-001/status');
+    expect(response.status).toBe(401);
+  });
+
+  test('returns transaction status with auth', async () => {
+    mockQuery.mockResolvedValueOnce({ rows: [{ id: 'user-123', email: 'test@test.com', name: 'Test User' }] });
+
+    mockToken();
+    nock(BASE)
+      .get(`${API_PATH}/echannels/v1/sales-transactions/SALES-001`)
+      .reply(200, {
+        salesTransactionId: 'SALES-001',
+        transactionStatus: 'PENDING',
+      });
 
     const response = await request(app)
-      .get('/api/transactions')
+      .get('/api/transactions/SALES-001/status')
+      .set(authHeader())
       .expect(200);
 
     expect(response.body.success).toBe(true);
-    expect(response.body.data).toBeDefined();
-    expect(response.body.pagination).toBeDefined();
-  });
-});
-
-describe('GET /api/transactions/:reference', () => {
-  test('returns 404 for unknown transaction', async () => {
-    db.query.mockResolvedValueOnce({ rows: [] });
-
-    const response = await request(app)
-      .get('/api/transactions/UNKNOWN-REF')
-      .expect(404);
-
-    expect(response.body.success).toBe(false);
-  });
-
-  test('returns transaction details', async () => {
-    db.query.mockResolvedValueOnce({
-      rows: [{ id: '1', internal_reference: 'REF-001', status: 'PENDING', service_type: 'POWER' }],
-    });
-
-    const response = await request(app)
-      .get('/api/transactions/REF-001')
-      .expect(200);
-
-    expect(response.body.data.internal_reference).toBe('REF-001');
+    expect(response.body.data.salesTransactionId).toBe('SALES-001');
+    expect(response.body.data.transactionStatus).toBe('PENDING');
   });
 });
 

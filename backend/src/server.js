@@ -10,7 +10,10 @@ import config from './config/index.js';
 import logger from './config/logger.js';
 import errorHandler from './middleware/errorHandler.js';
 import transactionRoutes from './routes/transactions.js';
+import submissionsRoutes from './routes/submissions.js';
 import healthRoutes from './routes/health.js';
+import authRoutes from './routes/auth.js';
+import { requireAuth } from './middleware/requireAuth.js';
 
 const app = express();
 
@@ -19,7 +22,8 @@ app.use(helmet());
 app.use(cors({
   origin: config.portal.allowedOrigins,
   methods: ['GET', 'POST'],
-  allowedHeaders: ['Content-Type', 'x-correlation-id'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-correlation-id'],
+  credentials: true,
 }));
 
 app.use(express.json({ limit: '1mb' }));
@@ -34,7 +38,9 @@ const limiter = rateLimit({
 app.use('/api/', limiter);
 
 app.use('/health', healthRoutes);
-app.use('/api/transactions', transactionRoutes);
+app.use('/api/auth', authRoutes);
+app.use('/api/transactions', requireAuth, transactionRoutes);
+app.use('/api/submissions', requireAuth, submissionsRoutes);
 
 app.use((req, res) => {
   res.status(404).json({ success: false, error: `Route ${req.method} ${req.path} not found` });
@@ -43,11 +49,13 @@ app.use((req, res) => {
 app.use(errorHandler);
 
 const PORT = config.port;
-app.listen(PORT, () => {
-  logger.info(`Momentum Portal Backend running on port ${PORT}`, {
-    environment: config.nodeEnv,
-    momentumUrl: config.momentum.baseUrl,
+if (process.env.NODE_ENV !== 'test') {
+  app.listen(PORT, () => {
+    logger.info(`Momentum Portal Backend running on port ${PORT}`, {
+      environment: config.nodeEnv,
+      momentumUrl: config.momentum.baseUrl,
+    });
   });
-});
+}
 
 export default app;

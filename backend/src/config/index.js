@@ -17,4 +17,13 @@ export default {
   portal: {
     allowedOrigins: (process.env.ALLOWED_ORIGINS || 'http://localhost:5173').split(','),
   },
+
+  database: {
+    url: process.env.DATABASE_URL,
+  },
+
+  jwt: {
+    secret: process.env.JWT_SECRET || 'development-secret-change-in-production',
+    expiresIn: process.env.JWT_EXPIRES_IN || '7d',
+  },
 };
