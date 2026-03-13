@@ -4,7 +4,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { transactionValidationRules, validate } from '../validators/transactionValidator.js';
 import { submitSalesTransaction, getSalesTransactionStatus } from '../services/momentumService.js';
 import { sanitizeBody } from '../utils/sanitizeBody.js';
-import { query } from '../db/index.js';
+import { query } from '../db/connection.js';
 import logger from '../config/logger.js';
 
 function extractErrorMessage(err) {
@@ -17,16 +17,15 @@ function extractErrorMessage(err) {
   return err.message || 'Submission failed';
 }
 
-async function storeSubmission({ userId, correlationId, outcome, salesTransactionId, transactionStatus, errorMessage, errorStatus, payloadSnapshot }) {
+async function storeSubmission({ userId, correlationId, outcome, salesTransactionId, errorMessage, errorStatus, payloadSnapshot }) {
   await query(
-    `INSERT INTO submissions (user_id, correlation_id, outcome, sales_transaction_id, transaction_status, error_message, error_status, payload_snapshot)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+    `INSERT INTO submissions (user_id, correlation_id, outcome, sales_transaction_id, error_message, error_status, payload_snapshot)
+     VALUES ($1, $2, $3, $4, $5, $6, $7)`,
     [
       userId,
       correlationId,
       outcome,
       salesTransactionId || null,
-      transactionStatus || null,
       errorMessage || null,
       errorStatus || null,
       payloadSnapshot ? JSON.stringify(payloadSnapshot) : null,
@@ -61,7 +60,6 @@ router.post(
           correlationId,
           outcome: 'success',
           salesTransactionId: result.salesTransactionId,
-          transactionStatus: result.transactionStatus,
           payloadSnapshot: body,
         }).catch((storeErr) => logger.error('Failed to store submission', { error: storeErr.message }));
       }

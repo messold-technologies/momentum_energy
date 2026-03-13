@@ -361,7 +361,7 @@ export default function NewTransactionPage() {
       // Do not clear draft on success - user can go back to edit and resubmit
       setSubmitResult({
         success: true,
-        salesTransactionId: result.data?.salesTransactionId,
+        salesTransactionId: result.data?.data?.salesTransactionId ?? result.data?.salesTransactionId,
       });
     } catch (err: unknown) {
       const msg = extractErrorMessage(err);
