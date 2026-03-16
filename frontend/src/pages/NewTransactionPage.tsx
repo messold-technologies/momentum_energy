@@ -91,7 +91,7 @@ function getDefaultValues(): TransactionPayload {
   return {
     transaction: {
       transactionReference: uuidv4().slice(0, 20).toUpperCase(),
-      transactionChannel: '',
+      transactionChannel: 'UTILITYHUB',
       transactionDate: new Date().toISOString().slice(0, 16),
       transactionSource: 'EXTERNAL',
     },
