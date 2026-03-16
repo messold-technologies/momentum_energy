@@ -69,6 +69,7 @@ export interface Address {
   unitNumber?: string;
   streetNumber: string;
   streetName: string;
+  streetTypeCode: string;
   suburb: string;
   state: string;
   postCode: string;

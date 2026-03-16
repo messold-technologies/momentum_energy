@@ -96,12 +96,18 @@ router.get('/:salesTransactionId/status', async (req, res, next) => {
     const correlationId = req.headers['x-correlation-id'] || req.headers['id-correlation'] || uuidv4();
     const result = await getSalesTransactionStatus(salesTransactionId, { correlationId });
 
+    // Momentum API returns { status: "SUCCESS", data: { ...status: { saleStatus }, service, transaction } }
+    const momentumData = result?.data ?? result;
+    const saleStatus = momentumData?.status?.saleStatus ?? result?.transactionStatus ?? momentumData?.transactionStatus;
+
     res.json({
       success: true,
       data: {
-        salesTransactionId,
-        transactionStatus: result.transactionStatus,
+        // Top-level for backwards compat
+        salesTransactionId: momentumData?.salesTransactionId ?? salesTransactionId,
+        transactionStatus: saleStatus,
         lastChecked: new Date().toISOString(),
+        // Full Momentum API response (status + data)
         details: result,
       },
     });

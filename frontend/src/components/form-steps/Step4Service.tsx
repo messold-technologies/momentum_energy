@@ -12,7 +12,7 @@ import {
 import { STREET_TYPE_CODES } from '../../lib/streetTypeCodes';
 
 // Match backend: ACT, NT, WA, SA, VIC, NSW
-const STATES = ['ACT', 'NT', 'WA', 'SA', 'VIC', 'NSW'] as const;
+const STATES = ['ACT', 'NT', 'WA', 'SA', 'VIC', 'NSW', 'QLD'] as const;
 
 export default function Step4Service() {
   const { register, formState, control } = useFormContext();

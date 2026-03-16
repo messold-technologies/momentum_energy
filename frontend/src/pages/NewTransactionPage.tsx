@@ -129,6 +129,7 @@ function getDefaultValues(): TransactionPayload {
             {
               streetNumber: '',
               streetName: '',
+              streetTypeCode: '',
               suburb: '',
               state: '',
               postCode: '',

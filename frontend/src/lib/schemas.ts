@@ -63,6 +63,10 @@ const addressSchema = z.object({
     .string()
     .min(1, 'Street name is required')
     .regex(/^[a-zA-Z0-9'.,/()\s-]+$/, 'Invalid street name'),
+  streetTypeCode: z
+    .string()
+    .min(1, 'Street type is required')
+    .refine((v) => STREET_TYPE_CODES.includes(v as (typeof STREET_TYPE_CODES)[number]), 'Street type must be a valid AS 4590 code'),
   suburb: z
     .string()
     .min(1, 'Suburb is required')

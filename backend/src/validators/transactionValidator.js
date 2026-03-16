@@ -346,6 +346,12 @@ const addressValidation = [
     .matches(/^[a-zA-Z0-9'.,/()\s-]+$/)
     .withMessage('streetName invalid'),
 
+  body('customer.contacts.primaryContact.addresses.*.streetTypeCode')
+    .notEmpty()
+    .withMessage('streetTypeCode is required')
+    .isIn(STREET_TYPE_CODES)
+    .withMessage('streetTypeCode must be a valid AS 4590 street type'),
+
   body('customer.contacts.primaryContact.addresses.*.unitNumber')
     .optional({ values: 'falsy' })
     .matches(/^[a-zA-Z0-9,./&:\s-]+$/)

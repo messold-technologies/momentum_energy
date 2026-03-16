@@ -4,6 +4,7 @@ import { Plus, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
 import { useState } from 'react';
 import type { TransactionPayload } from '../../lib/types';
 import { COUNTRY_CODES } from '../../lib/countryCodes';
+import { STREET_TYPE_CODES } from '../../lib/streetTypeCodes';
 
 const SALUTATIONS = ['Mr.', 'Ms.', 'Mrs.', 'Dr.', 'Prof.'];
 // Must match backend: ACT, NT, WA, SA, VIC, NSW only
@@ -125,6 +126,16 @@ function AddressFields({ basePath }: { basePath: string }) {
           className={inputClass}
           placeholder="Main Street"
         />
+      </FormField>
+      <FormField label="Street Type" required error={getErr('streetTypeCode')}>
+        <select {...register(`${basePath}.streetTypeCode`)} className={selectClass}>
+          <option value="">Select...</option>
+          {STREET_TYPE_CODES.map((code) => (
+            <option key={code} value={code}>
+              {code}
+            </option>
+          ))}
+        </select>
       </FormField>
       <FormField label="Suburb" required error={getErr('suburb')}>
         <input {...register(`${basePath}.suburb`)} className={inputClass} placeholder="Melbourne" />
