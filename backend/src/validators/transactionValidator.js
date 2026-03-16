@@ -28,7 +28,7 @@ function toDateOnly(isoStr) {
 }
 
 // Transaction field validations per CAF spec
-const TRANSACTION_REF_REGEX = /^[A-Za-z0-9\-]{1,30}$/;
+const TRANSACTION_REF_REGEX = /^[A-Z0-9]{1,12}$/;
 const TRANSACTION_CHANNEL_REGEX = /^[A-Za-z0-9\s]+$/;
 const TRANSACTION_VERIFICATION_REGEX = /^[A-Za-z0-9\-]{1,30}$/;
 
@@ -36,8 +36,9 @@ const transactionValidation = [
   body('transaction.transactionReference')
     .notEmpty()
     .withMessage('transactionReference is required')
+    .customSanitizer((v) => (v && typeof v === 'string' ? v.toUpperCase() : v))
     .matches(TRANSACTION_REF_REGEX)
-    .withMessage('transactionReference must be 1-30 chars: letters, numbers, hyphen'),
+    .withMessage('transactionReference must be 1-12 chars: uppercase letters and numbers only (no dashes)'),
 
   body('transaction.transactionChannel')
     .notEmpty()

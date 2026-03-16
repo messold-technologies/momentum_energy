@@ -30,7 +30,7 @@ function isDateNotExpired(dateStr: string): boolean {
 }
 
 // Transaction field patterns per CAF spec
-const TRANSACTION_REF_REGEX = /^[A-Za-z0-9-]{1,30}$/;
+const TRANSACTION_REF_REGEX = /^[A-Z0-9]{1,12}$/;
 const TRANSACTION_CHANNEL_REGEX = /^[A-Za-z0-9\s]+$/;
 const TRANSACTION_VERIFICATION_REGEX = /^[A-Za-z0-9-]{1,30}$/;
 /** Valid ISO 8601 date/time (YYYY-MM-DD or with time) */
@@ -80,7 +80,8 @@ export const step1Schema = z
       transactionReference: z
         .string()
         .min(1, 'Transaction reference is required')
-        .regex(TRANSACTION_REF_REGEX, '1-30 chars: letters, numbers, hyphen only'),
+        .transform((v) => (v ?? '').toUpperCase())
+        .refine((v) => TRANSACTION_REF_REGEX.test(v), '1-12 chars: uppercase letters and numbers only'),
       transactionChannel: z
         .string()
         .min(1, 'Transaction channel is required')

@@ -79,18 +79,29 @@ function extractErrorMessage(err: unknown): string {
   return d.error || 'Submission failed';
 }
 
+/** Sanitize transaction reference: no dashes, uppercase, max 12 chars */
+function sanitizeTransactionRef(ref: string | undefined): string {
+  return (ref ?? '').replace(/-/g, '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 12);
+}
+
 function getDefaultValues(): TransactionPayload {
   const saved = localStorage.getItem(DRAFT_KEY);
   if (saved) {
     try {
-      return JSON.parse(saved);
+      const parsed = JSON.parse(saved) as TransactionPayload;
+      if (parsed?.transaction?.transactionReference) {
+        parsed.transaction.transactionReference = sanitizeTransactionRef(
+          parsed.transaction.transactionReference
+        );
+      }
+      return parsed;
     } catch {
       // ignore
     }
   }
   return {
     transaction: {
-      transactionReference: uuidv4().slice(0, 20).toUpperCase(),
+      transactionReference: uuidv4().replace(/-/g, '').slice(0, 12).toUpperCase(),
       transactionChannel: 'UTILITYHUB',
       transactionDate: new Date().toISOString().slice(0, 16),
       transactionSource: 'EXTERNAL',

@@ -8,7 +8,7 @@ export default function Step1Transaction() {
   const errors = formState.errors as FieldErrors<TransactionPayload>;
 
   function generateRef() {
-    setValue('transaction.transactionReference', uuidv4().slice(0, 20).toUpperCase());
+    setValue('transaction.transactionReference', uuidv4().replace(/-/g, '').slice(0, 12).toUpperCase());
   }
 
   return (
@@ -26,8 +26,10 @@ export default function Step1Transaction() {
         >
           <div className="flex gap-2">
             <input
-              {...register('transaction.transactionReference')}
-              className={`${inputClass} flex-1`}
+              {...register('transaction.transactionReference', {
+                setValueAs: (v) => (v ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 12),
+              })}
+              className={`${inputClass} flex-1 uppercase`}
               placeholder="e.g. TEST001"
             />
             <button
