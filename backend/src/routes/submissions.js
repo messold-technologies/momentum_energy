@@ -26,6 +26,8 @@ router.get('/', async (req, res, next) => {
       [userId]
     );
 
+    const defaultUserName = req.user?.name ?? '';
+
     const submissions = result.rows.map((row) => ({
       id: row.id,
       correlationId: row.correlation_id,
@@ -35,7 +37,7 @@ router.get('/', async (req, res, next) => {
       errorStatus: row.error_status,
       payloadSnapshot: row.payload_snapshot,
       createdAt: row.created_at,
-      userName: row.user_name,
+      userName: row.user_name ?? defaultUserName,
     }));
 
     res.json({
