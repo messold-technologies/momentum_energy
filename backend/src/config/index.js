@@ -26,4 +26,15 @@ export default {
     secret: process.env.JWT_SECRET || 'development-secret-change-in-production',
     expiresIn: process.env.JWT_EXPIRES_IN || '7d',
   },
+
+  auth: {
+    allowedRegistrationEmails: [
+      'ishu.gupta@utilityhub.com.au',
+      'mudit.gupta@utilityhub.com.au',
+      'aseem.gupta@utilityhub.com.au',
+      'qa@utilityhub.com.au',
+      'loans@ezycapital.com.au',
+      'bipasha.roy@messold.com'
+    ].map((e) => e.toLowerCase()),
+  },
 };

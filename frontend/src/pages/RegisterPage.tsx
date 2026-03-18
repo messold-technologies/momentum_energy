@@ -3,6 +3,15 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Zap } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
+const ALLOWED_EMAILS = [
+  'ishu.gupta@utilityhub.com.au',
+  'mudit.gupta@utilityhub.com.au',
+  'aseem.gupta@utilityhub.com.au',
+  'qa@utilityhub.com.au',
+  'loans@ezycapital.com.au',
+  'bipasha.roy@messold.com'
+].map((e) => e.toLowerCase());
+
 export default function RegisterPage() {
   const [email, setEmail] = useState('');
   const [name, setName] = useState('');
@@ -17,6 +26,10 @@ export default function RegisterPage() {
     setError('');
     if (password.length < 6) {
       setError('Password must be at least 6 characters');
+      return;
+    }
+    if (!ALLOWED_EMAILS.includes(email.trim().toLowerCase())) {
+      setError('Registration is restricted. This email is not authorized to create an account.');
       return;
     }
     setLoading(true);

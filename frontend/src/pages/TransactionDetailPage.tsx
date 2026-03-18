@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
+import { CopyToClipboard } from 'react-copy-to-clipboard';
 import { transactionApi } from '../lib/api';
 import StatusBadge from '../components/ui/StatusBadge';
 import { ArrowLeft, RefreshCw, Copy, Check } from 'lucide-react';
@@ -113,11 +114,10 @@ export default function TransactionDetailPage() {
     setRefreshing(false);
   }
 
-  function copyToClipboard(text: string) {
-    navigator.clipboard.writeText(text);
+  const markCopied = () => {
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
-  }
+  };
 
   if (loading) {
     return (
@@ -152,12 +152,14 @@ export default function TransactionDetailPage() {
             <h1 className="text-xl font-bold text-gray-900">Transaction Status</h1>
             <div className="flex items-center gap-2 mt-0.5">
               <code className="text-xs text-gray-500 font-mono">{status.salesTransactionId}</code>
-              <button
-                onClick={() => copyToClipboard(status.salesTransactionId)}
-                className="text-gray-400 hover:text-gray-600 cursor-pointer"
-              >
-                {copied ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5" />}
-              </button>
+              <CopyToClipboard text={status.salesTransactionId} onCopy={markCopied}>
+                <button
+                  type="button"
+                  className="text-gray-400 hover:text-gray-600 cursor-pointer"
+                >
+                  {copied ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5" />}
+                </button>
+              </CopyToClipboard>
             </div>
           </div>
         </div>
@@ -213,9 +215,14 @@ export default function TransactionDetailPage() {
                   <span className="text-sm text-gray-900 font-mono break-all">
                     {(payload?.salesTransactionId ?? status.salesTransactionId) as string}
                   </span>
-                  <button onClick={() => copyToClipboard(toDisplayString(payload?.salesTransactionId ?? status.salesTransactionId))} className="text-gray-400 hover:text-gray-600 cursor-pointer">
-                    {copied ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5" />}
-                  </button>
+                  <CopyToClipboard
+                    text={toDisplayString(payload?.salesTransactionId ?? status.salesTransactionId)}
+                    onCopy={markCopied}
+                  >
+                    <button type="button" className="text-gray-400 hover:text-gray-600 cursor-pointer">
+                      {copied ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5" />}
+                    </button>
+                  </CopyToClipboard>
                 </div>
                 <div className="flex flex-wrap gap-x-2 gap-y-0.5">
                   <span className="text-sm text-gray-500 shrink-0">Transaction Creation Date:</span>

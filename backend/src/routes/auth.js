@@ -31,6 +31,14 @@ router.post('/register', async (req, res, next) => {
       });
     }
 
+    const allowedEmails = config.auth?.allowedRegistrationEmails ?? [];
+    if (allowedEmails.length > 0 && !allowedEmails.includes(trimmedEmail)) {
+      return res.status(403).json({
+        success: false,
+        error: 'Registration is restricted. This email is not authorized to create an account.',
+      });
+    }
+
     const passwordHash = await bcrypt.hash(password, 12);
     const id = uuidv4();
     await query(
