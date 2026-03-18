@@ -11,6 +11,7 @@ import logger from './config/logger.js';
 import errorHandler from './middleware/errorHandler.js';
 import transactionRoutes from './routes/transactions.js';
 import submissionsRoutes from './routes/submissions.js';
+import draftsRoutes from './routes/drafts.js';
 import healthRoutes from './routes/health.js';
 import authRoutes from './routes/auth.js';
 import { requireAuth } from './middleware/requireAuth.js';
@@ -21,7 +22,7 @@ app.use(helmet());
 
 app.use(cors({
   origin: config.portal.allowedOrigins,
-  methods: ['GET', 'POST'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization', 'x-correlation-id'],
   credentials: true,
 }));
@@ -41,6 +42,7 @@ app.use('/health', healthRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/transactions', requireAuth, transactionRoutes);
 app.use('/api/submissions', requireAuth, submissionsRoutes);
+app.use('/api/drafts', requireAuth, draftsRoutes);
 
 app.use((req, res) => {
   res.status(404).json({ success: false, error: `Route ${req.method} ${req.path} not found` });

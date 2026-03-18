@@ -56,6 +56,35 @@ export const submissionsApi = {
   },
 };
 
+export interface Draft {
+  id: string;
+  updatedAt: string;
+  preview?: string;
+}
+
+export const draftsApi = {
+  list: async () => {
+    const { data } = await api.get<{ success: boolean; drafts: Draft[] }>('/drafts');
+    return data;
+  },
+  get: async (id: string) => {
+    const { data } = await api.get<{ success: boolean; draft: { id: string; payload: TransactionPayload; updatedAt: string } }>(`/drafts/${id}`);
+    return data;
+  },
+  save: async (payload: TransactionPayload) => {
+    const { data } = await api.post<{ success: boolean; draft: { id: string; payload: TransactionPayload; updatedAt: string } }>('/drafts', { payload });
+    return data;
+  },
+  update: async (id: string, payload: TransactionPayload) => {
+    const { data } = await api.put<{ success: boolean; draft: { id: string; payload: TransactionPayload; updatedAt: string } }>(`/drafts/${id}`, { payload });
+    return data;
+  },
+  delete: async (id: string) => {
+    const { data } = await api.delete<{ success: boolean }>(`/drafts/${id}`);
+    return data;
+  },
+};
+
 export interface User {
   id: string;
   email: string;

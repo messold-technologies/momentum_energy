@@ -3,6 +3,7 @@ import {
   Zap,
   LayoutDashboard,
   FilePlus,
+  FileEdit,
   FileText,
   Menu,
   X,
@@ -14,6 +15,7 @@ import { useAuth } from '../../contexts/AuthContext';
 const navItems = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/transactions/new?fresh=1', label: 'New Transaction', icon: FilePlus },
+  { to: '/drafts', label: 'My Drafts', icon: FileEdit },
   { to: '/form-responses', label: 'Form Responses', icon: FileText },
 ];
 

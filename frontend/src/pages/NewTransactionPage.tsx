@@ -11,7 +11,7 @@ import Step2Customer from '../components/form-steps/Step2Customer';
 import Step3Contact from '../components/form-steps/Step3Contact';
 import Step4Service from '../components/form-steps/Step4Service';
 import { step1Schema, step2Schema, step3Schema, step4Schema, fullSchema } from '../lib/schemas';
-import { transactionApi } from '../lib/api';
+import { transactionApi, draftsApi } from '../lib/api';
 import type { TransactionPayload } from '../lib/types';
 
 const STEPS = [
@@ -293,6 +293,10 @@ function cleanPayload(data: TransactionPayload): TransactionPayload {
 export default function NewTransactionPage() {
   const [step, setStep] = useState(0);
   const [submitting, setSubmitting] = useState(false);
+  const [savingDraft, setSavingDraft] = useState(false);
+  const [saveDraftMessage, setSaveDraftMessage] = useState<string | null>(null);
+  const [loadDraftError, setLoadDraftError] = useState<string | null>(null);
+  const [draftLoaded, setDraftLoaded] = useState(false);
   const [submitResult, setSubmitResult] = useState<{
     success: boolean;
     salesTransactionId?: string;
@@ -302,14 +306,13 @@ export default function NewTransactionPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
-  // When arriving via "New Transaction" link (?fresh=1), clear draft so form starts empty
+  const draftId = searchParams.get('draft');
   const isFresh = searchParams.get('fresh') === '1';
+
+  // When arriving via "New Transaction" link (?fresh=1), clear draft so form starts empty
   if (isFresh) {
     localStorage.removeItem(DRAFT_KEY);
   }
-  useEffect(() => {
-    if (isFresh) setSearchParams({}, { replace: true });
-  }, [isFresh, setSearchParams]);
 
   const methods = useForm<TransactionPayload>({
     defaultValues: getDefaultValues(),
@@ -319,6 +322,35 @@ export default function NewTransactionPage() {
 
   const formValues = methods.watch();
 
+  // Load draft from backend when ?draft=:id
+  useEffect(() => {
+    if (!draftId || isFresh || draftLoaded) return;
+    const id = draftId;
+    setLoadDraftError(null);
+    async function loadDraft() {
+      try {
+        const res = await draftsApi.get(id);
+        const payload = res.draft?.payload;
+        if (payload) {
+          if (payload.transaction?.transactionReference) {
+            payload.transaction.transactionReference = sanitizeTransactionRef(
+              payload.transaction.transactionReference
+            );
+          }
+          methods.reset(payload);
+          setDraftLoaded(true);
+        }
+      } catch (err) {
+        setLoadDraftError((err as { response?: { data?: { error?: string } } })?.response?.data?.error || 'Failed to load draft');
+      }
+    }
+    loadDraft();
+  }, [draftId, isFresh, draftLoaded, methods]);
+
+  useEffect(() => {
+    if (isFresh) setSearchParams({}, { replace: true });
+  }, [isFresh, setSearchParams]);
+
   useEffect(() => {
     if (searchParams.get('fresh') === '1') {
       localStorage.removeItem(DRAFT_KEY);
@@ -326,16 +358,19 @@ export default function NewTransactionPage() {
       setStep(0);
       setSubmitResult(null);
       setValidationError(null);
+      setDraftLoaded(false);
       setSearchParams({}, { replace: true });
     }
   }, [searchParams, setSearchParams, methods]);
 
+  // Auto-save to localStorage only when not editing a backend draft
   useEffect(() => {
+    if (draftId && draftLoaded) return; // Skip localStorage when using backend draft
     const timeout = setTimeout(() => {
       localStorage.setItem(DRAFT_KEY, JSON.stringify(formValues));
     }, 1000);
     return () => clearTimeout(timeout);
-  }, [formValues]);
+  }, [formValues, draftId, draftLoaded]);
 
   async function handleNext() {
     setValidationError(null);
@@ -370,7 +405,14 @@ export default function NewTransactionPage() {
     try {
       const payload = cleanPayload(methods.getValues());
       const result = await transactionApi.submit(payload);
-      // Do not clear draft on success - user can go back to edit and resubmit
+      // Delete backend draft if we submitted from one
+      if (draftId) {
+        try {
+          await draftsApi.delete(draftId);
+        } catch {
+          // Ignore – draft may already be deleted
+        }
+      }
       setSubmitResult({
         success: true,
         salesTransactionId: result.data?.data?.salesTransactionId ?? result.data?.salesTransactionId,
@@ -383,12 +425,50 @@ export default function NewTransactionPage() {
     }
   }
 
+  async function handleSaveDraft() {
+    setSaveDraftMessage(null);
+    setSavingDraft(true);
+    try {
+      const payload = methods.getValues();
+      if (draftId) {
+        await draftsApi.update(draftId, payload);
+        setSaveDraftMessage('Draft saved.');
+      } else {
+        const res = await draftsApi.save(payload);
+        setSearchParams({ draft: res.draft.id }, { replace: true });
+        setDraftLoaded(true);
+        setSaveDraftMessage('Draft saved.');
+      }
+      setTimeout(() => setSaveDraftMessage(null), 3000);
+    } catch (err) {
+      setSaveDraftMessage((err as { response?: { data?: { error?: string } } })?.response?.data?.error || 'Failed to save draft');
+    } finally {
+      setSavingDraft(false);
+    }
+  }
+
   function handleClearDraft() {
     localStorage.removeItem(DRAFT_KEY);
+    if (draftId) {
+      setSearchParams({}, { replace: true });
+      setDraftLoaded(false);
+    }
     methods.reset(getDefaultValues());
     setStep(0);
     setSubmitResult(null);
     setValidationError(null);
+  }
+
+  // When loading a backend draft, show loading until fetched
+  if (draftId && !draftLoaded && !loadDraftError) {
+    return (
+      <div className="max-w-6xl mx-auto py-12">
+        <div className="flex items-center justify-center gap-2 text-gray-500">
+          <div className="w-6 h-6 border-2 border-primary-500 border-t-transparent rounded-full animate-spin" />
+          Loading draft...
+        </div>
+      </div>
+    );
   }
 
   if (submitResult) {
@@ -460,18 +540,38 @@ export default function NewTransactionPage() {
 
   return (
     <div className="max-w-6xl mx-auto">
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">New Transaction</h1>
           <p className="text-sm text-gray-500 mt-1">Submit a new sales transaction to Momentum Energy</p>
         </div>
-        <button
-          onClick={handleClearDraft}
-          className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 cursor-pointer"
-        >
-          <Save className="w-4 h-4" />
-          Clear Draft
-        </button>
+        <div className="flex items-center gap-3">
+          {loadDraftError && (
+            <span className="text-sm text-red-600">{loadDraftError}</span>
+          )}
+          {saveDraftMessage && (
+            <span className="text-sm text-green-600">{saveDraftMessage}</span>
+          )}
+          <button
+            type="button"
+            onClick={handleSaveDraft}
+            disabled={savingDraft}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-primary-600 hover:text-primary-700 border border-primary-200 rounded-lg hover:bg-primary-50 disabled:opacity-50 cursor-pointer"
+          >
+            {savingDraft ? (
+              <div className="w-4 h-4 border-2 border-primary-400 border-t-transparent rounded-full animate-spin" />
+            ) : (
+              <Save className="w-4 h-4" />
+            )}
+            Save draft
+          </button>
+          <button
+            onClick={handleClearDraft}
+            className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 cursor-pointer"
+          >
+            Clear Draft
+          </button>
+        </div>
       </div>
 
       <Stepper steps={STEPS} currentStep={step} />
