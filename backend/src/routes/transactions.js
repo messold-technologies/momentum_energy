@@ -55,11 +55,13 @@ router.post(
       const result = await submitSalesTransaction(body, { correlationId });
 
       if (userId) {
+        const salesTransactionId =
+          result?.salesTransactionId ?? result?.data?.salesTransactionId ?? result?.data?.data?.salesTransactionId ?? null;
         await storeSubmission({
           userId,
           correlationId,
           outcome: 'success',
-          salesTransactionId: result.data.data.salesTransactionId,
+          salesTransactionId,
           payloadSnapshot: body,
         }).catch((storeErr) => logger.error('Failed to store submission', { error: storeErr.message }));
       }
@@ -67,7 +69,7 @@ router.post(
       res.status(201).json({
         success: true,
         correlationId,
-        data: result.data,
+        data: result?.data ?? result,
       });
     } catch (error) {
       if (userId) {
