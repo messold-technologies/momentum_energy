@@ -178,7 +178,6 @@ export default function TransactionDetailPage() {
       {(() => {
         const momentum = status.details as Record<string, unknown> | undefined;
         const payload = (momentum?.data ?? status) as Record<string, unknown>;
-        const apiStatus = (momentum?.status ?? status.status) as string | undefined;
         const saleStatusVal = (payload?.status as Record<string, unknown>)?.saleStatus ?? status.transactionStatus;
         const service = payload?.service as Record<string, unknown> | undefined;
         const transaction = payload?.transaction as Record<string, unknown> | undefined;
@@ -188,13 +187,9 @@ export default function TransactionDetailPage() {
             <div className="bg-white rounded-xl border border-gray-200 p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-500">API Invocation Status</p>
+                  <p className="text-sm text-gray-500">Sale Status</p>
                   <div className="mt-1">
-                    <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                      apiStatus === 'SUCCESS' ? 'bg-green-50 text-green-700' : 'bg-gray-100 text-gray-700'
-                    }`}>
-                      {apiStatus || '—'}
-                    </span>
+                  <StatusBadge status={toDisplayString(saleStatusVal ?? '—')} />
                   </div>
                 </div>
                 <div className="text-right">
@@ -233,15 +228,6 @@ export default function TransactionDetailPage() {
                   </span>
                 </div>
               </div>
-            </div>
-
-            {/* Sale Status */}
-            <div className="bg-white rounded-xl border border-gray-200 p-6">
-              <h2 className="text-sm font-semibold text-gray-900 mb-4">Sale Status</h2>
-              <p className="text-xs text-gray-500 mb-2">
-                Status of the sale: Accepted, Failed, Cancelled, Rejected, Validation Failed, On Hold, or Pending.
-              </p>
-              <StatusBadge status={toDisplayString(saleStatusVal ?? '—')} />
             </div>
 
             {/* Service section */}
