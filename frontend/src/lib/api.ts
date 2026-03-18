@@ -46,6 +46,7 @@ export interface Submission {
   errorStatus: number | null;
   payloadSnapshot: Record<string, unknown> | null;
   createdAt: string;
+  userName: string;
 }
 
 export const submissionsApi = {

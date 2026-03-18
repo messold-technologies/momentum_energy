@@ -59,7 +59,7 @@ router.post(
           userId,
           correlationId,
           outcome: 'success',
-          salesTransactionId: result.salesTransactionId,
+          salesTransactionId: result.data.salesTransactionId,
           payloadSnapshot: body,
         }).catch((storeErr) => logger.error('Failed to store submission', { error: storeErr.message }));
       }

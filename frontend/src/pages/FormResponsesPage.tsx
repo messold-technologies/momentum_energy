@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { FileText, CheckCircle, XCircle, ChevronDown, ChevronUp, ExternalLink } from 'lucide-react';
+import { PayloadViewer } from '../components/PayloadViewer';
 import { submissionsApi, type Submission } from '../lib/api';
 import { format } from 'date-fns';
 
@@ -67,70 +68,84 @@ export default function FormResponsesPage() {
               className="bg-white rounded-xl border border-gray-200 overflow-hidden"
             >
               <div
+                role="button"
+                tabIndex={0}
                 className={`flex items-center justify-between gap-4 p-4 cursor-pointer ${
                   s.outcome === 'success' ? 'bg-success-50/50' : 'bg-danger-50/50'
                 }`}
                 onClick={() => setExpandedId(expandedId === s.id ? null : s.id)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    setExpandedId(expandedId === s.id ? null : s.id);
+                  }
+                }}
               >
-                <div className="flex items-center gap-3 min-w-0">
+                <div className="flex items-center gap-3 min-w-0 flex-1">
                   {s.outcome === 'success' ? (
                     <CheckCircle className="w-5 h-5 text-success-600 shrink-0" />
                   ) : (
                     <XCircle className="w-5 h-5 text-danger-600 shrink-0" />
                   )}
-                  <div className="min-w-0">
-                    <span
-                      className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${
-                        s.outcome === 'success'
-                          ? 'bg-success-100 text-success-800'
-                          : 'bg-danger-100 text-danger-800'
-                      }`}
-                    >
-                      {s.outcome}
-                    </span>
-                    <p className="text-sm text-gray-600 mt-1 truncate">
-                      {s.outcome === 'success' && s.salesTransactionId ? (
-                        <>
-                          Transaction ID: {s.salesTransactionId}
+                  <div className="min-w-0 flex-1 grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-4">
+                    <div>
+                      <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Sales Transaction ID</span>
+                      <p className="text-sm text-gray-900 mt-0.5">
+                        {s.salesTransactionId ? (
                           <Link
                             to={`/transactions/${s.salesTransactionId}`}
                             onClick={(e) => e.stopPropagation()}
-                            className="inline-flex items-center gap-0.5 ml-2 text-primary-600 hover:text-primary-700"
+                            className="inline-flex items-center gap-1 text-primary-600 hover:text-primary-700"
                           >
+                            {s.salesTransactionId}
                             <ExternalLink className="w-3.5 h-3.5" />
                           </Link>
-                        </>
-                      ) : (
-                        s.errorMessage || 'Error'
-                      )}
-                    </p>
-                    <p className="text-xs text-gray-400 mt-0.5">
-                      {format(new Date(s.createdAt), 'MMM d, yyyy · h:mm a')}
-                    </p>
+                        ) : (
+                          <span className="text-gray-500">—</span>
+                        )}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Submitted by</span>
+                      <p className="text-sm text-gray-900 mt-0.5 truncate">{s.userName ?? '—'}</p>
+                    </div>
+                    <div>
+                      <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Time</span>
+                      <p className="text-sm text-gray-900 mt-0.5">{format(new Date(s.createdAt), 'MMM d, yyyy · h:mm a')}</p>
+                    </div>
                   </div>
+                  <span
+                    className={`shrink-0 inline-block px-2 py-0.5 rounded text-xs font-medium ${
+                      s.outcome === 'success' ? 'bg-success-100 text-success-800' : 'bg-danger-100 text-danger-800'
+                    }`}
+                  >
+                    {s.outcome}
+                  </span>
                 </div>
                 <button
                   type="button"
-                  className="shrink-0 text-gray-400 hover:text-gray-600"
+                  className="shrink-0 text-gray-400 hover:text-gray-600 p-1"
                   onClick={(e) => {
                     e.stopPropagation();
                     setExpandedId(expandedId === s.id ? null : s.id);
                   }}
                 >
-                  {expandedId === s.id ? (
-                    <ChevronUp className="w-5 h-5" />
-                  ) : (
-                    <ChevronDown className="w-5 h-5" />
-                  )}
+                  {expandedId === s.id ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
                 </button>
               </div>
 
-              {expandedId === s.id && s.payloadSnapshot && (
+              {expandedId === s.id && (
                 <div className="border-t border-gray-200 p-4 bg-gray-50">
-                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Form payload</p>
-                  <pre className="text-xs text-gray-700 overflow-auto max-h-64 p-3 bg-white rounded border border-gray-200">
-                    {JSON.stringify(s.payloadSnapshot, null, 2)}
-                  </pre>
+                  {s.errorMessage && (
+                    <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+                      {s.errorMessage}
+                    </div>
+                  )}
+                  {s.payloadSnapshot ? (
+                    <PayloadViewer payload={s.payloadSnapshot} salesTransactionId={s.salesTransactionId} />
+                  ) : (
+                    <p className="text-sm text-gray-500">No payload data available.</p>
+                  )}
                 </div>
               )}
             </div>

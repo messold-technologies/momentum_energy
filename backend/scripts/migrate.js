@@ -6,7 +6,7 @@
  */
 import dotenv from 'dotenv';
 import pg from 'pg';
-import { readFileSync } from 'fs';
+import { readFileSync, readdirSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 
@@ -14,7 +14,10 @@ dotenv.config();
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const migrationsDir = join(__dirname, '..', 'migrations');
-const sql = readFileSync(join(migrationsDir, '001_create_users_and_submissions.sql'), 'utf8');
+
+const migrationFiles = readdirSync(migrationsDir)
+  .filter((f) => f.endsWith('.sql'))
+  .sort();
 
 async function migrate() {
   const url = process.env.DATABASE_URL;
@@ -25,8 +28,11 @@ async function migrate() {
   const client = new pg.Client({ connectionString: url });
   try {
     await client.connect();
-    await client.query(sql);
-    console.log('Migration 001_create_users_and_submissions completed.');
+    for (const file of migrationFiles) {
+      const sql = readFileSync(join(migrationsDir, file), 'utf8');
+      await client.query(sql);
+      console.log(`Migration ${file} completed.`);
+    }
   } catch (err) {
     console.error('Migration failed:', err.message);
     process.exit(1);

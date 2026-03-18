@@ -15,11 +15,13 @@ router.get('/', async (req, res, next) => {
 
   try {
     const result = await query(
-      `SELECT id, correlation_id, outcome, sales_transaction_id,
-              error_message, error_status, payload_snapshot, created_at
-       FROM submissions
-       WHERE user_id = $1
-       ORDER BY created_at DESC
+      `SELECT s.id, s.correlation_id, s.outcome, s.sales_transaction_id,
+              s.error_message, s.error_status, s.payload_snapshot, s.created_at,
+              u.name AS user_name
+       FROM submissions s
+       JOIN users u ON s.user_id = u.id
+       WHERE s.user_id = $1
+       ORDER BY s.created_at DESC
        LIMIT 100`,
       [userId]
     );
@@ -33,6 +35,7 @@ router.get('/', async (req, res, next) => {
       errorStatus: row.error_status,
       payloadSnapshot: row.payload_snapshot,
       createdAt: row.created_at,
+      userName: row.user_name,
     }));
 
     res.json({
