@@ -46,7 +46,7 @@ export default function Step1Transaction() {
           <input
             {...register('transaction.transactionChannel')}
             className={inputClass}
-            placeholder="e.g. Residential Connections"
+            placeholder="e.g. UtilityHub"
           />
         </FormField>
 
