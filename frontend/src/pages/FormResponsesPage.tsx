@@ -13,7 +13,7 @@ export default function FormResponsesPage() {
 
   useEffect(() => {
     submissionsApi
-      .list()
+      .list(200)
       .then((res) => {
         setSubmissions(res.submissions || []);
       })

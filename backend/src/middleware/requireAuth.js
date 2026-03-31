@@ -21,6 +21,7 @@ export async function requireAuth(req, res, next) {
       id: userId,
       email: decoded.email,
       name: decoded.name,
+      isAdmin: decoded.isAdmin === true,
     };
     next();
   } catch (err) {

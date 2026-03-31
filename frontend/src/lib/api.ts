@@ -50,8 +50,10 @@ export interface Submission {
 }
 
 export const submissionsApi = {
-  list: async () => {
-    const { data } = await api.get<{ success: boolean; submissions: Submission[] }>('/submissions');
+  list: async (limit = 100) => {
+    const { data } = await api.get<{ success: boolean; submissions: Submission[] }>('/submissions', {
+      params: { limit },
+    });
     return data;
   },
 };
@@ -89,6 +91,7 @@ export interface User {
   id: string;
   email: string;
   name: string;
+  isAdmin?: boolean;
 }
 
 export const authApi = {

@@ -41,15 +41,17 @@ router.post('/register', async (req, res, next) => {
 
     const passwordHash = await bcrypt.hash(password, 12);
     const id = uuidv4();
+    const adminEmails = config.auth?.adminEmails ?? [];
+    const isAdmin = adminEmails.includes(trimmedEmail);
     await query(
-      `INSERT INTO users (id, email, name, password_hash) VALUES ($1, $2, $3, $4)`,
-      [id, trimmedEmail, trimmedName, passwordHash]
+      `INSERT INTO users (id, email, name, password_hash, is_admin) VALUES ($1, $2, $3, $4, $5)`,
+      [id, trimmedEmail, trimmedName, passwordHash, isAdmin]
     );
 
     logger.info('User registered', { email: trimmedEmail, userId: id });
     res.status(201).json({
       success: true,
-      user: { id, email: trimmedEmail, name: trimmedName },
+      user: { id, email: trimmedEmail, name: trimmedName, isAdmin },
     });
   } catch (err) {
     if (err.code === '23505') {
@@ -72,7 +74,7 @@ router.post('/login', async (req, res, next) => {
     const trimmedEmail = String(email).trim().toLowerCase();
 
     const result = await query(
-      `SELECT id, email, name, password_hash FROM users WHERE email = $1`,
+      `SELECT id, email, name, password_hash, is_admin FROM users WHERE email = $1`,
       [trimmedEmail]
     );
     if (!result.rows?.length) {
@@ -85,7 +87,7 @@ router.post('/login', async (req, res, next) => {
     }
 
     const token = jwt.sign(
-      { userId: user.id, email: user.email, name: user.name },
+      { userId: user.id, email: user.email, name: user.name, isAdmin: user.is_admin === true },
       config.jwt.secret,
       { expiresIn: config.jwt.expiresIn }
     );
@@ -94,7 +96,7 @@ router.post('/login', async (req, res, next) => {
     res.json({
       success: true,
       token,
-      user: { id: user.id, email: user.email, name: user.name },
+      user: { id: user.id, email: user.email, name: user.name, isAdmin: user.is_admin === true },
     });
   } catch (err) {
     next(err);

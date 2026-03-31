@@ -36,5 +36,10 @@ export default {
       'loans@ezycapital.com.au',
       'bipasha.roy@messold.com'
     ].map((e) => e.toLowerCase()),
+    adminEmails: [
+      'mudit.gupta@utilityhub.com.au',
+      'aseem.gupta@utilityhub.com.au',
+      'bipasha.roy@messold.com'
+    ].map((e) => e.toLowerCase()),
   },
 };
