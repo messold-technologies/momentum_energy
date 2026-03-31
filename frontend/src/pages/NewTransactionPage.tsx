@@ -171,6 +171,20 @@ function toDateOnly(value: string): string {
   return m ? m[1] : value;
 }
 
+/** Convert yyyy-MM (from <input type="month">) to yyyy-MM-dd (end of month) */
+function monthYearToDateOnly(value: string): string {
+  const m = String(value || '').trim().match(/^(\d{4})-(\d{2})$/);
+  if (!m) return value;
+  const year = Number(m[1]);
+  const month = Number(m[2]); // 1-12
+  if (!year || month < 1 || month > 12) return value;
+  const endOfMonth = new Date(Date.UTC(year, month, 0));
+  const yyyy = String(endOfMonth.getUTCFullYear());
+  const mm = String(endOfMonth.getUTCMonth() + 1).padStart(2, '0');
+  const dd = String(endOfMonth.getUTCDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
 /** Remove key if value is empty/falsy */
 function omitIfEmpty(obj: Record<string, unknown>, key: string): void {
   const v = obj[key];
@@ -238,6 +252,10 @@ function cleanPayload(data: TransactionPayload): TransactionPayload {
     if (ri) {
       if (!ri.passport?.documentId?.trim()) delete ri.passport;
       if (!ri.drivingLicense?.documentId?.trim()) delete ri.drivingLicense;
+      // Medicare expiry may come as yyyy-MM from month picker; convert to yyyy-MM-dd for backend
+      if (ri.medicare?.documentExpiryDate) {
+        ri.medicare.documentExpiryDate = monthYearToDateOnly(ri.medicare.documentExpiryDate);
+      }
       if (!ri.medicare?.documentId?.trim()) delete ri.medicare;
     }
   } else {

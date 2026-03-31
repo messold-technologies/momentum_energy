@@ -29,6 +29,23 @@ function isDateNotExpired(dateStr: string): boolean {
   return !isPast(endOfDay(expiryDate));
 }
 
+/** True if expiry string is either yyyy-MM-dd (or ISO) OR yyyy-MM and not expired */
+function isExpiryNotExpired(v: string): boolean {
+  if (!v) return false;
+  const s = String(v).trim();
+  // Allow HTML month input value: yyyy-MM
+  const monthMatch = s.match(/^(\d{4})-(\d{2})$/);
+  if (monthMatch) {
+    const year = Number(monthMatch[1]);
+    const month = Number(monthMatch[2]); // 1-12
+    if (!year || month < 1 || month > 12) return false;
+    // Treat expiry as end of month
+    const end = endOfDay(new Date(year, month, 0));
+    return !isPast(end);
+  }
+  return isDateNotExpired(s);
+}
+
 // Transaction field patterns per CAF spec
 const TRANSACTION_REF_REGEX = /^[A-Z0-9]{1,12}$/;
 const TRANSACTION_CHANNEL_REGEX = /^[A-Za-z0-9\s]+$/;
@@ -181,7 +198,7 @@ const medicareSchema = z
     }
     if (!m.documentExpiryDate) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Expiry date is required when medicare is provided', path: ['documentExpiryDate'] });
-    } else if (!isDateNotExpired(m.documentExpiryDate)) {
+    } else if (!isExpiryNotExpired(m.documentExpiryDate)) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Medicare expiry date has expired', path: ['documentExpiryDate'] });
     }
   });

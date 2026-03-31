@@ -281,7 +281,7 @@ export default function Step2Customer() {
               </FormField>
               <FormField label="Expiry Date" error={errors.customer?.residentIdentity?.medicare?.documentExpiryDate}>
                 <input
-                  type="date"
+                  type="month"
                   {...register('customer.residentIdentity.medicare.documentExpiryDate')}
                   className={inputClass}
                 />
