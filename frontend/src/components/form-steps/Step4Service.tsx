@@ -14,6 +14,25 @@ import { STREET_TYPE_CODES } from '../../lib/streetTypeCodes';
 // Match backend: ACT, NT, WA, SA, VIC, NSW
 const STATES = ['ACT', 'NT', 'WA', 'SA', 'VIC', 'NSW', 'QLD'] as const;
 
+const CONCESSION_CARD_TYPES = [
+  'DVAGV',
+  'HCC',
+  'PCC',
+  'Pensioner Concession Card (PCC)',
+  'DVA Gold Card',
+  'DVA Pension Concession Card',
+  'Health Care Card (HCC)',
+  'DVA TPI',
+  'Disability Pension (EDA)',
+  'DVA War Widow/Widower',
+  'ImmiCard',
+  'Tasmanian Concession Card',
+  'DVA PCC Only',
+  'QLD Seniors Card',
+  'Low Income Health Care Card (LIHCC)',
+  'LIHCC',
+] as const;
+
 export default function Step4Service() {
   const { register, formState, control } = useFormContext();
   const errors = formState.errors as FieldErrors<TransactionPayload>;
@@ -366,40 +385,157 @@ export default function Step4Service() {
 
         {showConcession && (
           <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-5">
-            <FormField label="Card Type" required error={errors.service?.serviceBilling?.concession?.cardType}>
-              <input
-                {...register('service.serviceBilling.concession.cardType')}
-                className={inputClass}
-                placeholder="e.g. Pensioner"
-              />
-            </FormField>
-            <FormField label="Card Number" required error={errors.service?.serviceBilling?.concession?.cardNumber}>
-              <input
-                {...register('service.serviceBilling.concession.cardNumber')}
-                className={inputClass}
-              />
-            </FormField>
-            <FormField label="Start Date" required error={errors.service?.serviceBilling?.concession?.startDate}>
-              <input
-                type="date"
-                {...register('service.serviceBilling.concession.startDate')}
-                className={inputClass}
-              />
-            </FormField>
-            <FormField label="End Date" required error={errors.service?.serviceBilling?.concession?.endDate}>
-              <input
-                type="date"
-                {...register('service.serviceBilling.concession.endDate')}
-                className={inputClass}
-              />
-            </FormField>
             <FormField
-              label="Card Holder Name"
+              label="Concession Consent Obtained"
               required
-              error={errors.service?.serviceBilling?.concession?.holderName}
+              error={errors.service?.serviceBilling?.concession?.concessionConsentObtained}
+            >
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  {...register('service.serviceBilling.concession.concessionConsentObtained')}
+                  className="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500"
+                />
+                <span className="text-sm text-gray-700">Yes</span>
+              </label>
+            </FormField>
+
+            <FormField
+              label="Concession Has MS"
+              required
+              error={errors.service?.serviceBilling?.concession?.concessionHasMS}
+            >
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  {...register('service.serviceBilling.concession.concessionHasMS')}
+                  className="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500"
+                />
+                <span className="text-sm text-gray-700">Yes</span>
+              </label>
+            </FormField>
+
+            <FormField
+              label="Concession In Group Home"
+              required
+              error={errors.service?.serviceBilling?.concession?.concessionInGroupHome}
+            >
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  {...register('service.serviceBilling.concession.concessionInGroupHome')}
+                  className="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500"
+                />
+                <span className="text-sm text-gray-700">Yes</span>
+              </label>
+            </FormField>
+
+            <FormField
+              label="Concession Start Date"
+              required
+              error={errors.service?.serviceBilling?.concession?.concessionStartDate}
             >
               <input
-                {...register('service.serviceBilling.concession.holderName')}
+                type="date"
+                {...register('service.serviceBilling.concession.concessionStartDate')}
+                className={inputClass}
+              />
+            </FormField>
+
+            <FormField
+              label="Concession End Date"
+              required
+              error={errors.service?.serviceBilling?.concession?.concessionEndDate}
+            >
+              <input
+                type="date"
+                {...register('service.serviceBilling.concession.concessionEndDate')}
+                className={inputClass}
+              />
+            </FormField>
+
+            <FormField
+              label="Concession Card Type"
+              required
+              error={errors.service?.serviceBilling?.concession?.concessionCardType}
+            >
+              <select
+                {...register('service.serviceBilling.concession.concessionCardType')}
+                className={selectClass}
+              >
+                <option value="">Select...</option>
+                {CONCESSION_CARD_TYPES.map((t) => (
+                  <option key={t} value={t}>
+                    {t}
+                  </option>
+                ))}
+              </select>
+            </FormField>
+
+            <FormField
+              label="Concession Card Code"
+              required
+              error={errors.service?.serviceBilling?.concession?.concessionCardCode}
+            >
+              <input
+                {...register('service.serviceBilling.concession.concessionCardCode')}
+                className={inputClass}
+                placeholder="e.g. PCC-123"
+              />
+            </FormField>
+
+            <FormField
+              label="Concession Card Number"
+              required
+              error={errors.service?.serviceBilling?.concession?.concessionCardNumber}
+            >
+              <input
+                {...register('service.serviceBilling.concession.concessionCardNumber')}
+                className={inputClass}
+              />
+            </FormField>
+
+            <FormField
+              label="Concession Card Expiry Date"
+              error={errors.service?.serviceBilling?.concession?.concessionCardExpiryDate}
+              hint="Optional"
+            >
+              <input
+                type="date"
+                {...register('service.serviceBilling.concession.concessionCardExpiryDate')}
+                className={inputClass}
+              />
+            </FormField>
+
+            <FormField
+              label="Concession Card - First Name"
+              required
+              error={errors.service?.serviceBilling?.concession?.concessionCardFirstName}
+            >
+              <input
+                {...register('service.serviceBilling.concession.concessionCardFirstName')}
+                className={inputClass}
+              />
+            </FormField>
+
+            <FormField
+              label="Concession Card - Middle Name"
+              error={errors.service?.serviceBilling?.concession?.concessionCardMiddleName}
+              hint="Optional"
+            >
+              <input
+                {...register('service.serviceBilling.concession.concessionCardMiddleName')}
+                className={inputClass}
+              />
+            </FormField>
+
+            <FormField
+              label="Concession Card - Last Name"
+              required
+              error={errors.service?.serviceBilling?.concession?.concessionCardLastName}
+            >
+              <input
+                {...register('service.serviceBilling.concession.concessionCardLastName')}
                 className={inputClass}
               />
             </FormField>

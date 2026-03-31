@@ -43,6 +43,7 @@ export function PayloadViewer({ payload, salesTransactionId }: PayloadViewerProp
   const secondary = contacts.secondaryContact as Record<string, unknown> | undefined;
   const servicedAddr = (service.servicedAddress ?? {}) as Record<string, unknown>;
   const billing = (service.serviceBilling ?? {}) as Record<string, unknown>;
+  const concession = (billing.concession ?? {}) as Record<string, unknown>;
 
   const formatAddr = (addr: Record<string, unknown>) => {
     const parts = [
@@ -133,6 +134,24 @@ export function PayloadViewer({ payload, salesTransactionId }: PayloadViewerProp
           <FieldRow label="Bill Cycle" value={val(billing.billCycleCode)} />
           <FieldRow label="Bill Delivery" value={val(billing.billDeliveryMethod)} />
         </div>
+
+        {Object.keys(concession).length > 0 && (
+          <div className="pt-2 mt-2 border-t border-gray-100 space-y-2">
+            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Concession</p>
+            <FieldRow label="Consent Obtained" value={val(concession.concessionConsentObtained)} />
+            <FieldRow label="Has MS" value={val(concession.concessionHasMS)} />
+            <FieldRow label="In Group Home" value={val(concession.concessionInGroupHome)} />
+            <FieldRow label="Start Date" value={val(concession.concessionStartDate)} />
+            <FieldRow label="End Date" value={val(concession.concessionEndDate)} />
+            <FieldRow label="Card Type" value={val(concession.concessionCardType)} />
+            <FieldRow label="Card Code" value={val(concession.concessionCardCode)} />
+            <FieldRow label="Card Number" value={val(concession.concessionCardNumber)} />
+            <FieldRow label="Card Expiry Date" value={val(concession.concessionCardExpiryDate)} />
+            <FieldRow label="First Name" value={val(concession.concessionCardFirstName)} />
+            <FieldRow label="Middle Name" value={val(concession.concessionCardMiddleName)} />
+            <FieldRow label="Last Name" value={val(concession.concessionCardLastName)} />
+          </div>
+        )}
       </Section>
     </div>
   );

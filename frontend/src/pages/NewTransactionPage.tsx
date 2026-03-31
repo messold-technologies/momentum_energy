@@ -301,8 +301,21 @@ function cleanPayload(data: TransactionPayload): TransactionPayload {
     sb.contractDate = toDateTime(sb.contractDate);
   }
 
-  if (!sb.concession?.cardType?.trim()) {
-    delete sb.concession;
+  // Concession: normalize dates and drop empty optional fields
+  const conc = sb.concession as unknown as Record<string, unknown> | undefined;
+  if (conc) {
+    const start = conc.concessionStartDate as string | undefined;
+    const end = conc.concessionEndDate as string | undefined;
+    const exp = conc.concessionCardExpiryDate as string | undefined;
+    if (start) conc.concessionStartDate = toDateOnly(start);
+    if (end) conc.concessionEndDate = toDateOnly(end);
+    if (exp) conc.concessionCardExpiryDate = toDateOnly(exp);
+    omitIfEmpty(conc, 'concessionCardMiddleName');
+
+    // If the object is present but missing a core required key, drop it entirely
+    if (!String(conc.concessionCardType || '').trim()) {
+      delete sb.concession;
+    }
   }
 
   return cleaned;

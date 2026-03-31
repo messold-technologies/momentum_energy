@@ -133,11 +133,18 @@ export interface ServicedAddress {
 }
 
 export interface Concession {
-  cardType: string;
-  cardNumber: string;
-  startDate: string;
-  endDate: string;
-  holderName: string;
+  concessionConsentObtained: boolean;
+  concessionHasMS: boolean;
+  concessionInGroupHome: boolean;
+  concessionStartDate: string; // ISO 8601 date-only (yyyy-MM-dd)
+  concessionEndDate: string; // ISO 8601 date-only (yyyy-MM-dd)
+  concessionCardType: string;
+  concessionCardCode: string;
+  concessionCardNumber: string;
+  concessionCardExpiryDate?: string; // optional (some cards have no expiry)
+  concessionCardFirstName: string;
+  concessionCardMiddleName?: string;
+  concessionCardLastName: string;
 }
 
 export interface ServiceBilling {

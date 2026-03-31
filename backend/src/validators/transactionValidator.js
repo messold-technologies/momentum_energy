@@ -27,6 +27,26 @@ function toDateOnly(isoStr) {
   return m ? m[1] : null;
 }
 
+function isISODateOnly(v) {
+  return /^\d{4}-\d{2}-\d{2}$/.test(String(v || '').slice(0, 10));
+}
+
+function isNotFutureDateOnly(v) {
+  const d = toDateOnly(v);
+  if (!d) return false;
+  const dt = new Date(d + 'T23:59:59Z');
+  return dt.getTime() <= Date.now();
+}
+
+function isNotPastDateOnly(v) {
+  const d = toDateOnly(v);
+  if (!d) return false;
+  const dt = new Date(d + 'T00:00:00Z');
+  const today = new Date();
+  today.setUTCHours(0, 0, 0, 0);
+  return dt.getTime() >= today.getTime();
+}
+
 // Transaction field validations per CAF spec
 const TRANSACTION_REF_REGEX = /^[A-Z0-9]{1,12}$/;
 const TRANSACTION_CHANNEL_REGEX = /^[A-Za-z0-9\s]+$/;
@@ -556,6 +576,65 @@ const billingValidation = [
   body('service.serviceBilling.billDeliveryMethod')
     .isIn(['EMAIL', 'POST'])
     .withMessage('billDeliveryMethod must be EMAIL or POST'),
+
+  body('service.serviceBilling.concession')
+    .optional({ values: 'falsy' })
+    .custom((c) => {
+      if (!c) return true;
+      // If concession object exists, enforce required fields
+      const requiredBool = ['concessionConsentObtained', 'concessionHasMS', 'concessionInGroupHome'];
+      for (const k of requiredBool) {
+        if (typeof c[k] !== 'boolean') throw new Error(`${k} must be boolean`);
+      }
+
+      if (!c.concessionStartDate) throw new Error('concessionStartDate is required');
+      if (!isISODateOnly(c.concessionStartDate)) throw new Error('concessionStartDate must be ISO date-only (YYYY-MM-DD)');
+      if (!isNotFutureDateOnly(c.concessionStartDate)) throw new Error('concessionStartDate must not be in the future');
+
+      if (!c.concessionEndDate) throw new Error('concessionEndDate is required');
+      if (!isISODateOnly(c.concessionEndDate)) throw new Error('concessionEndDate must be ISO date-only (YYYY-MM-DD)');
+      if (!isNotPastDateOnly(c.concessionEndDate)) throw new Error('concessionEndDate must not be in the past');
+
+      const CARD_TYPES = [
+        'DVAGV',
+        'HCC',
+        'PCC',
+        'Pensioner Concession Card (PCC)',
+        'DVA Gold Card',
+        'DVA Pension Concession Card',
+        'Health Care Card (HCC)',
+        'DVA TPI',
+        'Disability Pension (EDA)',
+        'DVA War Widow/Widower',
+        'ImmiCard',
+        'Tasmanian Concession Card',
+        'DVA PCC Only',
+        'QLD Seniors Card',
+        'Low Income Health Care Card (LIHCC)',
+        'LIHCC',
+      ];
+      if (!c.concessionCardType) throw new Error('concessionCardType is required');
+      if (!CARD_TYPES.includes(c.concessionCardType)) throw new Error('concessionCardType invalid');
+
+      if (!c.concessionCardCode) throw new Error('concessionCardCode is required');
+      if (!/^[A-Za-z0-9-]+$/.test(c.concessionCardCode)) throw new Error('concessionCardCode invalid');
+
+      if (!c.concessionCardNumber) throw new Error('concessionCardNumber is required');
+      if (!/^[A-Za-z0-9-]{1,30}$/.test(c.concessionCardNumber)) throw new Error('concessionCardNumber invalid');
+
+      if (c.concessionCardExpiryDate) {
+        if (!isISODateOnly(c.concessionCardExpiryDate)) throw new Error('concessionCardExpiryDate must be ISO date-only (YYYY-MM-DD)');
+      }
+
+      const NAME = /^[A-Z][a-zA-Z'-.]{1,100}$/;
+      if (!c.concessionCardFirstName) throw new Error('concessionCardFirstName is required');
+      if (!NAME.test(c.concessionCardFirstName)) throw new Error('concessionCardFirstName invalid');
+      if (c.concessionCardMiddleName && !NAME.test(c.concessionCardMiddleName)) throw new Error('concessionCardMiddleName invalid');
+      if (!c.concessionCardLastName) throw new Error('concessionCardLastName is required');
+      if (!NAME.test(c.concessionCardLastName)) throw new Error('concessionCardLastName invalid');
+
+      return true;
+    }),
 ];
 
 const transactionValidationRules = [

@@ -66,6 +66,79 @@ const contactPhoneSchema = z.object({
     .regex(AU_PHONE_REGEX, 'Must be a valid Australian phone number (e.g. 0412345678, 1300123456)'),
 });
 
+// Concession (per spec)
+const CONCESSION_CARD_TYPES = [
+  'DVAGV',
+  'HCC',
+  'PCC',
+  'Pensioner Concession Card (PCC)',
+  'DVA Gold Card',
+  'DVA Pension Concession Card',
+  'Health Care Card (HCC)',
+  'DVA TPI',
+  'Disability Pension (EDA)',
+  'DVA War Widow/Widower',
+  'ImmiCard',
+  'Tasmanian Concession Card',
+  'DVA PCC Only',
+  'QLD Seniors Card',
+  'Low Income Health Care Card (LIHCC)',
+  'LIHCC',
+] as const;
+
+const CONCESSION_CARD_CODE_REGEX = /^[A-Za-z0-9-]+$/;
+const CONCESSION_CARD_NUMBER_REGEX = /^[A-Za-z0-9-]{1,30}$/;
+const CONCESSION_NAME_REGEX = /^[A-Z][a-zA-Z'-.]{1,100}$/;
+
+function isDateOnlyNotFuture(dateStr: string): boolean {
+  if (!dateStr || dateStr.length < 10) return false;
+  const d = parseISO(dateStr.slice(0, 10));
+  if (!isValid(d)) return false;
+  return !isBefore(startOfDay(new Date()), startOfDay(d)); // today >= d
+}
+
+function isDateOnlyNotPast(dateStr: string): boolean {
+  if (!dateStr || dateStr.length < 10) return false;
+  const d = parseISO(dateStr.slice(0, 10));
+  if (!isValid(d)) return false;
+  return !isPast(endOfDay(d));
+}
+
+const concessionSchema = z
+  .object({
+    concessionConsentObtained: z.boolean(),
+    concessionHasMS: z.boolean(),
+    concessionInGroupHome: z.boolean(),
+    concessionStartDate: z.string().min(1),
+    concessionEndDate: z.string().min(1),
+    concessionCardType: z.enum(CONCESSION_CARD_TYPES),
+    concessionCardCode: z.string().regex(CONCESSION_CARD_CODE_REGEX, 'Letters, numbers, hyphen only'),
+    concessionCardNumber: z.string().regex(CONCESSION_CARD_NUMBER_REGEX, '1-30 chars: letters, numbers, hyphen'),
+    concessionCardExpiryDate: z.string().optional(),
+    concessionCardFirstName: z.string().regex(CONCESSION_NAME_REGEX, 'Must start with capital letter (2-101 chars)'),
+    concessionCardMiddleName: z.string().optional().refine((v) => !v || v === '' || CONCESSION_NAME_REGEX.test(v), 'Must start with capital letter (2-101 chars)'),
+    concessionCardLastName: z.string().regex(CONCESSION_NAME_REGEX, 'Must start with capital letter (2-101 chars)'),
+  })
+  .optional()
+  .superRefine((c, ctx) => {
+    if (!c) return;
+    if (!/^\d{4}-\d{2}-\d{2}/.test(c.concessionStartDate)) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Start date must be ISO date (YYYY-MM-DD)', path: ['concessionStartDate'] });
+    } else if (!isDateOnlyNotFuture(c.concessionStartDate)) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Start date must not be in the future', path: ['concessionStartDate'] });
+    }
+    if (!/^\d{4}-\d{2}-\d{2}/.test(c.concessionEndDate)) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'End date must be ISO date (YYYY-MM-DD)', path: ['concessionEndDate'] });
+    } else if (!isDateOnlyNotPast(c.concessionEndDate)) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'End date must not be in the past', path: ['concessionEndDate'] });
+    }
+    if (c.concessionCardExpiryDate) {
+      if (!/^\d{4}-\d{2}-\d{2}/.test(c.concessionCardExpiryDate)) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Card expiry date must be ISO date (YYYY-MM-DD)', path: ['concessionCardExpiryDate'] });
+      }
+    }
+  });
+
 const addressSchema = z.object({
   addressType: z.string().optional().refine((v) => !v || /^[A-Za-z]+$/.test(v), 'addressType must be letters only'),
   unitNumber: z
@@ -534,15 +607,7 @@ export const step4Schema = z
         paymentMethod: z.enum(['Direct Debit Via Bank Account', 'Cheque']),
         billCycleCode: z.string().min(1, 'Bill cycle is required'),
         billDeliveryMethod: z.enum(['EMAIL', 'POST']),
-        concession: z
-          .object({
-            cardType: z.string().min(1),
-            cardNumber: z.string().min(1),
-            startDate: z.string().min(1),
-            endDate: z.string().min(1),
-            holderName: z.string().min(1),
-          })
-          .optional(),
+        concession: concessionSchema,
       }),
     }),
   })
