@@ -137,7 +137,7 @@ When an identity document is provided (documentId for passport/drivingLicense, o
 |-------|------|---------------|
 | `service.serviceType` | Must be `GAS` or `POWER` | "serviceType must be GAS or POWER" |
 | `service.serviceSubType` | Must be `TRANSFER` or `MOVE IN` | "serviceSubType must be TRANSFER or MOVE IN" |
-| `service.serviceConnectionId` | Regex `^[0-9A-Za-z]+$`; POWER: 10 chars (NMI), GAS: 11 chars (MIRN) | "NMI must be 10 characters for POWER service" / "MIRN must be 11 characters for GAS service" |
+| `service.serviceConnectionId` | Regex `^[0-9A-Za-z]+$`; exactly 11 chars | "serviceConnectionId must be 11 characters" |
 | `service.serviceStartDate` | Optional; ISO 8601; when provided must be today or future (no past dates) | "serviceStartDate must be ISO 8601" / "Move-in date / service start date cannot be in the past" |
 | `service.serviceMeterId` | Optional; regex `^[a-zA-Z0-9,./&:-]+$` | "serviceMeterId invalid" |
 

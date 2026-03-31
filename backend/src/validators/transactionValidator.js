@@ -422,12 +422,8 @@ const serviceValidation = [
     .matches(/^[0-9A-Za-z]+$/)
     .withMessage('serviceConnectionId must be alphanumeric')
     .custom((value, { req }) => {
-      const serviceType = req.body?.service?.serviceType;
-      if (serviceType === 'POWER' && value.length !== 10) {
-        throw new Error('NMI must be 10 characters for POWER service');
-      }
-      if (serviceType === 'GAS' && value.length !== 11) {
-        throw new Error('MIRN must be 11 characters for GAS service');
+      if (String(value || '').length !== 11) {
+        throw new Error('serviceConnectionId must be 11 characters');
       }
       return true;
     }),
@@ -622,9 +618,10 @@ const billingValidation = [
       if (!c.concessionCardNumber) throw new Error('concessionCardNumber is required');
       if (!/^[A-Za-z0-9-]{1,30}$/.test(c.concessionCardNumber)) throw new Error('concessionCardNumber invalid');
 
-      if (c.concessionCardExpiryDate) {
-        if (!isISODateOnly(c.concessionCardExpiryDate)) throw new Error('concessionCardExpiryDate must be ISO date-only (YYYY-MM-DD)');
-      }
+      if (!c.concessionCardExpiryDate) throw new Error('concessionCardExpiryDate is required');
+      if (!isISODateOnly(c.concessionCardExpiryDate)) throw new Error('concessionCardExpiryDate must be ISO date-only (YYYY-MM-DD)');
+      if (!isNotPastDateOnly(c.concessionCardExpiryDate)) throw new Error('concessionCardExpiryDate must not be in the past');
+
 
       const NAME = /^[A-Z][a-zA-Z'-.]{1,100}$/;
       if (!c.concessionCardFirstName) throw new Error('concessionCardFirstName is required');

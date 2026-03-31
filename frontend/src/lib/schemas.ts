@@ -114,7 +114,7 @@ const concessionSchema = z
     concessionCardType: z.enum(CONCESSION_CARD_TYPES),
     concessionCardCode: z.string().regex(CONCESSION_CARD_CODE_REGEX, 'Letters, numbers, hyphen only'),
     concessionCardNumber: z.string().regex(CONCESSION_CARD_NUMBER_REGEX, '1-30 chars: letters, numbers, hyphen'),
-    concessionCardExpiryDate: z.string().optional(),
+    concessionCardExpiryDate: z.string().min(1),
     concessionCardFirstName: z.string().regex(CONCESSION_NAME_REGEX, 'Must start with capital letter (2-101 chars)'),
     concessionCardMiddleName: z.string().optional().refine((v) => !v || v === '' || CONCESSION_NAME_REGEX.test(v), 'Must start with capital letter (2-101 chars)'),
     concessionCardLastName: z.string().regex(CONCESSION_NAME_REGEX, 'Must start with capital letter (2-101 chars)'),
@@ -132,10 +132,10 @@ const concessionSchema = z
     } else if (!isDateOnlyNotPast(c.concessionEndDate)) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'End date must not be in the past', path: ['concessionEndDate'] });
     }
-    if (c.concessionCardExpiryDate) {
-      if (!/^\d{4}-\d{2}-\d{2}/.test(c.concessionCardExpiryDate)) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Card expiry date must be ISO date (YYYY-MM-DD)', path: ['concessionCardExpiryDate'] });
-      }
+    if (!/^\d{4}-\d{2}-\d{2}/.test(c.concessionCardExpiryDate)) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Card expiry date must be ISO date (YYYY-MM-DD)', path: ['concessionCardExpiryDate'] });
+    } else if (!isDateOnlyNotPast(c.concessionCardExpiryDate)) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Card expiry date must not be in the past', path: ['concessionCardExpiryDate'] });
     }
   });
 
@@ -620,17 +620,10 @@ export const step4Schema = z
         path: ['service', 'serviceStartDate'],
       });
     }
-    if (s.serviceType === 'POWER' && s.serviceConnectionId.length !== 10) {
+    if (s.serviceConnectionId.length !== 11) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: 'NMI must be 10 characters for POWER service',
-        path: ['service', 'serviceConnectionId'],
-      });
-    }
-    if (s.serviceType === 'GAS' && s.serviceConnectionId.length !== 11) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'MIRN must be 11 characters for GAS service',
+        message: 'Service Connection ID must be 11 characters',
         path: ['service', 'serviceConnectionId'],
       });
     }

@@ -93,13 +93,13 @@ export default function Step4Service() {
           label={serviceType === 'GAS' ? 'MIRN' : 'NMI'}
           required
           error={errors.service?.serviceConnectionId}
-          hint={serviceType === 'GAS' ? '11 characters (MIRN for GAS)' : '10 characters (NMI for POWER)'}
+          hint="11 characters (alphanumeric)"
         >
           <input
             {...register('service.serviceConnectionId')}
             className={inputClass}
-            placeholder={serviceType === 'GAS' ? '11-digit MIRN' : '10-digit NMI'}
-            maxLength={serviceType === 'GAS' ? 11 : 10}
+            placeholder="11-character site identifier"
+            maxLength={11}
           />
         </FormField>
 
@@ -390,14 +390,30 @@ export default function Step4Service() {
               required
               error={errors.service?.serviceBilling?.concession?.concessionConsentObtained}
             >
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  {...register('service.serviceBilling.concession.concessionConsentObtained')}
-                  className="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500"
-                />
-                <span className="text-sm text-gray-700">Yes</span>
-              </label>
+              <div className="flex gap-4 pt-1">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    value="true"
+                    {...register('service.serviceBilling.concession.concessionConsentObtained', {
+                      setValueAs: (v) => v === 'true',
+                    })}
+                    className="w-4 h-4 text-primary-600 border-gray-300 focus:ring-primary-500"
+                  />
+                  <span className="text-sm text-gray-700">Yes</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    value="false"
+                    {...register('service.serviceBilling.concession.concessionConsentObtained', {
+                      setValueAs: (v) => v === 'true',
+                    })}
+                    className="w-4 h-4 text-primary-600 border-gray-300 focus:ring-primary-500"
+                  />
+                  <span className="text-sm text-gray-700">No</span>
+                </label>
+              </div>
             </FormField>
 
             <FormField
@@ -405,14 +421,30 @@ export default function Step4Service() {
               required
               error={errors.service?.serviceBilling?.concession?.concessionHasMS}
             >
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  {...register('service.serviceBilling.concession.concessionHasMS')}
-                  className="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500"
-                />
-                <span className="text-sm text-gray-700">Yes</span>
-              </label>
+              <div className="flex gap-4 pt-1">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    value="true"
+                    {...register('service.serviceBilling.concession.concessionHasMS', {
+                      setValueAs: (v) => v === 'true',
+                    })}
+                    className="w-4 h-4 text-primary-600 border-gray-300 focus:ring-primary-500"
+                  />
+                  <span className="text-sm text-gray-700">Yes</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    value="false"
+                    {...register('service.serviceBilling.concession.concessionHasMS', {
+                      setValueAs: (v) => v === 'true',
+                    })}
+                    className="w-4 h-4 text-primary-600 border-gray-300 focus:ring-primary-500"
+                  />
+                  <span className="text-sm text-gray-700">No</span>
+                </label>
+              </div>
             </FormField>
 
             <FormField
@@ -420,14 +452,30 @@ export default function Step4Service() {
               required
               error={errors.service?.serviceBilling?.concession?.concessionInGroupHome}
             >
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  {...register('service.serviceBilling.concession.concessionInGroupHome')}
-                  className="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500"
-                />
-                <span className="text-sm text-gray-700">Yes</span>
-              </label>
+              <div className="flex gap-4 pt-1">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    value="true"
+                    {...register('service.serviceBilling.concession.concessionInGroupHome', {
+                      setValueAs: (v) => v === 'true',
+                    })}
+                    className="w-4 h-4 text-primary-600 border-gray-300 focus:ring-primary-500"
+                  />
+                  <span className="text-sm text-gray-700">Yes</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    value="false"
+                    {...register('service.serviceBilling.concession.concessionInGroupHome', {
+                      setValueAs: (v) => v === 'true',
+                    })}
+                    className="w-4 h-4 text-primary-600 border-gray-300 focus:ring-primary-500"
+                  />
+                  <span className="text-sm text-gray-700">No</span>
+                </label>
+              </div>
             </FormField>
 
             <FormField
@@ -497,8 +545,8 @@ export default function Step4Service() {
 
             <FormField
               label="Concession Card Expiry Date"
+              required
               error={errors.service?.serviceBilling?.concession?.concessionCardExpiryDate}
-              hint="Optional"
             >
               <input
                 type="date"

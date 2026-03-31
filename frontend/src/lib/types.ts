@@ -141,7 +141,7 @@ export interface Concession {
   concessionCardType: string;
   concessionCardCode: string;
   concessionCardNumber: string;
-  concessionCardExpiryDate?: string; // optional (some cards have no expiry)
+  concessionCardExpiryDate: string; // ISO 8601 date-only (yyyy-MM-dd)
   concessionCardFirstName: string;
   concessionCardMiddleName?: string;
   concessionCardLastName: string;
