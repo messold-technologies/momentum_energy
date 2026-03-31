@@ -34,12 +34,15 @@ const CONCESSION_CARD_TYPES = [
 ] as const;
 
 export default function Step4Service() {
-  const { register, formState, control } = useFormContext();
+  const { register, formState, control, setValue } = useFormContext();
   const errors = formState.errors as FieldErrors<TransactionPayload>;
 
   const serviceType = useWatch({ control, name: 'service.serviceType' });
   const serviceSubType = useWatch({ control, name: 'service.serviceSubType' });
   const [showConcession, setShowConcession] = useState(false);
+  const concessionConsentObtained = useWatch({ control, name: 'service.serviceBilling.concession.concessionConsentObtained' });
+  const concessionHasMS = useWatch({ control, name: 'service.serviceBilling.concession.concessionHasMS' });
+  const concessionInGroupHome = useWatch({ control, name: 'service.serviceBilling.concession.concessionInGroupHome' });
 
   const billCycleOptions =
     serviceType === 'GAS'
@@ -394,10 +397,8 @@ export default function Step4Service() {
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input
                     type="radio"
-                    value="true"
-                    {...register('service.serviceBilling.concession.concessionConsentObtained', {
-                      setValueAs: (v) => v === 'true',
-                    })}
+                    checked={concessionConsentObtained === true}
+                    onChange={() => setValue('service.serviceBilling.concession.concessionConsentObtained', true, { shouldValidate: true })}
                     className="w-4 h-4 text-primary-600 border-gray-300 focus:ring-primary-500"
                   />
                   <span className="text-sm text-gray-700">Yes</span>
@@ -405,10 +406,8 @@ export default function Step4Service() {
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input
                     type="radio"
-                    value="false"
-                    {...register('service.serviceBilling.concession.concessionConsentObtained', {
-                      setValueAs: (v) => v === 'true',
-                    })}
+                    checked={concessionConsentObtained === false}
+                    onChange={() => setValue('service.serviceBilling.concession.concessionConsentObtained', false, { shouldValidate: true })}
                     className="w-4 h-4 text-primary-600 border-gray-300 focus:ring-primary-500"
                   />
                   <span className="text-sm text-gray-700">No</span>
@@ -425,10 +424,8 @@ export default function Step4Service() {
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input
                     type="radio"
-                    value="true"
-                    {...register('service.serviceBilling.concession.concessionHasMS', {
-                      setValueAs: (v) => v === 'true',
-                    })}
+                    checked={concessionHasMS === true}
+                    onChange={() => setValue('service.serviceBilling.concession.concessionHasMS', true, { shouldValidate: true })}
                     className="w-4 h-4 text-primary-600 border-gray-300 focus:ring-primary-500"
                   />
                   <span className="text-sm text-gray-700">Yes</span>
@@ -436,10 +433,8 @@ export default function Step4Service() {
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input
                     type="radio"
-                    value="false"
-                    {...register('service.serviceBilling.concession.concessionHasMS', {
-                      setValueAs: (v) => v === 'true',
-                    })}
+                    checked={concessionHasMS === false}
+                    onChange={() => setValue('service.serviceBilling.concession.concessionHasMS', false, { shouldValidate: true })}
                     className="w-4 h-4 text-primary-600 border-gray-300 focus:ring-primary-500"
                   />
                   <span className="text-sm text-gray-700">No</span>
@@ -456,10 +451,8 @@ export default function Step4Service() {
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input
                     type="radio"
-                    value="true"
-                    {...register('service.serviceBilling.concession.concessionInGroupHome', {
-                      setValueAs: (v) => v === 'true',
-                    })}
+                    checked={concessionInGroupHome === true}
+                    onChange={() => setValue('service.serviceBilling.concession.concessionInGroupHome', true, { shouldValidate: true })}
                     className="w-4 h-4 text-primary-600 border-gray-300 focus:ring-primary-500"
                   />
                   <span className="text-sm text-gray-700">Yes</span>
@@ -467,10 +460,8 @@ export default function Step4Service() {
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input
                     type="radio"
-                    value="false"
-                    {...register('service.serviceBilling.concession.concessionInGroupHome', {
-                      setValueAs: (v) => v === 'true',
-                    })}
+                    checked={concessionInGroupHome === false}
+                    onChange={() => setValue('service.serviceBilling.concession.concessionInGroupHome', false, { shouldValidate: true })}
                     className="w-4 h-4 text-primary-600 border-gray-300 focus:ring-primary-500"
                   />
                   <span className="text-sm text-gray-700">No</span>
