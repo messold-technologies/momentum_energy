@@ -88,7 +88,7 @@ const CONCESSION_CARD_TYPES = [
 
 const CONCESSION_CARD_CODE_REGEX = /^[A-Za-z0-9-]+$/;
 const CONCESSION_CARD_NUMBER_REGEX = /^[A-Za-z0-9-]{1,30}$/;
-const CONCESSION_NAME_REGEX = /^[A-Z][a-zA-Z'-.]{1,100}$/;
+const CONCESSION_NAME_REGEX = /^[A-Z][a-zA-Z'-.]{0,100}$/;
 
 function isDateOnlyNotFuture(dateStr: string): boolean {
   if (!dateStr || dateStr.length < 10) return false;
@@ -115,9 +115,9 @@ const concessionSchema = z
     concessionCardCode: z.string().regex(CONCESSION_CARD_CODE_REGEX, 'Letters, numbers, hyphen only'),
     concessionCardNumber: z.string().regex(CONCESSION_CARD_NUMBER_REGEX, '1-30 chars: letters, numbers, hyphen'),
     concessionCardExpiryDate: z.string().min(1),
-    concessionCardFirstName: z.string().regex(CONCESSION_NAME_REGEX, 'Must start with capital letter (2-101 chars)'),
-    concessionCardMiddleName: z.string().optional().refine((v) => !v || v === '' || CONCESSION_NAME_REGEX.test(v), 'Must start with capital letter (2-101 chars)'),
-    concessionCardLastName: z.string().regex(CONCESSION_NAME_REGEX, 'Must start with capital letter (2-101 chars)'),
+    concessionCardFirstName: z.string().regex(CONCESSION_NAME_REGEX, 'Must start with capital letter (1-101 chars)'),
+    concessionCardMiddleName: z.string().optional().refine((v) => !v || v === '' || CONCESSION_NAME_REGEX.test(v), 'Must start with capital letter (1-101 chars)'),
+    concessionCardLastName: z.string().regex(CONCESSION_NAME_REGEX, 'Must start with capital letter (1-101 chars)'),
   })
   .optional()
   .superRefine((c, ctx) => {
@@ -167,7 +167,7 @@ const addressSchema = z.object({
   postCode: z.string().regex(/^\d{4}$/, 'Postcode must be 4 digits'),
 });
 
-// Step 1: Transaction (per CAF spec)
+
 export const step1Schema = z
   .object({
     transaction: z.object({
@@ -208,7 +208,7 @@ export const step1Schema = z
 
 const IDENTITY_DOC_REGEX = /^[A-Za-z0-9-]{1,30}$/;
 
-// Step 2: Customer - Identity documents
+
 const passportSchema = z
   .object({
     documentId: z.string().optional().refine((v) => !v || v === '' || IDENTITY_DOC_REGEX.test(v), '1-30 chars: letters, numbers, hyphen'),
@@ -276,6 +276,7 @@ const medicareSchema = z
     }
   });
 
+
 const COMPANY_SUB_TYPES = ['Incorporation', 'Limited Company', 'NA', 'Partnership', 'Private', 'Sole Trader', 'Trust', 'C&I', 'SME'] as const;
 
 const INDUSTRIES = [
@@ -289,7 +290,8 @@ const INDUSTRIES = [
 
 const COMPANY_NAME_REGEX = /^[A-Za-z0-9][A-Za-z0-9'&@/()., -]{1,100}$/;
 
-export const step2Schema = z
+
+export const step3Schema = z
   .object({
     customer: z.object({
       customerType: z.enum(['RESIDENT', 'COMPANY']),
@@ -400,8 +402,8 @@ export const step2Schema = z
     }
   });
 
-// Step 3: Contacts (nested under customer.contacts)
-export const step3Schema = z.object({
+
+export const step2Schema = z.object({
   customer: z.object({
     contacts: z.object({
       primaryContact: z.object({
@@ -506,7 +508,7 @@ export const step3Schema = z.object({
   }),
 });
 
-// Step 4: Service
+
 export const step4Schema = z
   .object({
     service: z.object({

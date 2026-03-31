@@ -623,7 +623,7 @@ const billingValidation = [
       if (!isNotPastDateOnly(c.concessionCardExpiryDate)) throw new Error('concessionCardExpiryDate must not be in the past');
 
 
-      const NAME = /^[A-Z][a-zA-Z'-.]{1,100}$/;
+      const NAME = /^[A-Z][a-zA-Z'-.]{0,100}$/;
       if (!c.concessionCardFirstName) throw new Error('concessionCardFirstName is required');
       if (!NAME.test(c.concessionCardFirstName)) throw new Error('concessionCardFirstName invalid');
       if (c.concessionCardMiddleName && !NAME.test(c.concessionCardMiddleName)) throw new Error('concessionCardMiddleName invalid');

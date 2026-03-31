@@ -3,27 +3,30 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useForm, FormProvider, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { v4 as uuidv4 } from 'uuid';
-import { ArrowLeft, ArrowRight, Send, Save } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Send, Save, Eye, X } from 'lucide-react';
 
 import Stepper from '../components/ui/Stepper';
 import Step1Transaction from '../components/form-steps/Step1Transaction';
-import Step2Customer from '../components/form-steps/Step2Customer';
-import Step3Contact from '../components/form-steps/Step3Contact';
+import Step2Customer from '../components/form-steps/Step3Customer';
+import Step3Contact from '../components/form-steps/Step2Contact';
 import Step4Service from '../components/form-steps/Step4Service';
 import { step1Schema, step2Schema, step3Schema, step4Schema, fullSchema } from '../lib/schemas';
 import { transactionApi, draftsApi } from '../lib/api';
 import type { TransactionPayload } from '../lib/types';
+import { PayloadViewer } from '../components/PayloadViewer';
 
 const STEPS = [
   { label: 'Transaction', description: 'Basic info' },
-  { label: 'Customer', description: 'Customer details' },
   { label: 'Contact', description: 'Contact info' },
+  { label: 'Customer', description: 'Customer details' },
   { label: 'Service', description: 'Service & billing' },
 ];
 
 const DRAFT_KEY = 'momentum_draft_transaction';
 
-const schemas = [step1Schema, step2Schema, step3Schema, step4Schema];
+// Must match the visual step order in this page:
+// Transaction -> Contact -> Customer -> Service
+const stepSchemas = [step1Schema, step2Schema, step3Schema, step4Schema];
 
 /** Flatten react-hook-form errors into a single user-friendly message */
 function formatValidationErrors(errors: Record<string, unknown>): string {
@@ -328,6 +331,8 @@ export default function NewTransactionPage() {
   const [saveDraftMessage, setSaveDraftMessage] = useState<string | null>(null);
   const [loadDraftError, setLoadDraftError] = useState<string | null>(null);
   const [draftLoaded, setDraftLoaded] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewPayload, setPreviewPayload] = useState<Record<string, unknown> | null>(null);
   const [submitResult, setSubmitResult] = useState<{
     success: boolean;
     salesTransactionId?: string;
@@ -347,7 +352,7 @@ export default function NewTransactionPage() {
 
   const methods = useForm<TransactionPayload>({
     defaultValues: getDefaultValues(),
-    resolver: zodResolver(schemas[step]) as unknown as Resolver<TransactionPayload>,
+    resolver: zodResolver(stepSchemas[step]) as unknown as Resolver<TransactionPayload>,
     mode: 'onTouched',
   });
 
@@ -454,6 +459,27 @@ export default function NewTransactionPage() {
     } finally {
       setSubmitting(false);
     }
+  }
+
+  async function handlePreview() {
+    setValidationError(null);
+    const payload = methods.getValues();
+    const fullResult = fullSchema.safeParse(payload);
+    if (!fullResult.success) {
+      const err = fullResult.error;
+      const messages: string[] = [];
+      for (const issue of err.issues) {
+        const path = issue.path.join('.');
+        if (path) methods.setError(path as 'transaction' | 'customer' | 'service', { type: 'manual', message: issue.message });
+        if (issue.message) messages.push(issue.message);
+      }
+      setValidationError(messages.join(' • '));
+      return;
+    }
+
+    const cleaned = cleanPayload(payload);
+    setPreviewPayload(cleaned as unknown as Record<string, unknown>);
+    setPreviewOpen(true);
   }
 
   async function handleSaveDraft() {
@@ -611,8 +637,8 @@ export default function NewTransactionPage() {
         <FormProvider {...methods}>
           <form onSubmit={(e) => e.preventDefault()}>
             {step === 0 && <Step1Transaction />}
-            {step === 1 && <Step2Customer />}
-            {step === 2 && <Step3Contact />}
+            {step === 1 && <Step3Contact />}
+            {step === 2 && <Step2Customer />}
             {step === 3 && <Step4Service />}
           </form>
         </FormProvider>
@@ -641,26 +667,100 @@ export default function NewTransactionPage() {
               <ArrowRight className="w-4 h-4" />
             </button>
           ) : (
-            <button
-              type="button"
-              onClick={handleSubmit}
-              disabled={submitting}
-              className="inline-flex items-center gap-2 px-5 py-2 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 disabled:opacity-50 cursor-pointer"
-            >
-              {submitting ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  Submitting...
-                </>
-              ) : (
-                <>
-                  <Send className="w-4 h-4" />
-                  Submit Transaction
-                </>
-              )}
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={handlePreview}
+                disabled={submitting}
+                className="inline-flex items-center gap-2 px-5 py-2 text-sm font-medium text-primary-700 bg-white border border-primary-200 rounded-lg hover:bg-primary-50 disabled:opacity-50 cursor-pointer"
+              >
+                <Eye className="w-4 h-4" />
+                Preview
+              </button>
+              <button
+                type="button"
+                onClick={handleSubmit}
+                disabled={submitting}
+                className="inline-flex items-center gap-2 px-5 py-2 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 disabled:opacity-50 cursor-pointer"
+              >
+                {submitting ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    Submitting...
+                  </>
+                ) : (
+                  <>
+                    <Send className="w-4 h-4" />
+                    Submit Transaction
+                  </>
+                )}
+              </button>
+            </div>
           )}
         </div>
+
+        {previewOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <button
+              type="button"
+              className="absolute inset-0 bg-black/40"
+              onClick={() => setPreviewOpen(false)}
+              aria-label="Close preview"
+            />
+            <div className="relative w-full max-w-5xl max-h-[85vh] overflow-hidden rounded-2xl bg-white border border-gray-200 shadow-xl">
+              <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200">
+                <div>
+                  <p className="text-sm font-semibold text-gray-900">Preview submission</p>
+                  <p className="text-xs text-gray-500 mt-0.5">Review all details before submitting</p>
+                </div>
+                <button
+                  type="button"
+                  className="p-2 text-gray-400 hover:text-gray-600 cursor-pointer"
+                  onClick={() => setPreviewOpen(false)}
+                  aria-label="Close"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="p-5 overflow-auto max-h-[calc(85vh-140px)] bg-gray-50">
+                <PayloadViewer payload={previewPayload} />
+              </div>
+
+              <div className="flex items-center justify-end gap-3 px-5 py-4 border-t border-gray-200 bg-white">
+                <button
+                  type="button"
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 cursor-pointer"
+                  onClick={() => setPreviewOpen(false)}
+                  disabled={submitting}
+                >
+                  Back
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setPreviewOpen(false);
+                    await handleSubmit();
+                  }}
+                  disabled={submitting}
+                  className="inline-flex items-center gap-2 px-5 py-2 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 disabled:opacity-50 cursor-pointer"
+                >
+                  {submitting ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      Submitting...
+                    </>
+                  ) : (
+                    <>
+                      <Send className="w-4 h-4" />
+                      Submit
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {validationError && (
           <div
