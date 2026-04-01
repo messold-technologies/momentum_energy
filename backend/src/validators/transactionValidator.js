@@ -384,8 +384,8 @@ const addressValidation = [
     .withMessage('suburb invalid'),
 
   body('customer.contacts.primaryContact.addresses.*.state')
-    .isIn(['ACT', 'NT', 'WA', 'SA', 'VIC', 'NSW'])
-    .withMessage('state must be ACT, NT, WA, SA, VIC, or NSW'),
+    .isIn(['ACT', 'NT', 'WA', 'SA', 'VIC', 'NSW', 'QLD'])
+    .withMessage('state must be ACT, NT, WA, SA, VIC, NSW or QLD'),
 
   body('customer.contacts.primaryContact.addresses.*.postCode')
     .matches(/^[0-9]{4}$/)
@@ -520,8 +520,8 @@ const serviceValidation = [
     .withMessage('suburb must be letters and numbers only'),
 
   body('service.servicedAddress.state')
-    .isIn(['ACT', 'NT', 'WA', 'SA', 'VIC', 'NSW'])
-    .withMessage('state must be ACT, NT, WA, SA, VIC, or NSW'),
+    .isIn(['ACT', 'NT', 'WA', 'SA', 'VIC', 'NSW' , 'QLD'])
+    .withMessage('state must be ACT, NT, WA, SA, VIC, NSW or QLD'),
 
   body('service.servicedAddress.postCode')
     .matches(/^[0-9]{4}$/)

@@ -39,7 +39,8 @@ export default {
     adminEmails: [
       'mudit.gupta@utilityhub.com.au',
       'aseem.gupta@utilityhub.com.au',
-      'bipasha.roy@messold.com'
+      'bipasha.roy@messold.com',
+      'ishu.gupta@utilityhub.com.au'
     ].map((e) => e.toLowerCase()),
   },
 };

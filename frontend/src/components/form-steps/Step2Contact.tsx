@@ -8,7 +8,7 @@ import { STREET_TYPE_CODES } from '../../lib/streetTypeCodes';
 
 const SALUTATIONS = ['Mr.', 'Ms.', 'Mrs.', 'Dr.', 'Prof.'];
 // Must match backend: ACT, NT, WA, SA, VIC, NSW only
-const STATES = ['ACT', 'NT', 'WA', 'SA', 'VIC', 'NSW'] as const;
+const STATES = ['ACT', 'NT', 'WA', 'SA', 'VIC', 'NSW', 'QLD'] as const;
 const PHONE_TYPES = ['MOBILE', 'HOME', 'WORK'] as const;
 
 function PhoneFields({ basePath }: { basePath: string }) {
