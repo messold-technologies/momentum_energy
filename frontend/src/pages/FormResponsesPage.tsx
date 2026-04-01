@@ -15,6 +15,11 @@ export default function FormResponsesPage() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const navigate = useNavigate();
 
+  const generateTransactionReference = () => {
+    const uuid = globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`;
+    return uuid.replaceAll('-', '').toUpperCase().replaceAll(/[^A-Z0-9]/g, '').slice(0, 12);
+  };
+
   useEffect(() => {
     submissionsApi
       .list(200)
@@ -126,76 +131,85 @@ export default function FormResponsesPage() {
                     {s.outcome}
                   </span>
                 </div>
-                <button
-                  type="button"
-                  className="shrink-0 text-gray-400 hover:text-gray-600 p-1"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setExpandedId(expandedId === s.id ? null : s.id);
-                  }}
-                >
-                  {expandedId === s.id ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
-                </button>
+                <div className="shrink-0 flex items-center gap-1">
+                  <button
+                    type="button"
+                    aria-label="Copy form"
+                    title="Copy form"
+                    disabled={!s.payloadSnapshot || copyingId === s.id}
+                    onClick={async (e) => {
+                      e.stopPropagation();
+                      if (!s.payloadSnapshot) return;
+                      setCopyingId(s.id);
+                      setError(null);
+                      try {
+                        const copied = structuredClone(s.payloadSnapshot) as unknown as TransactionPayload;
+                        copied.transaction = copied.transaction ?? ({} as TransactionPayload['transaction']);
+                        copied.transaction.transactionReference = generateTransactionReference();
+                        copied.transaction.transactionDate = new Date().toISOString().slice(0, 16);
+
+                        const res = await draftsApi.save(copied);
+                        navigate(`/transactions/new?draft=${res.draft.id}`);
+                      } catch (err) {
+                        setError((err as { response?: { data?: { error?: string } } })?.response?.data?.error || 'Failed to copy form');
+                      } finally {
+                        setCopyingId(null);
+                      }
+                    }}
+                    className="inline-flex items-center justify-center w-9 h-9 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 hover:text-gray-800 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                  >
+                    {copyingId === s.id ? (
+                      <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <Copy className="w-4 h-4" />
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    aria-label="Delete submission"
+                    title="Delete"
+                    disabled={deletingId === s.id}
+                    onClick={async (e) => {
+                      e.stopPropagation();
+                      const ok = globalThis.confirm('Delete this submission? This cannot be undone.');
+                      if (!ok) return;
+                      setDeletingId(s.id);
+                      setError(null);
+                      try {
+                        await submissionsApi.delete(s.id);
+                        setSubmissions((prev) => prev.filter((x) => x.id !== s.id));
+                        setExpandedId((prev) => (prev === s.id ? null : prev));
+                      } catch (err) {
+                        setError((err as { response?: { data?: { error?: string } } })?.response?.data?.error || 'Failed to delete submission');
+                      } finally {
+                        setDeletingId(null);
+                      }
+                    }}
+                    className="inline-flex items-center justify-center w-9 h-9 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 hover:text-danger-700 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                  >
+                    {deletingId === s.id ? (
+                      <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <Trash2 className="w-4 h-4" />
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    aria-label={expandedId === s.id ? 'Collapse details' : 'Expand details'}
+                    title={expandedId === s.id ? 'Collapse' : 'Expand'}
+                    className="inline-flex items-center justify-center w-9 h-9 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 hover:text-gray-800 cursor-pointer"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setExpandedId(expandedId === s.id ? null : s.id);
+                    }}
+                  >
+                    {expandedId === s.id ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                  </button>
+                </div>
               </div>
 
               {expandedId === s.id && (
                 <div className="border-t border-gray-200 p-4 bg-gray-50">
-                  <div className="flex items-center justify-end gap-2 mb-4">
-                    <button
-                      type="button"
-                      disabled={!s.payloadSnapshot || copyingId === s.id}
-                      onClick={async (e) => {
-                        e.stopPropagation();
-                        if (!s.payloadSnapshot) return;
-                        setCopyingId(s.id);
-                        setError(null);
-                        try {
-                          const res = await draftsApi.save(s.payloadSnapshot as unknown as TransactionPayload);
-                          navigate(`/transactions/new?draft=${res.draft.id}`);
-                        } catch (err) {
-                          setError((err as { response?: { data?: { error?: string } } })?.response?.data?.error || 'Failed to copy form');
-                        } finally {
-                          setCopyingId(null);
-                        }
-                      }}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-primary-700 bg-white border border-primary-200 rounded-lg hover:bg-primary-50 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-                    >
-                      {copyingId === s.id ? (
-                        <div className="w-4 h-4 border-2 border-primary-400 border-t-transparent rounded-full animate-spin" />
-                      ) : (
-                        <Copy className="w-4 h-4" />
-                      )}
-                      Copy form
-                    </button>
-                    <button
-                      type="button"
-                      disabled={deletingId === s.id}
-                      onClick={async (e) => {
-                        e.stopPropagation();
-                        const ok = globalThis.confirm('Delete this submission? This cannot be undone.');
-                        if (!ok) return;
-                        setDeletingId(s.id);
-                        setError(null);
-                        try {
-                          await submissionsApi.delete(s.id);
-                          setSubmissions((prev) => prev.filter((x) => x.id !== s.id));
-                          setExpandedId((prev) => (prev === s.id ? null : prev));
-                        } catch (err) {
-                          setError((err as { response?: { data?: { error?: string } } })?.response?.data?.error || 'Failed to delete submission');
-                        } finally {
-                          setDeletingId(null);
-                        }
-                      }}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-                    >
-                      {deletingId === s.id ? (
-                        <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
-                      ) : (
-                        <Trash2 className="w-4 h-4" />
-                      )}
-                      Delete
-                    </button>
-                  </div>
                   {s.errorMessage && (
                     <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
                       {s.errorMessage}
