@@ -161,8 +161,8 @@ const addressSchema = z.object({
     .string()
     .min(1, 'Suburb is required')
     .regex(/^[A-Za-z0-9 ]+$/, 'Letters and numbers only'),
-  state: z.enum(['ACT', 'NT', 'WA', 'SA', 'VIC', 'NSW'], {
-    message: 'State must be ACT, NT, WA, SA, VIC, or NSW',
+  state: z.enum(['ACT', 'NT', 'WA', 'SA', 'VIC', 'NSW', 'QLD'], {
+    message: 'State must be ACT, NT, WA, SA, VIC, NSW, QLD',
   }),
   postCode: z.string().regex(/^\d{4}$/, 'Postcode must be 4 digits'),
 });
@@ -570,8 +570,8 @@ export const step4Schema = z
           .min(1, 'Street type is required')
           .refine((v) => STREET_TYPE_CODES.includes(v as (typeof STREET_TYPE_CODES)[number]), 'Invalid street type code'),
         suburb: z.string().min(1, 'Suburb is required').regex(/^[A-Za-z0-9 ]+$/, 'Letters and numbers only'),
-        state: z.enum(['ACT', 'NT', 'WA', 'SA', 'VIC', 'NSW'], {
-          message: 'State must be ACT, NT, WA, SA, VIC, or NSW',
+        state: z.enum(['ACT', 'NT', 'WA', 'SA', 'VIC', 'NSW' , 'QLD'], {
+          message: 'State must be ACT, NT, WA, SA, VIC, NSW or QLD',
         }),
         postCode: z.string().regex(/^\d{4}$/, 'Postcode must be 4 digits'),
         accessInstructions: z
