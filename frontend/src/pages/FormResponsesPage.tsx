@@ -1,15 +1,19 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import { FileText, CheckCircle, XCircle, ChevronDown, ChevronUp, ExternalLink } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { FileText, CheckCircle, XCircle, ChevronDown, ChevronUp, ExternalLink, Copy, Trash2 } from 'lucide-react';
 import { PayloadViewer } from '../components/PayloadViewer';
-import { submissionsApi, type Submission } from '../lib/api';
+import { draftsApi, submissionsApi, type Submission } from '../lib/api';
 import { format } from 'date-fns';
+import type { TransactionPayload } from '../lib/types';
 
 export default function FormResponsesPage() {
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [copyingId, setCopyingId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
     submissionsApi
@@ -136,6 +140,62 @@ export default function FormResponsesPage() {
 
               {expandedId === s.id && (
                 <div className="border-t border-gray-200 p-4 bg-gray-50">
+                  <div className="flex items-center justify-end gap-2 mb-4">
+                    <button
+                      type="button"
+                      disabled={!s.payloadSnapshot || copyingId === s.id}
+                      onClick={async (e) => {
+                        e.stopPropagation();
+                        if (!s.payloadSnapshot) return;
+                        setCopyingId(s.id);
+                        setError(null);
+                        try {
+                          const res = await draftsApi.save(s.payloadSnapshot as unknown as TransactionPayload);
+                          navigate(`/transactions/new?draft=${res.draft.id}`);
+                        } catch (err) {
+                          setError((err as { response?: { data?: { error?: string } } })?.response?.data?.error || 'Failed to copy form');
+                        } finally {
+                          setCopyingId(null);
+                        }
+                      }}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-primary-700 bg-white border border-primary-200 rounded-lg hover:bg-primary-50 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                    >
+                      {copyingId === s.id ? (
+                        <div className="w-4 h-4 border-2 border-primary-400 border-t-transparent rounded-full animate-spin" />
+                      ) : (
+                        <Copy className="w-4 h-4" />
+                      )}
+                      Copy form
+                    </button>
+                    <button
+                      type="button"
+                      disabled={deletingId === s.id}
+                      onClick={async (e) => {
+                        e.stopPropagation();
+                        const ok = globalThis.confirm('Delete this submission? This cannot be undone.');
+                        if (!ok) return;
+                        setDeletingId(s.id);
+                        setError(null);
+                        try {
+                          await submissionsApi.delete(s.id);
+                          setSubmissions((prev) => prev.filter((x) => x.id !== s.id));
+                          setExpandedId((prev) => (prev === s.id ? null : prev));
+                        } catch (err) {
+                          setError((err as { response?: { data?: { error?: string } } })?.response?.data?.error || 'Failed to delete submission');
+                        } finally {
+                          setDeletingId(null);
+                        }
+                      }}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                    >
+                      {deletingId === s.id ? (
+                        <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
+                      ) : (
+                        <Trash2 className="w-4 h-4" />
+                      )}
+                      Delete
+                    </button>
+                  </div>
                   {s.errorMessage && (
                     <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
                       {s.errorMessage}

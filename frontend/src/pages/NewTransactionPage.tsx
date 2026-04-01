@@ -333,6 +333,7 @@ export default function NewTransactionPage() {
   const [draftLoaded, setDraftLoaded] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewPayload, setPreviewPayload] = useState<Record<string, unknown> | null>(null);
+  const [lastSubmittedPayload, setLastSubmittedPayload] = useState<TransactionPayload | null>(null);
   const [submitResult, setSubmitResult] = useState<{
     success: boolean;
     salesTransactionId?: string;
@@ -441,6 +442,7 @@ export default function NewTransactionPage() {
     try {
       const payload = cleanPayload(methods.getValues());
       const result = await transactionApi.submit(payload);
+      setLastSubmittedPayload(methods.getValues());
       // Delete backend draft if we submitted from one
       if (draftId) {
         try {
@@ -560,6 +562,29 @@ export default function NewTransactionPage() {
                   className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 text-sm font-medium cursor-pointer"
                 >
                   View Transaction
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!lastSubmittedPayload) return;
+                    localStorage.removeItem(DRAFT_KEY);
+                    setSearchParams({}, { replace: true }); // drop ?draft etc.
+                    setDraftLoaded(false);
+
+                    const copied = structuredClone(lastSubmittedPayload);
+                    copied.transaction = copied.transaction ?? {};
+                    copied.transaction.transactionReference = uuidv4().replaceAll('-', '').slice(0, 12).toUpperCase();
+                    copied.transaction.transactionDate = new Date().toISOString().slice(0, 16);
+
+                    methods.reset(copied);
+                    setStep(0);
+                    setSubmitResult(null);
+                    setValidationError(null);
+                  }}
+                  disabled={!lastSubmittedPayload}
+                  className="px-4 py-2 bg-white border border-primary-200 text-primary-700 rounded-lg hover:bg-primary-50 text-sm font-medium cursor-pointer disabled:opacity-50"
+                >
+                  Copy form
                 </button>
                 <button
                   onClick={() => setSubmitResult(null)}

@@ -63,4 +63,30 @@ router.get('/', async (req, res, next) => {
   }
 });
 
+router.delete('/:id', async (req, res, next) => {
+  const userId = req.user?.id;
+  if (!userId) {
+    return res.status(401).json({ success: false, error: 'Authentication required' });
+  }
+
+  const { id } = req.params;
+
+  try {
+    const isAdmin = req.user?.isAdmin === true;
+    const sql = isAdmin
+      ? `DELETE FROM submissions WHERE id = $1 RETURNING id`
+      : `DELETE FROM submissions WHERE id = $1 AND user_id = $2 RETURNING id`;
+
+    const result = await query(sql, isAdmin ? [id] : [id, userId]);
+    if (!result.rows?.length) {
+      return res.status(404).json({ success: false, error: 'Submission not found' });
+    }
+
+    res.json({ success: true });
+  } catch (err) {
+    logger.error('Failed to delete submission', { error: err.message, id, userId });
+    next(err);
+  }
+});
+
 export default router;
