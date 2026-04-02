@@ -22,7 +22,7 @@ export default function FormResponsesPage() {
 
   useEffect(() => {
     submissionsApi
-      .list(200)
+      .list({ limit: 200 })
       .then((res) => {
         setSubmissions(res.submissions || []);
       })

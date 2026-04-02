@@ -5,6 +5,7 @@ import {
   FilePlus,
   FileEdit,
   FileText,
+  Sheet,
   Menu,
   X,
   LogOut,
@@ -17,6 +18,7 @@ const navItems = [
   { to: '/transactions/new?fresh=1', label: 'New Transaction', icon: FilePlus },
   { to: '/drafts', label: 'My Drafts', icon: FileEdit },
   { to: '/form-responses', label: 'Form Responses', icon: FileText },
+  { to: '/excel-dashboard', label: 'Excel Dashboard', icon: Sheet },
 ];
 
 export default function AppLayout() {

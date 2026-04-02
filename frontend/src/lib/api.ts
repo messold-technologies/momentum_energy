@@ -50,9 +50,14 @@ export interface Submission {
 }
 
 export const submissionsApi = {
-  list: async (limit = 100) => {
+  list: async (options?: { limit?: number; from?: string; to?: string }) => {
+    const limit = options?.limit ?? 100;
     const { data } = await api.get<{ success: boolean; submissions: Submission[] }>('/submissions', {
-      params: { limit },
+      params: {
+        limit,
+        ...(options?.from ? { from: options.from } : {}),
+        ...(options?.to ? { to: options.to } : {}),
+      },
     });
     return data;
   },
@@ -66,11 +71,19 @@ export interface Draft {
   id: string;
   updatedAt: string;
   preview?: string;
+  userName?: string;
 }
 
 export const draftsApi = {
-  list: async () => {
-    const { data } = await api.get<{ success: boolean; drafts: Draft[] }>('/drafts');
+  list: async (options?: { limit?: number; from?: string; to?: string }) => {
+    const limit = options?.limit ?? 50;
+    const { data } = await api.get<{ success: boolean; drafts: Draft[] }>('/drafts', {
+      params: {
+        limit,
+        ...(options?.from ? { from: options.from } : {}),
+        ...(options?.to ? { to: options.to } : {}),
+      },
+    });
     return data;
   },
   get: async (id: string) => {

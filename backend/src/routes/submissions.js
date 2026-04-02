@@ -1,11 +1,33 @@
 /**
  * GET /api/submissions
- * List form submissions for the authenticated user
+ * List form submissions for the authenticated user (or all for admin)
+ *
+ * Optional query: from, to as YYYY-MM-DD (UTC day bounds), limit (max 500)
  */
 import express from 'express';
 const router = express.Router();
 import { query } from '../db/connection.js';
 import logger from '../config/logger.js';
+
+/** YYYY-MM-DD -> start of that day UTC */
+function startOfUtcDayIso(dateStr) {
+  return `${dateStr}T00:00:00.000Z`;
+}
+
+/** YYYY-MM-DD -> instant at start of next day UTC (exclusive upper bound) */
+function endOfUtcDayExclusive(dateStr) {
+  const d = new Date(`${dateStr}T00:00:00.000Z`);
+  d.setUTCDate(d.getUTCDate() + 1);
+  return d.toISOString();
+}
+
+const DATE_ONLY_RE = /^(\d{4}-\d{2}-\d{2})/;
+
+function parseDateOnlyQuery(value) {
+  if (typeof value !== 'string' || !value.trim()) return null;
+  const m = DATE_ONLY_RE.exec(value.trim());
+  return m ? m[1] : null;
+}
 
 router.get('/', async (req, res, next) => {
   const userId = req.user?.id;
@@ -20,24 +42,50 @@ router.get('/', async (req, res, next) => {
     const parsed = typeof rawLimit === 'string' ? Number.parseInt(rawLimit, 10) : Number.NaN;
     const limit = Number.isFinite(parsed) && parsed > 0 ? Math.min(parsed, 500) : 100;
 
-    const sql = isAdmin
-      ? `SELECT s.id, s.correlation_id, s.outcome, s.sales_transaction_id,
-                s.error_message, s.error_status, s.payload_snapshot, s.created_at,
-                u.name AS user_name
-         FROM submissions s
-         JOIN users u ON s.user_id = u.id
-         ORDER BY s.created_at DESC
-         LIMIT $1`
-      : `SELECT s.id, s.correlation_id, s.outcome, s.sales_transaction_id,
-                s.error_message, s.error_status, s.payload_snapshot, s.created_at,
-                u.name AS user_name
-         FROM submissions s
-         JOIN users u ON s.user_id = u.id
-         WHERE s.user_id = $1
-         ORDER BY s.created_at DESC
-         LIMIT $2`;
+    const fromDate = parseDateOnlyQuery(req.query?.from);
+    const toDate = parseDateOnlyQuery(req.query?.to);
 
-    const result = await query(sql, isAdmin ? [limit] : [userId, limit]);
+    const params = [];
+    let idx = 1;
+
+    if (!isAdmin) {
+      params.push(userId);
+      idx = 2;
+    }
+
+    const dateParts = [];
+    if (fromDate) {
+      dateParts.push(`s.created_at >= $${idx}`);
+      params.push(startOfUtcDayIso(fromDate));
+      idx += 1;
+    }
+    if (toDate) {
+      dateParts.push(`s.created_at < $${idx}`);
+      params.push(endOfUtcDayExclusive(toDate));
+      idx += 1;
+    }
+    const dateSql = dateParts.length ? ` AND ${dateParts.join(' AND ')}` : '';
+
+    params.push(limit);
+    const limitPlaceholder = `$${idx}`;
+
+    const baseSelect = `SELECT s.id, s.correlation_id, s.outcome, s.sales_transaction_id,
+                s.error_message, s.error_status, s.payload_snapshot, s.created_at,
+                u.name AS user_name
+         FROM submissions s
+         JOIN users u ON s.user_id = u.id`;
+
+    const sql = isAdmin
+      ? `${baseSelect}
+         WHERE 1=1${dateSql}
+         ORDER BY s.created_at DESC
+         LIMIT ${limitPlaceholder}`
+      : `${baseSelect}
+         WHERE s.user_id = $1${dateSql}
+         ORDER BY s.created_at DESC
+         LIMIT ${limitPlaceholder}`;
+
+    const result = await query(sql, params);
 
     const defaultUserName = req.user?.name ?? '';
 

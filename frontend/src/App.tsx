@@ -7,6 +7,7 @@ import NewTransactionPage from './pages/NewTransactionPage';
 import TransactionDetailPage from './pages/TransactionDetailPage';
 import DraftsPage from './pages/DraftsPage';
 import FormResponsesPage from './pages/FormResponsesPage';
+import ExcelDashboardPage from './pages/ExcelDashboardPage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 
@@ -30,6 +31,7 @@ export default function App() {
             <Route path="transactions/:reference" element={<TransactionDetailPage />} />
             <Route path="drafts" element={<DraftsPage />} />
             <Route path="form-responses" element={<FormResponsesPage />} />
+            <Route path="excel-dashboard" element={<ExcelDashboardPage />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
