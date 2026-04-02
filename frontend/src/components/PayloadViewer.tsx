@@ -219,6 +219,8 @@ export function PayloadViewer({ payload, salesTransactionId }: PayloadViewerProp
           <FieldRow label="Service Sub-Type" value={val(service.serviceSubType)} />
           <FieldRow label="Connection ID" value={val(service.serviceConnectionId)} />
           <FieldRow label="Meter ID" value={val(service.serviceMeterId)} />
+          <FieldRow label="Estimated Annual Usage (kWh)" value={val(service.estimatedAnnualKwhs)} />
+          <FieldRow label="Lot Number" value={val(service.lotNumber)} />
           <FieldRow label="Start Date" value={val(service.serviceStartDate)} />
         </div>
 

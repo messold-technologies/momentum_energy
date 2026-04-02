@@ -459,6 +459,15 @@ const serviceValidation = [
     .matches(/^[a-zA-Z0-9,./&:-]+$/)
     .withMessage('lotNumber invalid'),
 
+  body('service.estimatedAnnualKwhs')
+    .optional()
+    .custom((value) => {
+      if (value === '' || value === null || value === undefined) return true;
+      const n = typeof value === 'number' ? value : Number(value);
+      if (!Number.isFinite(n)) throw new Error('estimatedAnnualKwhs must be a number');
+      return true;
+    }),
+
   // servicedAddress
   body('service.servicedAddress.name')
     .optional({ values: 'falsy' })

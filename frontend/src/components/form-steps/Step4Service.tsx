@@ -131,6 +131,27 @@ export default function Step4Service() {
             placeholder="Optional"
           />
         </FormField>
+
+        <FormField
+          label="Estimated Annual Usage (kWh)"
+          error={errors.service?.estimatedAnnualKwhs}
+          hint="Optional"
+        >
+          <input
+            type="number"
+            min={0}
+            step={0.01}
+            {...register('service.estimatedAnnualKwhs', {
+              setValueAs: (v) => {
+                if (v === '' || v === null || v === undefined) return undefined;
+                const n = Number(v);
+                return Number.isFinite(n) ? n : undefined;
+              },
+            })}
+            className={inputClass}
+            placeholder="Optional"
+          />
+        </FormField>
       </div>
 
       {/* Serviced address */}
