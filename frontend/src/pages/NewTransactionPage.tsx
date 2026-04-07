@@ -11,7 +11,7 @@ import Step2Customer from '../components/form-steps/Step3Customer';
 import Step3Contact from '../components/form-steps/Step2Contact';
 import Step4Service from '../components/form-steps/Step4Service';
 import { step1Schema, step2Schema, step3Schema, step4Schema, fullSchema } from '../lib/schemas';
-import { transactionApi, draftsApi } from '../lib/api';
+import { transactionApi, draftsApi, referencesApi } from '../lib/api';
 import type { TransactionPayload } from '../lib/types';
 import { PayloadViewer } from '../components/PayloadViewer';
 
@@ -104,8 +104,8 @@ function getDefaultValues(): TransactionPayload {
   }
   return {
     transaction: {
-      transactionReference: uuidv4().replace(/-/g, '').slice(0, 12).toUpperCase(),
-      transactionChannel: 'UtilityHub',
+      transactionReference: '',
+      transactionChannel: 'Utilityhub',
       transactionDate: new Date().toISOString().slice(0, 16),
       transactionSource: 'EXTERNAL',
     },
@@ -383,6 +383,27 @@ export default function NewTransactionPage() {
     }
     loadDraft();
   }, [draftId, isFresh, draftLoaded, methods]);
+
+  // Ensure we have a sequential transaction reference (UHM1300, UHM1301, ...)
+  useEffect(() => {
+    let cancelled = false;
+    async function ensureRef() {
+      const current = methods.getValues('transaction.transactionReference');
+      if (current && String(current).trim()) return;
+      try {
+        const res = await referencesApi.nextTransactionReference();
+        if (!cancelled && res.reference) {
+          methods.setValue('transaction.transactionReference', res.reference, { shouldDirty: false });
+        }
+      } catch {
+        // If backend is unavailable, user can still type manually.
+      }
+    }
+    ensureRef();
+    return () => {
+      cancelled = true;
+    };
+  }, [methods]);
 
   useEffect(() => {
     if (isFresh) setSearchParams({}, { replace: true });

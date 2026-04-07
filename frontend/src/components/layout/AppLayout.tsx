@@ -1,6 +1,5 @@
 import { Outlet, NavLink } from 'react-router-dom';
 import {
-  Zap,
   LayoutDashboard,
   FilePlus,
   FileEdit,
@@ -13,23 +12,25 @@ import {
 import { useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 
-const navItems = [
-  { to: '/', label: 'Dashboard', icon: LayoutDashboard },
-  { to: '/transactions/new?fresh=1', label: 'New Transaction', icon: FilePlus },
-  { to: '/drafts', label: 'My Drafts', icon: FileEdit },
-  { to: '/form-responses', label: 'Form Responses', icon: FileText },
-  { to: '/excel-dashboard', label: 'Excel Dashboard', icon: Sheet },
-];
-
 export default function AppLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { user, logout } = useAuth();
+
+  const navItems = [
+    { to: '/', label: 'Dashboard', icon: LayoutDashboard },
+    { to: '/transactions/new?fresh=1', label: 'New Transaction', icon: FilePlus },
+    { to: '/drafts', label: 'My Drafts', icon: FileEdit },
+    { to: '/form-responses', label: 'Form Responses', icon: FileText },
+    ...(user?.isAdmin ? [{ to: '/excel-dashboard', label: 'Excel Dashboard', icon: Sheet }] : []),
+  ];
 
   return (
     <div className="min-h-screen bg-gray-50 flex">
       {/* Mobile overlay */}
       {sidebarOpen && (
-        <div
+        <button
+          type="button"
+          aria-label="Close sidebar"
           className="fixed inset-0 bg-black/30 z-40 lg:hidden"
           onClick={() => setSidebarOpen(false)}
         />
@@ -41,13 +42,13 @@ export default function AppLayout() {
           sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         }`}
       >
-        <div className="flex items-center gap-3 px-6 py-5 border-b border-gray-200">
-          <div className="w-9 h-9 bg-primary-600 rounded-lg flex items-center justify-center">
-            <Zap className="w-5 h-5 text-white" />
-          </div>
-          <div>
-            <h1 className="font-bold text-gray-900 text-sm leading-tight">Momentum Energy</h1>
-            <p className="text-xs text-gray-500">Sales Portal</p>
+        <div className="flex items-center gap-3 px-4 py-4 border-b border-gray-200">
+          <div className="min-w-0 flex-1 flex items-center">
+            <img
+              src="/utility-hub-logo.png"
+              alt="Utility Hub — Connecting Communities"
+              className="h-10 w-auto max-w-full object-contain object-left"
+            />
           </div>
           <button
             onClick={() => setSidebarOpen(false)}
@@ -101,9 +102,12 @@ export default function AppLayout() {
           <button onClick={() => setSidebarOpen(true)} className="text-gray-600 cursor-pointer">
             <Menu className="w-6 h-6" />
           </button>
-          <div className="flex items-center gap-2">
-            <Zap className="w-5 h-5 text-primary-600" />
-            <span className="font-semibold text-gray-900 text-sm">Momentum Energy</span>
+          <div className="flex items-center min-w-0 flex-1">
+            <img
+              src="/utility-hub-logo.png"
+              alt="Utility Hub — Connecting Communities"
+              className="h-8 w-auto max-w-[min(100%,200px)] object-contain object-left"
+            />
           </div>
         </header>
 

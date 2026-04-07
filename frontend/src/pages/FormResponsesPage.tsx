@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { FileText, CheckCircle, XCircle, ChevronDown, ChevronUp, ExternalLink, Copy, Trash2 } from 'lucide-react';
 import { PayloadViewer } from '../components/PayloadViewer';
-import { draftsApi, submissionsApi, type Submission } from '../lib/api';
+import { draftsApi, submissionsApi, referencesApi, type Submission } from '../lib/api';
 import { format } from 'date-fns';
 import type { TransactionPayload } from '../lib/types';
 
@@ -15,9 +15,9 @@ export default function FormResponsesPage() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const navigate = useNavigate();
 
-  const generateTransactionReference = () => {
-    const uuid = globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`;
-    return uuid.replaceAll('-', '').toUpperCase().replaceAll(/[^A-Z0-9]/g, '').slice(0, 12);
+  const generateTransactionReference = async () => {
+    const res = await referencesApi.nextTransactionReference();
+    return res.reference;
   };
 
   useEffect(() => {
@@ -145,7 +145,7 @@ export default function FormResponsesPage() {
                       try {
                         const copied = structuredClone(s.payloadSnapshot) as unknown as TransactionPayload;
                         copied.transaction = copied.transaction ?? ({} as TransactionPayload['transaction']);
-                        copied.transaction.transactionReference = generateTransactionReference();
+                        copied.transaction.transactionReference = await generateTransactionReference();
                         copied.transaction.transactionDate = new Date().toISOString().slice(0, 16);
 
                         const res = await draftsApi.save(copied);

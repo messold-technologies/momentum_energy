@@ -1,14 +1,21 @@
 import { useFormContext, type FieldErrors } from 'react-hook-form';
 import FormField, { inputClass } from '../ui/FormField';
-import { v4 as uuidv4 } from 'uuid';
 import type { TransactionPayload } from '../../lib/types';
+import { referencesApi } from '../../lib/api';
 
 export default function Step1Transaction() {
   const { register, setValue, formState } = useFormContext();
   const errors = formState.errors as FieldErrors<TransactionPayload>;
 
-  function generateRef() {
-    setValue('transaction.transactionReference', uuidv4().replace(/-/g, '').slice(0, 12).toUpperCase());
+  async function generateRef() {
+    try {
+      const res = await referencesApi.nextTransactionReference();
+      if (res.reference) {
+        setValue('transaction.transactionReference', res.reference, { shouldDirty: true, shouldTouch: true });
+      }
+    } catch {
+      // If backend is unavailable, user can still type manually.
+    }
   }
 
   return (
@@ -46,7 +53,7 @@ export default function Step1Transaction() {
           <input
             {...register('transaction.transactionChannel')}
             className={inputClass}
-            placeholder="e.g. UtilityHub"
+            placeholder="e.g. Utilityhub"
           />
         </FormField>
 

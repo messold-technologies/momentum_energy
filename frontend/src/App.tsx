@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import AppLayout from './components/layout/AppLayout';
 import ProtectedRoute from './components/ProtectedRoute';
+import AdminRoute from './components/AdminRoute';
 import DashboardPage from './pages/DashboardPage';
 import NewTransactionPage from './pages/NewTransactionPage';
 import TransactionDetailPage from './pages/TransactionDetailPage';
@@ -31,7 +32,14 @@ export default function App() {
             <Route path="transactions/:reference" element={<TransactionDetailPage />} />
             <Route path="drafts" element={<DraftsPage />} />
             <Route path="form-responses" element={<FormResponsesPage />} />
-            <Route path="excel-dashboard" element={<ExcelDashboardPage />} />
+            <Route
+              path="excel-dashboard"
+              element={
+                <AdminRoute>
+                  <ExcelDashboardPage />
+                </AdminRoute>
+              }
+            />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
