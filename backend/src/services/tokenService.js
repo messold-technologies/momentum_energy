@@ -13,7 +13,7 @@ async function getAccessToken() {
     return cachedToken;
   }
 
-  logger.info('Fetching new access token from Momentum');
+  console.log('[Momentum] Fetching new access token', { authUrl: config.momentum.authUrl });
 
   try {
     const response = await axios.post(
