@@ -105,7 +105,7 @@ function getDefaultValues(): TransactionPayload {
   return {
     transaction: {
       transactionReference: '',
-      transactionChannel: 'Utilityhub',
+      transactionChannel: 'UtilityHub',
       transactionDate: new Date().toISOString().slice(0, 16),
       transactionSource: 'EXTERNAL',
     },
