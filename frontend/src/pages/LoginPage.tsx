@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Zap } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { getApiErrorMessage } from '../lib/errorMessage';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -11,7 +12,7 @@ export default function LoginPage() {
   const { login } = useAuth();
   const navigate = useNavigate();
 
-  async function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError('');
     setLoading(true);
@@ -19,8 +20,7 @@ export default function LoginPage() {
       await login(email.trim(), password);
       navigate('/', { replace: true });
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : (err as { response?: { data?: { error?: string } } })?.response?.data?.error ?? 'Login failed';
-      setError(msg);
+      setError(getApiErrorMessage(err, 'Login failed'));
     } finally {
       setLoading(false);
     }

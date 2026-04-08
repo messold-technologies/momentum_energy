@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Zap } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { getApiErrorMessage } from '../lib/errorMessage';
 
 const ALLOWED_EMAILS = [
   'ishu.gupta@utilityhub.com.au',
@@ -37,8 +38,7 @@ export default function RegisterPage() {
       await register(email.trim(), name.trim(), password);
       navigate('/login', { replace: true });
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : (err as { response?: { data?: { error?: string } } })?.response?.data?.error ?? 'Registration failed';
-      setError(msg);
+      setError(getApiErrorMessage(err, 'Registration failed'));
     } finally {
       setLoading(false);
     }
