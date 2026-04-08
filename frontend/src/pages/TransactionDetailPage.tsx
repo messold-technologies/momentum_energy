@@ -196,7 +196,9 @@ export default function TransactionDetailPage() {
                 <div className="text-right">
                   <p className="text-sm text-gray-500">Last Checked</p>
                   <p className="text-sm text-gray-900 mt-1">
-                    {status.lastChecked ? new Date(status.lastChecked).toLocaleString('en-AU') : '—'}
+                    {status.lastChecked
+                      ? moment.tz(String(status.lastChecked), 'Australia/Sydney').format('DD/MM/YYYY, h:mm:ss A')
+                      : '—'}
                   </p>
                 </div>
               </div>
@@ -224,7 +226,9 @@ export default function TransactionDetailPage() {
                   <span className="text-sm text-gray-500 shrink-0">Transaction Creation Date:</span>
                   <span className="text-sm text-gray-900 font-mono">
                     {payload?.salesTransactionCreationDate
-                      ? new Date(payload.salesTransactionCreationDate as string).toLocaleString('en-AU')
+                      ? moment
+                          .tz(String(payload.salesTransactionCreationDate), 'Australia/Sydney')
+                          .format('DD/MM/YYYY, h:mm:ss A')
                       : '—'}
                   </span>
                 </div>

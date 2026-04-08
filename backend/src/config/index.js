@@ -40,7 +40,9 @@ export default {
       'mudit.gupta@utilityhub.com.au',
       'aseem.gupta@utilityhub.com.au',
       'bipasha.roy@messold.com',
-      'ishu.gupta@utilityhub.com.au'
+      'ishu.gupta@utilityhub.com.au',
+      'loans@ezycapital.com.au',
     ].map((e) => e.toLowerCase()),
+    qaAllowedIps: (process.env.QA_ALLOWED_IPS || '').split(',').map((s) => s.trim()).filter(Boolean),
   },
 };

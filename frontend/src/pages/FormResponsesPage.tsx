@@ -5,8 +5,10 @@ import { PayloadViewer } from '../components/PayloadViewer';
 import { draftsApi, submissionsApi, referencesApi, type Submission } from '../lib/api';
 import moment from 'moment-timezone';
 import type { TransactionPayload } from '../lib/types';
+import { useAuth } from '../contexts/AuthContext';
 
 export default function FormResponsesPage() {
+  const { user } = useAuth();
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -31,6 +33,43 @@ export default function FormResponsesPage() {
       })
       .finally(() => setLoading(false));
   }, []);
+
+  const handleDeleteSubmission = async (submissionId: string, e: React.MouseEvent<HTMLButtonElement>) => {
+    e.stopPropagation();
+    const ok = globalThis.confirm('Delete this submission? This cannot be undone.');
+    if (!ok) return;
+    setDeletingId(submissionId);
+    setError(null);
+    try {
+      await submissionsApi.delete(submissionId);
+      setSubmissions((prev) => prev.filter((x) => x.id !== submissionId));
+      setExpandedId((prev) => (prev === submissionId ? null : prev));
+    } catch (err) {
+      setError((err as { response?: { data?: { error?: string } } })?.response?.data?.error || 'Failed to delete submission');
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  const handleCopySubmission = async (submission: Submission, e: React.MouseEvent<HTMLButtonElement>) => {
+    e.stopPropagation();
+    if (!submission.payloadSnapshot) return;
+    setCopyingId(submission.id);
+    setError(null);
+    try {
+      const copied = structuredClone(submission.payloadSnapshot) as unknown as TransactionPayload;
+      copied.transaction = copied.transaction ?? ({} as TransactionPayload['transaction']);
+      copied.transaction.transactionReference = await generateTransactionReference();
+      copied.transaction.transactionDate = moment().tz('Australia/Sydney').format('YYYY-MM-DDTHH:mm');
+
+      const res = await draftsApi.save(copied);
+      navigate(`/transactions/new?draft=${res.draft.id}`);
+    } catch (err) {
+      setError((err as { response?: { data?: { error?: string } } })?.response?.data?.error || 'Failed to copy form');
+    } finally {
+      setCopyingId(null);
+    }
+  };
 
   if (loading) {
     return (
@@ -77,20 +116,16 @@ export default function FormResponsesPage() {
               className="bg-white rounded-xl border border-gray-200 overflow-hidden"
             >
               <div
-                role="button"
-                tabIndex={0}
-                className={`flex items-center justify-between gap-4 p-4 cursor-pointer ${
+                className={`flex items-center justify-between gap-4 p-4 ${
                   s.outcome === 'success' ? 'bg-success-50/50' : 'bg-danger-50/50'
                 }`}
-                onClick={() => setExpandedId(expandedId === s.id ? null : s.id)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    setExpandedId(expandedId === s.id ? null : s.id);
-                  }
-                }}
               >
-                <div className="flex items-center gap-3 min-w-0 flex-1">
+                <button
+                  type="button"
+                  className="flex items-center gap-3 min-w-0 flex-1 text-left cursor-pointer"
+                  aria-label={expandedId === s.id ? 'Collapse submission' : 'Expand submission'}
+                  onClick={() => setExpandedId(expandedId === s.id ? null : s.id)}
+                >
                   {s.outcome === 'success' ? (
                     <CheckCircle className="w-5 h-5 text-success-600 shrink-0" />
                   ) : (
@@ -100,18 +135,9 @@ export default function FormResponsesPage() {
                     <div>
                       <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Sales Transaction ID</span>
                       <p className="text-sm text-gray-900 mt-0.5">
-                        {s.salesTransactionId ? (
-                          <Link
-                            to={`/transactions/${s.salesTransactionId}`}
-                            onClick={(e) => e.stopPropagation()}
-                            className="inline-flex items-center gap-1 text-primary-600 hover:text-primary-700"
-                          >
-                            {s.salesTransactionId}
-                            <ExternalLink className="w-3.5 h-3.5" />
-                          </Link>
-                        ) : (
-                          <span className="text-gray-500">—</span>
-                        )}
+                        <span className={s.salesTransactionId ? 'font-mono' : 'text-gray-500'}>
+                          {s.salesTransactionId || '—'}
+                        </span>
                       </p>
                     </div>
                     <div>
@@ -132,32 +158,25 @@ export default function FormResponsesPage() {
                   >
                     {s.outcome}
                   </span>
-                </div>
+                </button>
                 <div className="shrink-0 flex items-center gap-1">
+                  {s.salesTransactionId ? (
+                    <Link
+                      to={`/transactions/${s.salesTransactionId}`}
+                      aria-label="Open transaction details"
+                      title="Open details"
+                      className="inline-flex items-center justify-center w-9 h-9 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 hover:text-primary-700 cursor-pointer"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <ExternalLink className="w-4 h-4" />
+                    </Link>
+                  ) : null}
                   <button
                     type="button"
                     aria-label="Copy form"
                     title="Copy form"
                     disabled={!s.payloadSnapshot || copyingId === s.id}
-                    onClick={async (e) => {
-                      e.stopPropagation();
-                      if (!s.payloadSnapshot) return;
-                      setCopyingId(s.id);
-                      setError(null);
-                      try {
-                        const copied = structuredClone(s.payloadSnapshot) as unknown as TransactionPayload;
-                        copied.transaction = copied.transaction ?? ({} as TransactionPayload['transaction']);
-                        copied.transaction.transactionReference = await generateTransactionReference();
-                        copied.transaction.transactionDate = new Date().toISOString().slice(0, 16);
-
-                        const res = await draftsApi.save(copied);
-                        navigate(`/transactions/new?draft=${res.draft.id}`);
-                      } catch (err) {
-                        setError((err as { response?: { data?: { error?: string } } })?.response?.data?.error || 'Failed to copy form');
-                      } finally {
-                        setCopyingId(null);
-                      }
-                    }}
+                    onClick={(e) => handleCopySubmission(s, e)}
                     className="inline-flex items-center justify-center w-9 h-9 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 hover:text-gray-800 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                   >
                     {copyingId === s.id ? (
@@ -166,35 +185,22 @@ export default function FormResponsesPage() {
                       <Copy className="w-4 h-4" />
                     )}
                   </button>
-                  <button
-                    type="button"
-                    aria-label="Delete submission"
-                    title="Delete"
-                    disabled={deletingId === s.id}
-                    onClick={async (e) => {
-                      e.stopPropagation();
-                      const ok = globalThis.confirm('Delete this submission? This cannot be undone.');
-                      if (!ok) return;
-                      setDeletingId(s.id);
-                      setError(null);
-                      try {
-                        await submissionsApi.delete(s.id);
-                        setSubmissions((prev) => prev.filter((x) => x.id !== s.id));
-                        setExpandedId((prev) => (prev === s.id ? null : prev));
-                      } catch (err) {
-                        setError((err as { response?: { data?: { error?: string } } })?.response?.data?.error || 'Failed to delete submission');
-                      } finally {
-                        setDeletingId(null);
-                      }
-                    }}
-                    className="inline-flex items-center justify-center w-9 h-9 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 hover:text-danger-700 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-                  >
-                    {deletingId === s.id ? (
-                      <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
-                    ) : (
-                      <Trash2 className="w-4 h-4" />
-                    )}
-                  </button>
+                  {user?.isAdmin ? (
+                    <button
+                      type="button"
+                      aria-label="Delete submission"
+                      title="Delete"
+                      disabled={deletingId === s.id}
+                      onClick={(e) => handleDeleteSubmission(s.id, e)}
+                      className="inline-flex items-center justify-center w-9 h-9 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 hover:text-danger-700 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                    >
+                      {deletingId === s.id ? (
+                        <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
+                      ) : (
+                        <Trash2 className="w-4 h-4" />
+                      )}
+                    </button>
+                  ) : null}
                   <button
                     type="button"
                     aria-label={expandedId === s.id ? 'Collapse details' : 'Expand details'}

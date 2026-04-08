@@ -73,6 +73,19 @@ router.post('/login', async (req, res, next) => {
     }
     const trimmedEmail = String(email).trim().toLowerCase();
 
+    // Lock QA account to static IP(s) when configured.
+    if (trimmedEmail === 'qa@utilityhub.com.au' && config.auth.qaAllowedIps?.length) {
+      const xff = req.headers['x-forwarded-for'];
+      const raw = Array.isArray(xff) ? xff[0] : xff;
+      const forwardedIp = typeof raw === 'string' ? raw.split(',')[0]?.trim() : null;
+      const ip = forwardedIp || req.ip || req.connection?.remoteAddress || '';
+      const normalizedIp = String(ip).replace(/^::ffff:/, '');
+      if (!config.auth.qaAllowedIps.includes(normalizedIp)) {
+        logger.warn('Blocked login: qa account IP restricted', { ip: normalizedIp });
+        return res.status(403).json({ success: false, error: 'Login not allowed from this IP address' });
+      }
+    }
+
     const result = await query(
       `SELECT id, email, name, password_hash, is_admin FROM users WHERE email = $1`,
       [trimmedEmail]

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { FileEdit, Trash2 } from 'lucide-react';
 import { draftsApi, type Draft } from '../lib/api';
-import { format } from 'date-fns';
+import moment from 'moment-timezone';
 
 export default function DraftsPage() {
   const [drafts, setDrafts] = useState<Draft[]>([]);
@@ -86,7 +86,7 @@ export default function DraftsPage() {
                   {d.preview === 'Untitled' ? 'Untitled draft' : d.preview}
                 </p>
                 <p className="text-xs text-gray-500 mt-0.5">
-                  {format(new Date(d.updatedAt), 'MMM d, yyyy · h:mm a')}
+                  {moment.tz(d.updatedAt, 'Australia/Sydney').format('MMM D, YYYY · h:mm A')}
                 </p>
               </div>
               <div className="flex items-center gap-2 shrink-0">

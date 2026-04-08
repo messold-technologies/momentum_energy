@@ -157,10 +157,10 @@ function getDefaultValues(): TransactionPayload {
       },
       serviceBilling: {
         serviceOfferCode: '',
-        offerQuoteDate: new Date().toISOString().split('T')[0],
+        offerQuoteDate: moment().tz('Australia/Sydney').format('YYYY-MM-DD'),
         servicePlanCode: '',
         contractTermCode: 'OPEN',
-        paymentMethod: 'Direct Debit Via Bank Account',
+        paymentMethod: '',
         billCycleCode: '',
         billDeliveryMethod: 'EMAIL',
       },
@@ -358,6 +358,23 @@ export default function NewTransactionPage() {
   });
 
   const formValues = methods.watch();
+
+  const handleCopyLastSubmitted = () => {
+    if (!lastSubmittedPayload) return;
+    localStorage.removeItem(DRAFT_KEY);
+    setSearchParams({}, { replace: true }); // drop ?draft etc.
+    setDraftLoaded(false);
+
+    const copied = structuredClone(lastSubmittedPayload);
+    copied.transaction = copied.transaction ?? {};
+    copied.transaction.transactionReference = uuidv4().replaceAll('-', '').slice(0, 12).toUpperCase();
+    copied.transaction.transactionDate = moment().tz('Australia/Sydney').format('YYYY-MM-DDTHH:mm');
+
+    methods.reset(copied);
+    setStep(0);
+    setSubmitResult(null);
+    setValidationError(null);
+  };
 
   // Load draft from backend when ?draft=:id
   useEffect(() => {
@@ -586,22 +603,7 @@ export default function NewTransactionPage() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => {
-                    if (!lastSubmittedPayload) return;
-                    localStorage.removeItem(DRAFT_KEY);
-                    setSearchParams({}, { replace: true }); // drop ?draft etc.
-                    setDraftLoaded(false);
-
-                    const copied = structuredClone(lastSubmittedPayload);
-                    copied.transaction = copied.transaction ?? {};
-                    copied.transaction.transactionReference = uuidv4().replaceAll('-', '').slice(0, 12).toUpperCase();
-                    copied.transaction.transactionDate = new Date().toISOString().slice(0, 16);
-
-                    methods.reset(copied);
-                    setStep(0);
-                    setSubmitResult(null);
-                    setValidationError(null);
-                  }}
+                  onClick={handleCopyLastSubmitted}
                   disabled={!lastSubmittedPayload}
                   className="px-4 py-2 bg-white border border-primary-200 text-primary-700 rounded-lg hover:bg-primary-50 text-sm font-medium cursor-pointer disabled:opacity-50"
                 >
