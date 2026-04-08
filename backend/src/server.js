@@ -14,7 +14,6 @@ import submissionsRoutes from './routes/submissions.js';
 import draftsRoutes from './routes/drafts.js';
 import healthRoutes from './routes/health.js';
 import authRoutes from './routes/auth.js';
-import referencesRoutes from './routes/references.js';
 import { requireAuth } from './middleware/requireAuth.js';
 
 const app = express();
@@ -45,7 +44,6 @@ app.use('/api/auth', authRoutes);
 app.use('/api/transactions', requireAuth, transactionRoutes);
 app.use('/api/submissions', requireAuth, submissionsRoutes);
 app.use('/api/drafts', requireAuth, draftsRoutes);
-app.use('/api/references', requireAuth, referencesRoutes);
 
 app.use((req, res) => {
   res.status(404).json({ success: false, error: `Route ${req.method} ${req.path} not found` });

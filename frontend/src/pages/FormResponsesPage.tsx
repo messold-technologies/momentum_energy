@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { FileText, CheckCircle, XCircle, ChevronDown, ChevronUp, ExternalLink, Copy, Trash2 } from 'lucide-react';
 import { PayloadViewer } from '../components/PayloadViewer';
-import { draftsApi, submissionsApi, referencesApi, type Submission } from '../lib/api';
+import { draftsApi, submissionsApi, type Submission } from '../lib/api';
 import moment from 'moment-timezone';
 import type { TransactionPayload } from '../lib/types';
 import { useAuth } from '../contexts/AuthContext';
@@ -16,11 +16,6 @@ export default function FormResponsesPage() {
   const [copyingId, setCopyingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const navigate = useNavigate();
-
-  const generateTransactionReference = async () => {
-    const res = await referencesApi.nextTransactionReference();
-    return res.reference;
-  };
 
   useEffect(() => {
     submissionsApi
@@ -59,7 +54,10 @@ export default function FormResponsesPage() {
     try {
       const copied = structuredClone(submission.payloadSnapshot) as unknown as TransactionPayload;
       copied.transaction = copied.transaction ?? ({} as TransactionPayload['transaction']);
-      copied.transaction.transactionReference = await generateTransactionReference();
+      // Keep transaction reference when copying; normalize to UHM + 1-9 digits.
+      const raw = String(copied.transaction.transactionReference ?? '').toUpperCase();
+      const digits = raw.replace(/^UHM/, '').replaceAll(/\D/g, '').slice(0, 9);
+      copied.transaction.transactionReference = `UHM${digits}`;
       copied.transaction.transactionDate = moment().tz('Australia/Sydney').format('YYYY-MM-DDTHH:mm');
 
       const res = await draftsApi.save(copied);

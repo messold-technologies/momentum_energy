@@ -1,22 +1,18 @@
 import { useFormContext, type FieldErrors } from 'react-hook-form';
 import FormField, { inputClass } from '../ui/FormField';
 import type { TransactionPayload } from '../../lib/types';
-import { referencesApi } from '../../lib/api';
 
 export default function Step1Transaction() {
-  const { register, setValue, formState } = useFormContext();
+  const { register, setValue, formState, watch } = useFormContext();
   const errors = formState.errors as FieldErrors<TransactionPayload>;
 
-  async function generateRef() {
-    try {
-      const res = await referencesApi.nextTransactionReference();
-      if (res.reference) {
-        setValue('transaction.transactionReference', res.reference, { shouldDirty: true, shouldTouch: true });
-      }
-    } catch {
-      // If backend is unavailable, user can still type manually.
-    }
+  function handleDigitsChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const digits = (e.target.value ?? '').replaceAll(/\D/g, '').slice(0, 9);
+    setValue('transaction.transactionReference', `UHM${digits}`, { shouldDirty: true, shouldTouch: true });
   }
+
+  const currentRef = String(watch('transaction.transactionReference') ?? '');
+  const currentDigits = currentRef.toUpperCase().replace(/^UHM/, '').replace(/\D/g, '').slice(0, 9);
 
   return (
     <div className="space-y-6">
@@ -31,21 +27,30 @@ export default function Step1Transaction() {
           required
           error={errors.transaction?.transactionReference}
         >
-          <div className="flex gap-2">
+          <div className="flex">
+            <span className="inline-flex items-center px-3 py-2 rounded-l-lg border border-r-0 border-gray-300 bg-gray-50 text-sm font-mono text-gray-700">
+              UHM
+            </span>
             <input
-              {...register('transaction.transactionReference', {
-                setValueAs: (v) => (v ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 12),
-              })}
-              className={`${inputClass} flex-1 uppercase`}
-              placeholder="e.g. TEST001"
+              inputMode="numeric"
+              autoComplete="off"
+              aria-label="Transaction reference digits"
+              onChange={handleDigitsChange}
+              value={currentDigits}
+              className={`${inputClass} rounded-l-none font-mono`}
+              placeholder="Enter digits"
+              maxLength={9}
             />
-            <button
-              type="button"
-              onClick={generateRef}
-              className="px-3 py-2 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors shrink-0 cursor-pointer"
-            >
-              Generate
-            </button>
+            <input
+              type="hidden"
+              {...register('transaction.transactionReference', {
+                setValueAs: (v) => {
+                  const raw = String(v ?? '').toUpperCase();
+                  const digits = raw.replace(/^UHM/, '').replaceAll(/\D/g, '').slice(0, 9);
+                  return `UHM${digits}`;
+                },
+              })}
+            />
           </div>
         </FormField>
 

@@ -1,7 +1,7 @@
 import { useFormContext, useFieldArray, type FieldError, type FieldErrors } from 'react-hook-form';
 import FormField, { inputClass, selectClass } from '../ui/FormField';
-import { Plus, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
-import { useState } from 'react';
+import { Plus, Trash2 } from 'lucide-react';
+import { useRef, useState } from 'react';
 import type { TransactionPayload } from '../../lib/types';
 import { COUNTRY_CODES } from '../../lib/countryCodes';
 import { STREET_TYPE_CODES } from '../../lib/streetTypeCodes';
@@ -11,7 +11,7 @@ const SALUTATIONS = ['Mr.', 'Ms.', 'Mrs.', 'Dr.', 'Prof.'];
 const STATES = ['ACT', 'NT', 'WA', 'SA', 'VIC', 'NSW', 'QLD'] as const;
 const PHONE_TYPES = ['MOBILE', 'HOME', 'WORK'] as const;
 
-function PhoneFields({ basePath }: { basePath: string }) {
+function PhoneFields({ basePath }: Readonly<{ basePath: string }>) {
   const { register, control, formState } = useFormContext();
   const { fields, append, remove } = useFieldArray({ control, name: `${basePath}.contactPhones` });
 
@@ -29,7 +29,7 @@ function PhoneFields({ basePath }: { basePath: string }) {
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <label className="block text-sm font-medium text-gray-700">
+        <label className="block text-sm font-medium text-gray-700" htmlFor={`${basePath}.contactPhones.0.phone`}>
           Phone Numbers <span className="text-danger-500">*</span>
         </label>
         <button
@@ -57,6 +57,7 @@ function PhoneFields({ basePath }: { basePath: string }) {
           </select>
           <div className="flex-1 min-w-0">
             <input
+              id={`${basePath}.contactPhones.${index}.phone`}
               {...register(`${basePath}.contactPhones.${index}.phone`)}
               className={inputClass}
               placeholder="04XX XXX XXX"
@@ -82,7 +83,7 @@ function PhoneFields({ basePath }: { basePath: string }) {
   );
 }
 
-function AddressFields({ basePath }: { basePath: string }) {
+function AddressFields({ basePath }: Readonly<{ basePath: string }>) {
   const { register, formState } = useFormContext();
 
   const getErr = (field: string): FieldError | undefined => {
@@ -163,9 +164,21 @@ function AddressFields({ basePath }: { basePath: string }) {
 }
 
 export default function Step3Contact() {
-  const { register, formState } = useFormContext();
+  const { register, formState, unregister, clearErrors, getValues, setValue } = useFormContext();
   const errors = formState.errors as FieldErrors<TransactionPayload>;
   const [showSecondary, setShowSecondary] = useState(false);
+  const secondaryCacheRef = useRef<TransactionPayload['customer']['contacts']['secondaryContact'] | undefined>(undefined);
+
+  const toggleSecondary = (checked: boolean) => {
+    setShowSecondary(checked);
+    if (!checked) {
+      secondaryCacheRef.current = getValues('customer.contacts.secondaryContact');
+      unregister('customer.contacts.secondaryContact');
+      clearErrors('customer.contacts.secondaryContact');
+    } else if (secondaryCacheRef.current) {
+      setValue('customer.contacts.secondaryContact', secondaryCacheRef.current, { shouldDirty: false, shouldValidate: false });
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -270,18 +283,15 @@ export default function Step3Contact() {
 
       {/* Secondary contact toggle */}
       <div className="border-t pt-5">
-        <button
-          type="button"
-          onClick={() => setShowSecondary(!showSecondary)}
-          className="flex items-center gap-2 text-sm font-medium text-gray-700 hover:text-gray-900 cursor-pointer"
-        >
-          {showSecondary ? (
-            <ChevronUp className="w-4 h-4" />
-          ) : (
-            <ChevronDown className="w-4 h-4" />
-          )}
-          {showSecondary ? 'Hide' : 'Add'} Secondary Contact
-        </button>
+        <label className="flex items-center gap-2 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={showSecondary}
+            onChange={(e) => toggleSecondary(e.target.checked)}
+            className="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500"
+          />
+          <span className="text-sm font-medium text-gray-700">Secondary Contact</span>
+        </label>
 
         {showSecondary && (
           <div className="mt-4 space-y-5 pl-0 md:pl-4 border-l-2 border-gray-200">
@@ -292,7 +302,9 @@ export default function Step3Contact() {
                 error={errors.customer?.contacts?.secondaryContact?.salutation}
               >
                 <select
-                  {...register('customer.contacts.secondaryContact.salutation')}
+                  {...register('customer.contacts.secondaryContact.salutation', {
+                    setValueAs: (v) => (v === '' ? undefined : v),
+                  })}
                   className={selectClass}
                 >
                   <option value="">Select...</option>

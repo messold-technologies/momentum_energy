@@ -37,13 +37,6 @@ export const transactionApi = {
   },
 };
 
-export const referencesApi = {
-  nextTransactionReference: async () => {
-    const { data } = await api.get<{ success: boolean; reference: string }>('/references/transaction-reference/next');
-    return data;
-  },
-};
-
 export interface Submission {
   id: string;
   correlationId: string | null;

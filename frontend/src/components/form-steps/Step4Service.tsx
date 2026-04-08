@@ -1,6 +1,6 @@
 import { useFormContext, useWatch, type FieldErrors } from 'react-hook-form';
 import FormField, { inputClass, selectClass } from '../ui/FormField';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import type { TransactionPayload } from '../../lib/types';
 import {
   UNIT_TYPES,
@@ -34,12 +34,13 @@ const CONCESSION_CARD_TYPES = [
 ] as const;
 
 export default function Step4Service() {
-  const { register, formState, control, setValue } = useFormContext();
+  const { register, formState, control, setValue, unregister, clearErrors, getValues } = useFormContext();
   const errors = formState.errors as FieldErrors<TransactionPayload>;
 
   const serviceType = useWatch({ control, name: 'service.serviceType' });
   const serviceSubType = useWatch({ control, name: 'service.serviceSubType' });
   const [showConcession, setShowConcession] = useState(false);
+  const concessionCacheRef = useRef<TransactionPayload['service']['serviceBilling']['concession'] | undefined>(undefined);
   const concessionConsentObtained = useWatch({ control, name: 'service.serviceBilling.concession.concessionConsentObtained' });
   const concessionHasMS = useWatch({ control, name: 'service.serviceBilling.concession.concessionHasMS' });
   const concessionInGroupHome = useWatch({ control, name: 'service.serviceBilling.concession.concessionInGroupHome' });
@@ -402,7 +403,17 @@ export default function Step4Service() {
           <input
             type="checkbox"
             checked={showConcession}
-            onChange={(e) => setShowConcession(e.target.checked)}
+            onChange={(e) => {
+              const checked = e.target.checked;
+              setShowConcession(checked);
+              if (!checked) {
+                concessionCacheRef.current = getValues('service.serviceBilling.concession');
+                unregister('service.serviceBilling.concession');
+                clearErrors('service.serviceBilling.concession');
+              } else if (concessionCacheRef.current) {
+                setValue('service.serviceBilling.concession', concessionCacheRef.current, { shouldDirty: false, shouldValidate: false });
+              }
+            }}
             className="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500"
           />
           <span className="text-sm font-medium text-gray-700">Add Concession Details</span>

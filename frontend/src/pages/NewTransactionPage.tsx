@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useForm, FormProvider, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { v4 as uuidv4 } from 'uuid';
 import { ArrowLeft, ArrowRight, Send, Save, Eye, X } from 'lucide-react';
 import moment from 'moment-timezone';
 
@@ -12,7 +11,7 @@ import Step2Customer from '../components/form-steps/Step3Customer';
 import Step3Contact from '../components/form-steps/Step2Contact';
 import Step4Service from '../components/form-steps/Step4Service';
 import { step1Schema, step2Schema, step3Schema, step4Schema, fullSchema } from '../lib/schemas';
-import { transactionApi, draftsApi, referencesApi } from '../lib/api';
+import { transactionApi, draftsApi } from '../lib/api';
 import type { TransactionPayload } from '../lib/types';
 import { PayloadViewer } from '../components/PayloadViewer';
 
@@ -85,7 +84,10 @@ function extractErrorMessage(err: unknown): string {
 
 /** Sanitize transaction reference: no dashes, uppercase, max 12 chars */
 function sanitizeTransactionRef(ref: string | undefined): string {
-  return (ref ?? '').replace(/-/g, '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 12);
+  const raw = String(ref ?? '').toUpperCase();
+  // Force UHM prefix and keep only digits after prefix (up to 9 digits).
+  const digits = raw.replace(/^UHM/, '').replaceAll(/\D/g, '').slice(0, 9);
+  return `UHM${digits}`;
 }
 
 function getDefaultValues(): TransactionPayload {
@@ -105,7 +107,7 @@ function getDefaultValues(): TransactionPayload {
   }
   return {
     transaction: {
-      transactionReference: '',
+      transactionReference: 'UHM',
       transactionChannel: 'UtilityHub',
       transactionDate: moment().tz('Australia/Sydney').format('YYYY-MM-DDTHH:mm'),
       transactionSource: 'EXTERNAL',
@@ -367,7 +369,7 @@ export default function NewTransactionPage() {
 
     const copied = structuredClone(lastSubmittedPayload);
     copied.transaction = copied.transaction ?? {};
-    copied.transaction.transactionReference = uuidv4().replaceAll('-', '').slice(0, 12).toUpperCase();
+    copied.transaction.transactionReference = sanitizeTransactionRef(copied.transaction.transactionReference);
     copied.transaction.transactionDate = moment().tz('Australia/Sydney').format('YYYY-MM-DDTHH:mm');
 
     methods.reset(copied);
@@ -401,26 +403,7 @@ export default function NewTransactionPage() {
     loadDraft();
   }, [draftId, isFresh, draftLoaded, methods]);
 
-  // Ensure we have a sequential transaction reference (UHM1300, UHM1301, ...)
-  useEffect(() => {
-    let cancelled = false;
-    async function ensureRef() {
-      const current = methods.getValues('transaction.transactionReference');
-      if (current && String(current).trim()) return;
-      try {
-        const res = await referencesApi.nextTransactionReference();
-        if (!cancelled && res.reference) {
-          methods.setValue('transaction.transactionReference', res.reference, { shouldDirty: false });
-        }
-      } catch {
-        // If backend is unavailable, user can still type manually.
-      }
-    }
-    ensureRef();
-    return () => {
-      cancelled = true;
-    };
-  }, [methods]);
+  // No auto-generated transaction reference; users fill digits after the UHM prefix.
 
   useEffect(() => {
     if (isFresh) setSearchParams({}, { replace: true });
