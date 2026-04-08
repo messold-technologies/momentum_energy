@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { FileText, CheckCircle, XCircle, ChevronDown, ChevronUp, ExternalLink, Copy, Trash2 } from 'lucide-react';
 import { PayloadViewer } from '../components/PayloadViewer';
 import { draftsApi, submissionsApi, referencesApi, type Submission } from '../lib/api';
-import { format } from 'date-fns';
+import moment from 'moment-timezone';
 import type { TransactionPayload } from '../lib/types';
 
 export default function FormResponsesPage() {
@@ -120,7 +120,9 @@ export default function FormResponsesPage() {
                     </div>
                     <div>
                       <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Time</span>
-                      <p className="text-sm text-gray-900 mt-0.5">{format(new Date(s.createdAt), 'MMM d, yyyy · h:mm a')}</p>
+                      <p className="text-sm text-gray-900 mt-0.5">
+                        {moment.tz(s.createdAt, 'Australia/Sydney').format('MMM D, YYYY · h:mm A')}
+                      </p>
                     </div>
                   </div>
                   <span

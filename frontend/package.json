@@ -14,6 +14,7 @@
     "axios": "^1.13.6",
     "date-fns": "^4.1.0",
     "lucide-react": "^0.576.0",
+    "moment-timezone": "^0.6.1",
     "react": "^19.2.0",
     "react-copy-to-clipboard": "^5.1.1",
     "react-dom": "^19.2.0",

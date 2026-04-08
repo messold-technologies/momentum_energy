@@ -70,19 +70,7 @@ const transactionValidation = [
     .notEmpty()
     .withMessage('transactionDate is required')
     .isISO8601()
-    .withMessage('transactionDate must be ISO 8601 datetime')
-    .custom((value) => {
-      const txDate = toDateOnly(value);
-      if (!txDate) return true;
-      const tx = new Date(txDate + 'T12:00:00Z');
-      const today = new Date();
-      today.setUTCHours(12, 0, 0, 0);
-      const minDate = addWorkingDays(today, -3);
-      const maxDate = addWorkingDays(today, 3);
-      if (tx < minDate) throw new Error('Transaction date must not be more than 3 working days in the past');
-      if (tx > maxDate) throw new Error('Transaction date must not be more than 3 working days in the future');
-      return true;
-    }),
+    .withMessage('transactionDate must be ISO 8601 datetime'),
 
   body('transaction.transactionVerificationCode')
     .optional({ values: 'falsy' })

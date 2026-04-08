@@ -4,6 +4,7 @@ import { useForm, FormProvider, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { v4 as uuidv4 } from 'uuid';
 import { ArrowLeft, ArrowRight, Send, Save, Eye, X } from 'lucide-react';
+import moment from 'moment-timezone';
 
 import Stepper from '../components/ui/Stepper';
 import Step1Transaction from '../components/form-steps/Step1Transaction';
@@ -106,7 +107,7 @@ function getDefaultValues(): TransactionPayload {
     transaction: {
       transactionReference: '',
       transactionChannel: 'UtilityHub',
-      transactionDate: new Date().toISOString().slice(0, 16),
+      transactionDate: moment().tz('Australia/Sydney').format('YYYY-MM-DDTHH:mm'),
       transactionSource: 'EXTERNAL',
     },
     customer: {
@@ -204,15 +205,14 @@ function cleanPayload(data: TransactionPayload): TransactionPayload {
     cleaned.transaction.transactionVerificationCode = 'OPTIONAL';
   }
 
-  // Ensure transactionDate is full ISO datetime (YYYY-MM-DDTHH:MM:SS.000Z)
+  // Ensure transactionDate is ISO 8601 datetime. Treat datetime-local inputs as Australia/Sydney time and convert to UTC (Z).
   if (cleaned.transaction.transactionDate) {
-    let txDate = cleaned.transaction.transactionDate;
+    const txDate = String(cleaned.transaction.transactionDate);
     if (!txDate.includes('T')) {
-      txDate = `${txDate}T00:00:00.000Z`;
+      cleaned.transaction.transactionDate = moment.tz(txDate, 'YYYY-MM-DD', 'Australia/Sydney').toISOString();
     } else if (!txDate.endsWith('Z')) {
-      txDate = /T\d{2}:\d{2}:\d{2}$/.test(txDate) ? `${txDate}.000Z` : `${txDate}:00.000Z`;
+      cleaned.transaction.transactionDate = moment.tz(txDate, 'YYYY-MM-DDTHH:mm', 'Australia/Sydney').toISOString();
     }
-    cleaned.transaction.transactionDate = txDate;
   }
 
   // Contacts: add contactType (required by Momentum API)

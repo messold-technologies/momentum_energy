@@ -4,6 +4,7 @@ import { CopyToClipboard } from 'react-copy-to-clipboard';
 import { transactionApi } from '../lib/api';
 import StatusBadge from '../components/ui/StatusBadge';
 import { ArrowLeft, RefreshCw, Copy, Check } from 'lucide-react';
+import moment from 'moment-timezone';
 
 interface TransactionStatus {
   salesTransactionId: string;
@@ -19,7 +20,7 @@ function formatValue(val: unknown): string {
   if (typeof val === 'boolean') return val ? 'Yes' : 'No';
   if (typeof val === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(val)) {
     try {
-      return new Date(val).toLocaleString('en-AU');
+      return moment.tz(val, 'Australia/Sydney').format('DD/MM/YYYY, h:mm:ss A');
     } catch {
       return val;
     }
@@ -278,7 +279,7 @@ export default function TransactionDetailPage() {
                     <div className="flex flex-wrap gap-x-2">
                       <span className="text-sm text-gray-500 shrink-0">Transaction Date:</span>
                       <span className="text-sm text-gray-900 font-mono">
-                        {new Date(transaction.transactionDate as string).toLocaleString('en-AU')}
+                        {moment.tz(String(transaction.transactionDate), 'Australia/Sydney').format('DD/MM/YYYY, h:mm:ss A')}
                       </span>
                     </div>
                   )}

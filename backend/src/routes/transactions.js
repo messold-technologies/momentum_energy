@@ -6,6 +6,7 @@ import { submitSalesTransaction, getSalesTransactionStatus } from '../services/m
 import { sanitizeBody } from '../utils/sanitizeBody.js';
 import { query } from '../db/connection.js';
 import logger from '../config/logger.js';
+import moment from 'moment-timezone';
 
 function extractErrorMessage(err) {
   if (err.errorData) {
@@ -45,6 +46,13 @@ router.post(
     const correlationId = req.headers['x-correlation-id'] || req.headers['id-correlation'] || uuidv4();
     const userId = req.user?.id;
     const body = sanitizeBody(req.body);
+    // Normalize transactionDate to ISO 8601 UTC. Treat timezone-less inputs as Australia/Sydney.
+    const txDate = body?.transaction?.transactionDate;
+    if (typeof txDate === 'string' && txDate) {
+      if (!txDate.endsWith('Z')) {
+        body.transaction.transactionDate = moment.tz(txDate, 'Australia/Sydney').toISOString();
+      }
+    }
 
     try {
       logger.info('Submitting transaction to Momentum', {

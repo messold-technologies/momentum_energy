@@ -359,6 +359,7 @@ export default function Step4Service() {
             error={errors.service?.serviceBilling?.paymentMethod}
           >
             <select {...register('service.serviceBilling.paymentMethod')} className={selectClass}>
+              <option value="">Select payment method…</option>
               <option value="Direct Debit Via Bank Account">Direct Debit Via Bank Account</option>
               <option value="Cheque">Cheque</option>
             </select>

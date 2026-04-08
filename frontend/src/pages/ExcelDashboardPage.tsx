@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, type ReactNode } from 'react';
-import { format, parseISO } from 'date-fns';
+import moment from 'moment-timezone';
 import { Download, FileSpreadsheet, Loader2 } from 'lucide-react';
 import { submissionsApi, draftsApi, type Submission, type Draft } from '../lib/api';
 import { downloadRowsAsXlsx, flattenPayloadToExcelColumns, type ExcelExportRow } from '../lib/excelExport';
@@ -90,8 +90,8 @@ function draftToExportRow(payload: TransactionPayload | null, d: Draft, updatedA
 }
 
 export default function ExcelDashboardPage() {
-  const today = format(new Date(), 'yyyy-MM-dd');
-  const monthAgo = format(new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), 'yyyy-MM-dd');
+  const today = moment().tz('Australia/Sydney').format('YYYY-MM-DD');
+  const monthAgo = moment().tz('Australia/Sydney').subtract(30, 'days').format('YYYY-MM-DD');
 
   const [from, setFrom] = useState(monthAgo);
   const [to, setTo] = useState(today);
@@ -233,7 +233,7 @@ export default function ExcelDashboardPage() {
                 <td className="px-4 py-3 text-gray-700 whitespace-nowrap">
                   {(() => {
                     try {
-                      return format(parseISO(row.dateIso), 'MMM d, yyyy · h:mm a');
+                      return moment.tz(row.dateIso, 'Australia/Sydney').format('MMM D, YYYY · h:mm A');
                     } catch {
                       return row.dateIso;
                     }

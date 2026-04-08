@@ -606,7 +606,9 @@ export const step4Schema = z
           ),
         contractTermCode: z.enum(['OPEN', '12MTH', '24MTH', '36MTH']),
         contractDate: z.string().optional(),
-        paymentMethod: z.enum(['Direct Debit Via Bank Account', 'Cheque']),
+        paymentMethod: z
+          .union([z.literal(''), z.enum(['Direct Debit Via Bank Account', 'Cheque'])])
+          .refine((v) => v !== '', 'Payment method is required'),
         billCycleCode: z.string().min(1, 'Bill cycle is required'),
         billDeliveryMethod: z.enum(['EMAIL', 'POST']),
         concession: concessionSchema,

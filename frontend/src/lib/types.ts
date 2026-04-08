@@ -153,7 +153,7 @@ export interface ServiceBilling {
   servicePlanCode: string;
   contractTermCode: 'OPEN' | '12MTH' | '24MTH' | '36MTH';
   contractDate?: string;
-  paymentMethod: 'Direct Debit Via Bank Account' | 'Cheque';
+  paymentMethod: '' | 'Direct Debit Via Bank Account' | 'Cheque';
   billCycleCode: string;
   billDeliveryMethod: 'EMAIL' | 'POST';
   concession?: Concession;
