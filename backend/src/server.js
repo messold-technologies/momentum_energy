@@ -20,6 +20,7 @@ import { requireAuth } from './middleware/requireAuth.js';
 const app = express();
 
 app.use(helmet());
+app.set('trust proxy', 'loopback');
 
 app.use(cors({
   origin: config.portal.allowedOrigins,
