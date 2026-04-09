@@ -68,6 +68,7 @@ export function PayloadViewer({ payload, salesTransactionId }: PayloadViewerProp
   if (!payload) return null;
 
   const tx = (payload.transaction ?? {}) as Record<string, unknown>;
+  const portalMeta = (payload.portalMeta ?? {}) as Record<string, unknown>;
   const customer = (payload.customer ?? {}) as Record<string, unknown>;
   const service = (payload.service ?? {}) as Record<string, unknown>;
   const contacts = (customer.contacts ?? {}) as Record<string, unknown>;
@@ -106,6 +107,7 @@ export function PayloadViewer({ payload, salesTransactionId }: PayloadViewerProp
         <div className="rounded-xl border border-gray-100 bg-gray-50/60 divide-y divide-gray-100 px-4">
           <FieldRow label="Transaction Reference" value={val(tx.transactionReference)} />
           <FieldRow label="Channel" value={val(tx.transactionChannel)} />
+          <FieldRow label="Center" value={val(portalMeta.center)} />
           <FieldRow label="Transaction Date" value={val(tx.transactionDate)} />
           <FieldRow label="Verification Code" value={val(tx.transactionVerificationCode)} />
           <FieldRow label="Source" value={val(tx.transactionSource)} />

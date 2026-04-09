@@ -110,6 +110,8 @@ export function flattenPayloadToExcelColumns(payload: unknown): Record<string, s
  */
 export function sortPayloadColumnKeys(keys: string[]): string[] {
   const rank = (k: string): number => {
+    // Portal-only metadata: keep near transaction columns
+    if (k === 'portalMeta' || k.startsWith('portalMeta.')) return 0;
     if (k === 'transaction' || k.startsWith('transaction.')) return 0;
     if (k === 'customer.contacts' || k.startsWith('customer.contacts.')) return 1;
     if (k === 'customer' || k.startsWith('customer.')) return 2;
