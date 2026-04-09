@@ -52,6 +52,39 @@ const TRANSACTION_REF_REGEX = /^[A-Z0-9]{1,12}$/;
 const TRANSACTION_CHANNEL_REGEX = /^[A-Za-z0-9\s]+$/;
 const TRANSACTION_VERIFICATION_REGEX = /^[A-Za-z0-9\-]{1,30}$/;
 
+/** Portal-only; must match `frontend/src/lib/centerOptions.ts` */
+const PORTAL_CENTER_OPTIONS = [
+  'Utility hub India',
+  'Utility hub India- Uhub SA',
+  'Utility hub SA',
+  'Utility hub Fiji',
+  'Utility hub Fiji – Uhub India',
+  'Utility hub Fiji – Uhub SA',
+  'Er Solutions',
+  'Er Solutions – Uhub India',
+  'Er Solutions– Uhub SA',
+  'Connect IQ',
+  'Connect IQ– Uhub India',
+  'Connect IQ– Uhub SA',
+  'T4U– Uhub India',
+  'T4U– Uhub SA',
+  'CoSauce SA',
+  'CoSauce SA– Uhub India',
+  'CoSauce SA– Uhub SA',
+  'Real Estate',
+  'Real Estate– Uhub India',
+  'Real Estate– Uhub SA',
+];
+
+const portalMetaValidation = [
+  body('portalMeta').optional().isObject().withMessage('portalMeta must be an object'),
+  body('portalMeta.center')
+    .optional({ values: 'falsy' })
+    .isString()
+    .isIn(PORTAL_CENTER_OPTIONS)
+    .withMessage('Invalid center value'),
+];
+
 const transactionValidation = [
   body('transaction.transactionReference')
     .notEmpty()
@@ -633,6 +666,7 @@ const billingValidation = [
 
 const transactionValidationRules = [
   ...transactionValidation,
+  ...portalMetaValidation,
   ...customerValidation,
   ...identityValidation,
   ...companyValidation,

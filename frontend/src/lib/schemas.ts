@@ -11,6 +11,14 @@ import {
 } from 'date-fns';
 import { COUNTRY_CODES } from './countryCodes';
 import { STREET_TYPE_CODES } from './streetTypeCodes';
+import { CENTER_OPTIONS } from './centerOptions';
+
+/** Preserved on steps 2–4 so Zod does not strip `portalMeta` between wizard steps. */
+const portalMetaPassthroughSchema = z
+  .object({
+    center: z.string().optional(),
+  })
+  .optional();
 
 /** True if date string (yyyy-mm-dd) is at least 18 years ago (person is 18+ today) */
 function isAtLeast18YearsOld(dateStr: string): boolean {
@@ -189,6 +197,12 @@ export const step1Schema = z
         .refine((v) => !v || v === '' || TRANSACTION_VERIFICATION_REGEX.test(v), '1-30 chars: letters, numbers, hyphen only'),
       transactionSource: z.literal('EXTERNAL'),
     }),
+    portalMeta: z.object({
+      center: z
+        .string()
+        .min(1, 'Center is required')
+        .refine((v) => (CENTER_OPTIONS as readonly string[]).includes(v), 'Select a valid center'),
+    }),
   })
   .superRefine((data, ctx) => {
     const txDateStr = data.transaction.transactionDate?.slice(0, 10);
@@ -292,6 +306,7 @@ const COMPANY_NAME_REGEX = /^[A-Za-z0-9][A-Za-z0-9'&@/()., -]{1,100}$/;
 
 export const step3Schema = z
   .object({
+    portalMeta: portalMetaPassthroughSchema,
     customer: z.object({
       customerType: z.enum(['RESIDENT', 'COMPANY']),
       customerSubType: z.string().min(1, 'Customer sub-type is required'),
@@ -403,6 +418,7 @@ export const step3Schema = z
 
 
 export const step2Schema = z.object({
+  portalMeta: portalMetaPassthroughSchema,
   customer: z.object({
     contacts: z.object({
       primaryContact: z.object({
@@ -510,6 +526,7 @@ export const step2Schema = z.object({
 
 export const step4Schema = z
   .object({
+    portalMeta: portalMetaPassthroughSchema,
     service: z.object({
       serviceType: z.enum(['GAS', 'POWER']),
       serviceSubType: z.enum(['TRANSFER', 'MOVE IN']),

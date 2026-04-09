@@ -100,6 +100,7 @@ function getDefaultValues(): TransactionPayload {
           parsed.transaction.transactionReference
         );
       }
+      parsed.portalMeta ??= { center: '' };
       return parsed;
     } catch {
       // ignore
@@ -112,6 +113,7 @@ function getDefaultValues(): TransactionPayload {
       transactionDate: moment().tz('Australia/Sydney').format('YYYY-MM-DDTHH:mm'),
       transactionSource: 'EXTERNAL',
     },
+    portalMeta: { center: '' },
     customer: {
       customerType: 'RESIDENT',
       customerSubType: 'RESIDENT',
@@ -393,6 +395,7 @@ export default function NewTransactionPage() {
               payload.transaction.transactionReference
             );
           }
+          payload.portalMeta ??= { center: '' };
           methods.reset(payload);
           setDraftLoaded(true);
         }

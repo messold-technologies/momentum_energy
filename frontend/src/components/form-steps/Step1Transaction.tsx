@@ -1,6 +1,7 @@
 import { useFormContext, type FieldErrors } from 'react-hook-form';
-import FormField, { inputClass } from '../ui/FormField';
+import FormField, { inputClass, selectClass } from '../ui/FormField';
 import type { TransactionPayload } from '../../lib/types';
+import { CENTER_OPTIONS } from '../../lib/centerOptions';
 
 export default function Step1Transaction() {
   const { register, setValue, formState, watch } = useFormContext();
@@ -12,7 +13,7 @@ export default function Step1Transaction() {
   }
 
   const currentRef = String(watch('transaction.transactionReference') ?? '');
-  const currentDigits = currentRef.toUpperCase().replace(/^UHM/, '').replace(/\D/g, '').slice(0, 9);
+  const currentDigits = currentRef.toUpperCase().replace(/^UHM/, '').replaceAll(/\D/g, '').slice(0, 9);
 
   return (
     <div className="space-y-6">
@@ -60,6 +61,19 @@ export default function Step1Transaction() {
             className={inputClass}
             placeholder="e.g. Utilityhub"
           />
+        </FormField>
+
+        <FormField label="Center" required error={errors.portalMeta?.center}>
+          <select {...register('portalMeta.center')} className={selectClass}>
+            <option value="" disabled>
+              Select center…
+            </option>
+            {CENTER_OPTIONS.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </select>
         </FormField>
 
         <FormField label="Transaction Date" required error={errors.transaction?.transactionDate}>

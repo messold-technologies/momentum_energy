@@ -46,11 +46,17 @@ router.post(
     const correlationId = req.headers['x-correlation-id'] || req.headers['id-correlation'] || uuidv4();
     const userId = req.user?.id;
     const body = sanitizeBody(req.body);
+    const payloadSnapshot = structuredClone(body);
+    delete body.portalMeta;
     // Normalize transactionDate to ISO 8601 UTC. Treat timezone-less inputs as Australia/Sydney.
     const txDate = body?.transaction?.transactionDate;
     if (typeof txDate === 'string' && txDate) {
       if (!txDate.endsWith('Z')) {
-        body.transaction.transactionDate = moment.tz(txDate, 'Australia/Sydney').toISOString();
+        const iso = moment.tz(txDate, 'Australia/Sydney').toISOString();
+        body.transaction.transactionDate = iso;
+        if (payloadSnapshot?.transaction) {
+          payloadSnapshot.transaction.transactionDate = iso;
+        }
       }
     }
 
@@ -70,7 +76,7 @@ router.post(
           correlationId,
           outcome: 'success',
           salesTransactionId,
-          payloadSnapshot: body,
+          payloadSnapshot,
         }).catch((storeErr) => logger.error('Failed to store submission', { error: storeErr.message }));
       }
 
@@ -88,7 +94,7 @@ router.post(
           outcome: 'error',
           errorMessage,
           errorStatus: error.status || null,
-          payloadSnapshot: body,
+          payloadSnapshot,
         }).catch((storeErr) => logger.error('Failed to store submission', { error: storeErr.message }));
       }
       next(error);

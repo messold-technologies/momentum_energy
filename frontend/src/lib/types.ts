@@ -177,6 +177,8 @@ export interface TransactionPayload {
   transaction: TransactionInfo;
   customer: CustomerInfo;
   service: ServiceInfo;
+  /** Portal-only metadata; stripped before Momentum API submit (kept in drafts & submission snapshots). */
+  portalMeta?: { center?: string };
 }
 
 export type TransactionStatus =
