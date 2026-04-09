@@ -34,6 +34,37 @@ async function storeSubmission({ userId, correlationId, outcome, salesTransactio
   );
 }
 
+ async function hasSuccessfulSubmissionWithReference(transactionReference) {
+  const ref = String(transactionReference || '').trim().toUpperCase();
+  if (!ref) return false;
+  const { rows } = await query(
+    `SELECT 1
+     FROM submissions
+     WHERE outcome = 'success'
+       AND payload_snapshot->'transaction'->>'transactionReference' = $1
+     LIMIT 1`,
+    [ref]
+  );
+  return rows.length > 0;
+}
+
+async function getLastSuccessfulUhmReference() {
+  const { rows } = await query(
+    `SELECT
+       payload_snapshot->'transaction'->>'transactionReference' AS transaction_reference,
+       created_at
+     FROM submissions
+     WHERE outcome = 'success'
+       AND (payload_snapshot->'transaction'->>'transactionReference') ~ '^UHM[0-9]{1,9}$'
+     ORDER BY created_at DESC
+     LIMIT 1`
+  );
+  const row = rows[0];
+  return row
+    ? { transactionReference: row.transaction_reference, createdAt: row.created_at }
+    : null;
+}
+
 /**
  * POST /api/transactions
  * Submit a new sales transaction to Momentum Energy
@@ -61,6 +92,26 @@ router.post(
     }
 
     try {
+      const transactionReference = body?.transaction?.transactionReference;
+      if (await hasSuccessfulSubmissionWithReference(transactionReference)) {
+        const ref = String(transactionReference || '').trim().toUpperCase();
+        const last = await getLastSuccessfulUhmReference().catch(() => null);
+        const lastMsg = last?.transactionReference
+          ? ` Last successful UHM reference: ${last.transactionReference} (${new Date(last.createdAt).toISOString()}).`
+          : '';
+        logger.warn('Duplicate transaction reference blocked', {
+          correlationId,
+          userId: userId ?? null,
+          transactionReference: ref,
+          lastSuccessfulUhmReference: last?.transactionReference ?? null,
+          lastSuccessfulUhmCreatedAt: last?.createdAt ?? null,
+        });
+        return res.status(409).json({
+          success: false,
+          error: `Transaction reference ${ref} has already been submitted successfully. This sale was not submitted to Momentum. Please use a new reference.${lastMsg}`,
+        });
+      }
+
       logger.info('Submitting transaction to Momentum', {
         correlationId,
         reference: req.body.transaction?.transactionReference,

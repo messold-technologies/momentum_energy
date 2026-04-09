@@ -1,4 +1,4 @@
-/** Portal-only; not sent to Momentum API. Must match backend `PORTAL_CENTER_OPTIONS`. */
+
 export const CENTER_OPTIONS = [
   'Utility hub India',
   'Utility hub India- Uhub SA',
