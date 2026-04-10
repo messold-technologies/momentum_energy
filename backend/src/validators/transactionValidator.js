@@ -668,10 +668,41 @@ const billingValidation = [
       if (!CARD_TYPES.includes(c.concessionCardType)) throw new Error('concessionCardType invalid');
 
       if (!c.concessionCardCode) throw new Error('concessionCardCode is required');
-      if (!/^[A-Za-z0-9-]+$/.test(c.concessionCardCode)) throw new Error('concessionCardCode invalid');
+      const code = String(c.concessionCardCode || '').trim().toUpperCase();
+      // Momentum: CRN must not contain spaces/hyphens/special chars
+      if (!/^[A-Z0-9]+$/.test(code)) throw new Error('concessionCardCode invalid (no spaces/hyphens/special chars)');
 
       if (!c.concessionCardNumber) throw new Error('concessionCardNumber is required');
-      if (!/^[A-Za-z0-9-]{1,30}$/.test(c.concessionCardNumber)) throw new Error('concessionCardNumber invalid');
+      const cardNumber = String(c.concessionCardNumber || '').trim().toUpperCase();
+      // Momentum: card number must not contain spaces/hyphens/special chars and must not include "CRN"
+      if (!/^[A-Z0-9]{1,30}$/.test(cardNumber)) throw new Error('concessionCardNumber invalid (no spaces/hyphens/special chars)');
+      if (cardNumber.includes('CRN')) throw new Error('concessionCardNumber must not include "CRN"');
+
+      const type = String(c.concessionCardType || '');
+      const isCentrelink =
+        type === 'PCC' ||
+        type === 'HCC' ||
+        type === 'LIHCC' ||
+        type === 'Pensioner Concession Card (PCC)' ||
+        type === 'Health Care Card (HCC)' ||
+        type === 'Low Income Health Care Card (LIHCC)';
+      const isDva =
+        type === 'DVAGV' ||
+        type === 'DVA Gold Card' ||
+        type === 'DVA Pension Concession Card' ||
+        type === 'DVA PCC Only' ||
+        type === 'DVA TPI' ||
+        type === 'DVA War Widow/Widower' ||
+        type === 'Disability Pension (EDA)';
+      const isQldSeniors = type === 'QLD Seniors Card';
+
+      if (isCentrelink) {
+        if (!/^\d{9}[A-Z]$/.test(code)) throw new Error('concessionCardCode invalid for Centrelink cards (expect 9 digits + 1 letter)');
+      } else if (isDva) {
+        if (!/^[TVNQSW][A-Z][A-Z0-9]{2}\d{4}[A-Z]?$/.test(code)) throw new Error('concessionCardCode invalid for DVA cards');
+      } else if (isQldSeniors) {
+        if (!/^\d{7,9}$/.test(code)) throw new Error('concessionCardCode invalid for QLD Seniors card (expect 7-9 digits)');
+      }
 
       if (!c.concessionCardExpiryDate) throw new Error('concessionCardExpiryDate is required');
       if (!isISODateOnly(c.concessionCardExpiryDate)) throw new Error('concessionCardExpiryDate must be ISO date-only (YYYY-MM-DD)');
