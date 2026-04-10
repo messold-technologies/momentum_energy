@@ -259,7 +259,7 @@ export function PayloadViewer({ payload, salesTransactionId }: PayloadViewerProp
               { label: 'End Date', value: concession.concessionEndDate },
               { label: 'Card Type', value: concession.concessionCardType },
               { label: 'Card Code', value: concession.concessionCardCode },
-              { label: 'Card Number', value: concession.concessionCardNumber },
+              { label: 'CRN (Card Number)', value: concession.concessionCardNumber },
               { label: 'Card Expiry Date', value: concession.concessionCardExpiryDate },
               { label: 'First Name', value: concession.concessionCardFirstName },
               { label: 'Middle Name', value: concession.concessionCardMiddleName },

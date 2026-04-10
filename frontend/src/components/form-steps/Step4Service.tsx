@@ -547,18 +547,20 @@ export default function Step4Service() {
             <FormField
               label="Concession Card Code"
               required
+              hint="Uppercase letters only (A–Z)"
               error={errors.service?.serviceBilling?.concession?.concessionCardCode}
             >
               <input
                 {...register('service.serviceBilling.concession.concessionCardCode')}
                 className={inputClass}
-                placeholder="e.g. PCC-123"
+                placeholder="e.g. PCC"
               />
             </FormField>
 
             <FormField
-              label="Concession Card Number"
+              label="CRN (Concession Card Number)"
               required
+              hint="Format depends on card type; no spaces or hyphens"
               error={errors.service?.serviceBilling?.concession?.concessionCardNumber}
             >
               <input

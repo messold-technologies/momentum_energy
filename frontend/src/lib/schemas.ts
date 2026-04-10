@@ -97,9 +97,10 @@ const CONCESSION_CARD_TYPES = [
   'LIHCC',
 ] as const;
 
-// Momentum concession rules: no spaces or special chars (no hyphens) in both fields.
-const CONCESSION_CARD_CODE_GENERIC_REGEX = /^[A-Za-z0-9]+$/;
-const CONCESSION_CARD_NUMBER_GENERIC_REGEX = /^[A-Za-z0-9]{1,30}$/;
+// Concession card code: uppercase letters only (portal/Momentum mapping).
+const CONCESSION_CARD_CODE_LETTERS_REGEX = /^[A-Z]+$/;
+// CRN lives in concessionCardNumber; alphanumeric only, no spaces/special chars.
+const CONCESSION_CARD_NUMBER_ALNUM_REGEX = /^[A-Z0-9]+$/;
 const CENTRELINK_CRN_REGEX = /^\d{9}[A-Z]$/;
 const DVA_CRN_REGEX = /^[TVNQSW][A-Z][A-Z0-9]{2}\d{4}[A-Z]?$/; // 8 or 9 chars
 const QLD_SENIORS_CRN_REGEX = /^\d{7,9}$/;
@@ -129,11 +130,11 @@ const concessionSchema = z
     concessionCardType: z.enum(CONCESSION_CARD_TYPES),
     concessionCardCode: z
       .string()
-      .min(1, 'CRN is required')
+      .min(1, 'Concession card code is required')
       .transform((v) => String(v ?? '').trim().toUpperCase()),
     concessionCardNumber: z
       .string()
-      .min(1, 'Concession card number is required')
+      .min(1, 'CRN / concession card number is required')
       .transform((v) => String(v ?? '').trim().toUpperCase()),
     concessionCardExpiryDate: z.string().min(1),
     concessionCardFirstName: z.string().regex(CONCESSION_NAME_REGEX, 'Must start with capital letter (1-101 chars)'),
@@ -159,33 +160,32 @@ const concessionSchema = z
       ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Card expiry date must not be in the past', path: ['concessionCardExpiryDate'] });
     }
 
-    // Momentum: no spaces/special chars in card number, and must not include the literal "CRN".
-    if (!CONCESSION_CARD_NUMBER_GENERIC_REGEX.test(c.concessionCardNumber)) {
+    const code = c.concessionCardCode;
+    if (!CONCESSION_CARD_CODE_LETTERS_REGEX.test(code)) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: 'Card number must contain letters/numbers only (no spaces, hyphens, or special characters)',
-        path: ['concessionCardNumber'],
-      });
-    }
-    if (c.concessionCardNumber.includes('CRN')) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'Card number must not include "CRN"',
-        path: ['concessionCardNumber'],
+        message: 'Concession card code must be uppercase letters only (A–Z)',
+        path: ['concessionCardCode'],
       });
     }
 
-    const code = c.concessionCardCode;
-    if (!CONCESSION_CARD_CODE_GENERIC_REGEX.test(code)) {
+    const num = c.concessionCardNumber;
+    if (!CONCESSION_CARD_NUMBER_ALNUM_REGEX.test(num)) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: 'CRN must contain letters/numbers only (no spaces, hyphens, or special characters)',
-        path: ['concessionCardCode'],
+        path: ['concessionCardNumber'],
       });
-      return;
+    }
+    if (num.includes('CRN')) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'CRN must not include the text "CRN"',
+        path: ['concessionCardNumber'],
+      });
     }
 
-    // Momentum: CRN rules vary by card type.
+    // Momentum: CRN format varies by card type (stored in concessionCardNumber).
     const type = c.concessionCardType;
     const isCentrelink =
       type === 'PCC' ||
@@ -206,23 +206,23 @@ const concessionSchema = z
 
     const isQldSeniors = type === 'QLD Seniors Card';
 
-    if (isCentrelink && !CENTRELINK_CRN_REGEX.test(code)) {
+    if (isCentrelink && !CENTRELINK_CRN_REGEX.test(num)) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: 'CRN must be 9 numbers followed by 1 letter (e.g. 123456789A)',
-        path: ['concessionCardCode'],
+        path: ['concessionCardNumber'],
       });
-    } else if (isDva && !DVA_CRN_REGEX.test(code)) {
+    } else if (isDva && !DVA_CRN_REGEX.test(num)) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: 'DVA CRN must be 8–9 chars (e.g. NKM12345, VX123456, QSM12345A)',
-        path: ['concessionCardCode'],
+        path: ['concessionCardNumber'],
       });
-    } else if (isQldSeniors && !QLD_SENIORS_CRN_REGEX.test(code)) {
+    } else if (isQldSeniors && !QLD_SENIORS_CRN_REGEX.test(num)) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: 'QLD Seniors CRN must be 7–9 numbers only (e.g. 1234567)',
-        path: ['concessionCardCode'],
+        path: ['concessionCardNumber'],
       });
     }
   });

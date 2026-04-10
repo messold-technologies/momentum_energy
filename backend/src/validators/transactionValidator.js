@@ -669,14 +669,12 @@ const billingValidation = [
 
       if (!c.concessionCardCode) throw new Error('concessionCardCode is required');
       const code = String(c.concessionCardCode || '').trim().toUpperCase();
-      // Momentum: CRN must not contain spaces/hyphens/special chars
-      if (!/^[A-Z0-9]+$/.test(code)) throw new Error('concessionCardCode invalid (no spaces/hyphens/special chars)');
+      if (!/^[A-Z]+$/.test(code)) throw new Error('concessionCardCode must be uppercase letters only (A–Z)');
 
       if (!c.concessionCardNumber) throw new Error('concessionCardNumber is required');
       const cardNumber = String(c.concessionCardNumber || '').trim().toUpperCase();
-      // Momentum: card number must not contain spaces/hyphens/special chars and must not include "CRN"
-      if (!/^[A-Z0-9]{1,30}$/.test(cardNumber)) throw new Error('concessionCardNumber invalid (no spaces/hyphens/special chars)');
-      if (cardNumber.includes('CRN')) throw new Error('concessionCardNumber must not include "CRN"');
+      if (!/^[A-Z0-9]+$/.test(cardNumber)) throw new Error('concessionCardNumber invalid (CRN: letters/numbers only, no spaces or special chars)');
+      if (cardNumber.includes('CRN')) throw new Error('concessionCardNumber must not include the text "CRN"');
 
       const type = String(c.concessionCardType || '');
       const isCentrelink =
@@ -697,11 +695,11 @@ const billingValidation = [
       const isQldSeniors = type === 'QLD Seniors Card';
 
       if (isCentrelink) {
-        if (!/^\d{9}[A-Z]$/.test(code)) throw new Error('concessionCardCode invalid for Centrelink cards (expect 9 digits + 1 letter)');
+        if (!/^\d{9}[A-Z]$/.test(cardNumber)) throw new Error('concessionCardNumber invalid for Centrelink cards (CRN: 9 digits + 1 letter)');
       } else if (isDva) {
-        if (!/^[TVNQSW][A-Z][A-Z0-9]{2}\d{4}[A-Z]?$/.test(code)) throw new Error('concessionCardCode invalid for DVA cards');
+        if (!/^[TVNQSW][A-Z][A-Z0-9]{2}\d{4}[A-Z]?$/.test(cardNumber)) throw new Error('concessionCardNumber invalid for DVA cards (CRN format)');
       } else if (isQldSeniors) {
-        if (!/^\d{7,9}$/.test(code)) throw new Error('concessionCardCode invalid for QLD Seniors card (expect 7-9 digits)');
+        if (!/^\d{7,9}$/.test(cardNumber)) throw new Error('concessionCardNumber invalid for QLD Seniors card (CRN: 7-9 digits)');
       }
 
       if (!c.concessionCardExpiryDate) throw new Error('concessionCardExpiryDate is required');
