@@ -17,6 +17,10 @@ import { CENTER_OPTIONS } from './centerOptions';
 const portalMetaPassthroughSchema = z
   .object({
     center: z.string().optional(),
+    dncNumber: z.string().optional(),
+    agentName: z.string().optional(),
+    closer: z.string().optional(),
+    auditorName: z.string().optional(),
   })
   .optional();
 
@@ -202,6 +206,13 @@ export const step1Schema = z
         .string()
         .min(1, 'Center is required')
         .refine((v) => (CENTER_OPTIONS as readonly string[]).includes(v), 'Select a valid center'),
+      dncNumber: z
+        .string()
+        .optional()
+        .refine((v) => !v || v.trim() === '' || /^\d+$/.test(v.trim()), 'DNC number must be digits only'),
+      agentName: z.string().max(200, 'Max 200 characters').optional(),
+      closer: z.string().max(200, 'Max 200 characters').optional(),
+      auditorName: z.string().max(200, 'Max 200 characters').optional(),
     }),
   })
   .superRefine((data, ctx) => {

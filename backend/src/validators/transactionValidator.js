@@ -76,6 +76,8 @@ const PORTAL_CENTER_OPTIONS = [
   'Real Estate– Uhub SA',
 ];
 
+const PORTAL_DNC_REGEX = /^\d+$/;
+
 const portalMetaValidation = [
   body('portalMeta').optional().isObject().withMessage('portalMeta must be an object'),
   body('portalMeta.center')
@@ -83,6 +85,29 @@ const portalMetaValidation = [
     .isString()
     .isIn(PORTAL_CENTER_OPTIONS)
     .withMessage('Invalid center value'),
+  body('portalMeta.dncNumber')
+    .optional({ values: 'falsy' })
+    .trim()
+    .matches(PORTAL_DNC_REGEX)
+    .withMessage('DNC number must be digits only'),
+  body('portalMeta.agentName')
+    .optional({ values: 'falsy' })
+    .trim()
+    .isString()
+    .isLength({ max: 200 })
+    .withMessage('Agent name must be at most 200 characters'),
+  body('portalMeta.closer')
+    .optional({ values: 'falsy' })
+    .trim()
+    .isString()
+    .isLength({ max: 200 })
+    .withMessage('Closer must be at most 200 characters'),
+  body('portalMeta.auditorName')
+    .optional({ values: 'falsy' })
+    .trim()
+    .isString()
+    .isLength({ max: 200 })
+    .withMessage('Auditor name must be at most 200 characters'),
 ];
 
 const transactionValidation = [

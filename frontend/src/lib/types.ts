@@ -178,7 +178,13 @@ export interface TransactionPayload {
   customer: CustomerInfo;
   service: ServiceInfo;
   /** Portal-only metadata; stripped before Momentum API submit (kept in drafts & submission snapshots). */
-  portalMeta?: { center?: string };
+  portalMeta?: {
+    center?: string;
+    dncNumber?: string;
+    agentName?: string;
+    closer?: string;
+    auditorName?: string;
+  };
 }
 
 export type TransactionStatus =

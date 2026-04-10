@@ -76,6 +76,30 @@ export default function Step1Transaction() {
           </select>
         </FormField>
 
+        <FormField label="DNC number" error={errors.portalMeta?.dncNumber} hint="Digits only">
+          <input
+            inputMode="numeric"
+            autoComplete="off"
+            {...register('portalMeta.dncNumber', {
+              setValueAs: (v) => String(v ?? '').replaceAll(/\D/g, ''),
+            })}
+            className={inputClass}
+            placeholder="Optional"
+          />
+        </FormField>
+
+        <FormField label="Agent name" error={errors.portalMeta?.agentName}>
+          <input {...register('portalMeta.agentName')} className={inputClass} placeholder="Optional" autoComplete="off" />
+        </FormField>
+
+        <FormField label="Closer" error={errors.portalMeta?.closer}>
+          <input {...register('portalMeta.closer')} className={inputClass} placeholder="Optional" autoComplete="off" />
+        </FormField>
+
+        <FormField label="Auditor name" error={errors.portalMeta?.auditorName}>
+          <input {...register('portalMeta.auditorName')} className={inputClass} placeholder="Optional" autoComplete="off" />
+        </FormField>
+
         <FormField label="Transaction Date" required error={errors.transaction?.transactionDate}>
           <input
             type="datetime-local"

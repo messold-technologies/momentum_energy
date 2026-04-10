@@ -108,6 +108,10 @@ export function PayloadViewer({ payload, salesTransactionId }: PayloadViewerProp
           <FieldRow label="Transaction Reference" value={val(tx.transactionReference)} />
           <FieldRow label="Channel" value={val(tx.transactionChannel)} />
           <FieldRow label="Center" value={val(portalMeta.center)} />
+          <FieldRow label="DNC number" value={val(portalMeta.dncNumber)} />
+          <FieldRow label="Agent name" value={val(portalMeta.agentName)} />
+          <FieldRow label="Closer" value={val(portalMeta.closer)} />
+          <FieldRow label="Auditor name" value={val(portalMeta.auditorName)} />
           <FieldRow label="Transaction Date" value={val(tx.transactionDate)} />
           <FieldRow label="Verification Code" value={val(tx.transactionVerificationCode)} />
           <FieldRow label="Source" value={val(tx.transactionSource)} />

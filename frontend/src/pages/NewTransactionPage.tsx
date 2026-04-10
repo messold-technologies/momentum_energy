@@ -100,7 +100,14 @@ function getDefaultValues(): TransactionPayload {
           parsed.transaction.transactionReference
         );
       }
-      parsed.portalMeta ??= { center: '' };
+      parsed.portalMeta = {
+        center: '',
+        dncNumber: '',
+        agentName: '',
+        closer: '',
+        auditorName: '',
+        ...parsed.portalMeta,
+      };
       return parsed;
     } catch {
       // ignore
@@ -113,7 +120,7 @@ function getDefaultValues(): TransactionPayload {
       transactionDate: moment().tz('Australia/Sydney').format('YYYY-MM-DDTHH:mm'),
       transactionSource: 'EXTERNAL',
     },
-    portalMeta: { center: '' },
+    portalMeta: { center: '', dncNumber: '', agentName: '', closer: '', auditorName: '' },
     customer: {
       customerType: 'RESIDENT',
       customerSubType: 'RESIDENT',
@@ -395,7 +402,14 @@ export default function NewTransactionPage() {
               payload.transaction.transactionReference
             );
           }
-          payload.portalMeta ??= { center: '' };
+          payload.portalMeta = {
+            center: '',
+            dncNumber: '',
+            agentName: '',
+            closer: '',
+            auditorName: '',
+            ...payload.portalMeta,
+          };
           methods.reset(payload);
           setDraftLoaded(true);
         }
