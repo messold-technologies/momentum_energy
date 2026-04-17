@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Zap } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { useCompany } from '../contexts/CompanyContext';
 import { getApiErrorMessage } from '../lib/errorMessage';
 
 export default function LoginPage() {
@@ -10,6 +11,7 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
+  const { clearCompany } = useCompany();
   const navigate = useNavigate();
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -18,7 +20,8 @@ export default function LoginPage() {
     setLoading(true);
     try {
       await login(email.trim(), password);
-      navigate('/', { replace: true });
+      clearCompany();
+      navigate('/select-company', { replace: true });
     } catch (err: unknown) {
       setError(getApiErrorMessage(err, 'Login failed'));
     } finally {

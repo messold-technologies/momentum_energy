@@ -29,6 +29,12 @@ function parseDateOnlyQuery(value) {
   return m ? m[1] : null;
 }
 
+function parseCompanyId(value) {
+  if (typeof value !== 'string') return null;
+  const v = value.trim();
+  return v ? v : null;
+}
+
 router.get('/', async (req, res, next) => {
   const userId = req.user?.id;
   if (!userId) {
@@ -37,6 +43,7 @@ router.get('/', async (req, res, next) => {
 
   try {
     const isAdmin = req.user?.isAdmin === true;
+    const companyId = parseCompanyId(req.query?.companyId) ?? 'momentum';
 
     const rawLimit = req.query?.limit;
     const parsed = typeof rawLimit === 'string' ? Number.parseInt(rawLimit, 10) : Number.NaN;
@@ -52,6 +59,10 @@ router.get('/', async (req, res, next) => {
       params.push(userId);
       idx = 2;
     }
+
+    const companyPlaceholder = `$${idx}`;
+    params.push(companyId);
+    idx += 1;
 
     const dateParts = [];
     if (fromDate) {
@@ -77,11 +88,11 @@ router.get('/', async (req, res, next) => {
 
     const sql = isAdmin
       ? `${baseSelect}
-         WHERE 1=1${dateSql}
+         WHERE s.company_id = ${companyPlaceholder}${dateSql}
          ORDER BY s.created_at DESC
          LIMIT ${limitPlaceholder}`
       : `${baseSelect}
-         WHERE s.user_id = $1${dateSql}
+         WHERE s.user_id = $1 AND s.company_id = ${companyPlaceholder}${dateSql}
          ORDER BY s.created_at DESC
          LIMIT ${limitPlaceholder}`;
 
@@ -118,14 +129,15 @@ router.delete('/:id', async (req, res, next) => {
   }
 
   const { id } = req.params;
+  const companyId = parseCompanyId(req.query?.companyId) ?? 'momentum';
 
   try {
     const isAdmin = req.user?.isAdmin === true;
     const sql = isAdmin
-      ? `DELETE FROM submissions WHERE id = $1 RETURNING id`
-      : `DELETE FROM submissions WHERE id = $1 AND user_id = $2 RETURNING id`;
+      ? `DELETE FROM submissions WHERE id = $1 AND company_id = $2 RETURNING id`
+      : `DELETE FROM submissions WHERE id = $1 AND company_id = $2 AND user_id = $3 RETURNING id`;
 
-    const result = await query(sql, isAdmin ? [id] : [id, userId]);
+    const result = await query(sql, isAdmin ? [id, companyId] : [id, companyId, userId]);
     if (!result.rows?.length) {
       return res.status(404).json({ success: false, error: 'Submission not found' });
     }

@@ -121,7 +121,7 @@ export function PayloadViewer({ payload, salesTransactionId }: PayloadViewerProp
             <div className="flex items-center justify-between gap-2">
               <span className="text-xs font-semibold text-primary-800 uppercase tracking-wide">Sales Transaction ID</span>
               <Link
-                to={`/transactions/${salesTransactionId}`}
+                to={`/momentum/transactions/${salesTransactionId}`}
                 className="inline-flex items-center gap-1 text-sm font-medium text-primary-600 hover:text-primary-700"
               >
                 {salesTransactionId}

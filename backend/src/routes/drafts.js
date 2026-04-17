@@ -27,6 +27,12 @@ function parseDateOnlyQuery(value) {
   return m ? m[1] : null;
 }
 
+function parseCompanyId(value) {
+  if (typeof value !== 'string') return null;
+  const v = value.trim();
+  return v ? v : null;
+}
+
 router.get('/', async (req, res, next) => {
   const userId = req.user?.id;
   if (!userId) {
@@ -35,6 +41,7 @@ router.get('/', async (req, res, next) => {
 
   try {
     const isAdmin = req.user?.isAdmin === true;
+    const companyId = parseCompanyId(req.query?.companyId) ?? 'momentum';
 
     const rawLimit = req.query?.limit;
     const parsed = typeof rawLimit === 'string' ? Number.parseInt(rawLimit, 10) : Number.NaN;
@@ -50,6 +57,10 @@ router.get('/', async (req, res, next) => {
       params.push(userId);
       idx = 2;
     }
+
+    const companyPlaceholder = `$${idx}`;
+    params.push(companyId);
+    idx += 1;
 
     const dateParts = [];
     if (fromDate) {
@@ -72,8 +83,8 @@ router.get('/', async (req, res, next) => {
     const fromJoin = `FROM drafts d JOIN users u ON d.user_id = u.id`;
 
     const sql = isAdmin
-      ? `SELECT ${selectCols} ${fromJoin} WHERE 1=1${dateSql} ORDER BY d.updated_at DESC LIMIT ${limitPlaceholder}`
-      : `SELECT ${selectCols} ${fromJoin} WHERE d.user_id = $1${dateSql} ORDER BY d.updated_at DESC LIMIT ${limitPlaceholder}`;
+      ? `SELECT ${selectCols} ${fromJoin} WHERE d.company_id = ${companyPlaceholder}${dateSql} ORDER BY d.updated_at DESC LIMIT ${limitPlaceholder}`
+      : `SELECT ${selectCols} ${fromJoin} WHERE d.user_id = $1 AND d.company_id = ${companyPlaceholder}${dateSql} ORDER BY d.updated_at DESC LIMIT ${limitPlaceholder}`;
 
     const result = await query(sql, params);
 
@@ -102,13 +113,14 @@ router.get('/:id', async (req, res, next) => {
 
   const { id } = req.params;
   const isAdmin = req.user?.isAdmin === true;
+  const companyId = parseCompanyId(req.query?.companyId) ?? 'momentum';
 
   try {
     const sql = isAdmin
-      ? `SELECT d.id, d.payload, d.updated_at FROM drafts d WHERE d.id = $1`
-      : `SELECT d.id, d.payload, d.updated_at FROM drafts d WHERE d.id = $1 AND d.user_id = $2`;
+      ? `SELECT d.id, d.payload, d.updated_at FROM drafts d WHERE d.id = $1 AND d.company_id = $2`
+      : `SELECT d.id, d.payload, d.updated_at FROM drafts d WHERE d.id = $1 AND d.user_id = $2 AND d.company_id = $3`;
 
-    const result = await query(sql, isAdmin ? [id] : [id, userId]);
+    const result = await query(sql, isAdmin ? [id, companyId] : [id, userId, companyId]);
     if (!result.rows?.length) {
       return res.status(404).json({ success: false, error: 'Draft not found' });
     }
@@ -133,15 +145,16 @@ router.post('/', async (req, res, next) => {
   }
 
   const payload = req.body?.payload;
+  const companyId = parseCompanyId(req.body?.companyId) ?? 'momentum';
   if (!payload || typeof payload !== 'object') {
     return res.status(400).json({ success: false, error: 'payload is required' });
   }
 
   try {
     const result = await query(
-      `INSERT INTO drafts (user_id, payload) VALUES ($1, $2)
+      `INSERT INTO drafts (user_id, company_id, payload) VALUES ($1, $2, $3)
        RETURNING id, payload, updated_at`,
-      [userId, JSON.stringify(payload)]
+      [userId, companyId, JSON.stringify(payload)]
     );
     const row = result.rows[0];
     res.status(201).json({
@@ -166,6 +179,7 @@ router.put('/:id', async (req, res, next) => {
 
   const { id } = req.params;
   const payload = req.body?.payload;
+  const companyId = parseCompanyId(req.body?.companyId) ?? 'momentum';
   if (!payload || typeof payload !== 'object') {
     return res.status(400).json({ success: false, error: 'payload is required' });
   }
@@ -175,13 +189,16 @@ router.put('/:id', async (req, res, next) => {
   try {
     const sql = isAdmin
       ? `UPDATE drafts SET payload = $1, updated_at = NOW()
-         WHERE id = $2
+         WHERE id = $2 AND company_id = $3
          RETURNING id, payload, updated_at`
       : `UPDATE drafts SET payload = $1, updated_at = NOW()
-         WHERE id = $2 AND user_id = $3
+         WHERE id = $2 AND company_id = $3 AND user_id = $4
          RETURNING id, payload, updated_at`;
 
-    const result = await query(sql, isAdmin ? [JSON.stringify(payload), id] : [JSON.stringify(payload), id, userId]);
+    const result = await query(
+      sql,
+      isAdmin ? [JSON.stringify(payload), id, companyId] : [JSON.stringify(payload), id, companyId, userId]
+    );
     if (!result.rows?.length) {
       return res.status(404).json({ success: false, error: 'Draft not found' });
     }
@@ -208,13 +225,14 @@ router.delete('/:id', async (req, res, next) => {
 
   const { id } = req.params;
   const isAdmin = req.user?.isAdmin === true;
+  const companyId = parseCompanyId(req.query?.companyId) ?? 'momentum';
 
   try {
     const sql = isAdmin
-      ? `DELETE FROM drafts WHERE id = $1 RETURNING id`
-      : `DELETE FROM drafts WHERE id = $1 AND user_id = $2 RETURNING id`;
+      ? `DELETE FROM drafts WHERE id = $1 AND company_id = $2 RETURNING id`
+      : `DELETE FROM drafts WHERE id = $1 AND company_id = $2 AND user_id = $3 RETURNING id`;
 
-    const result = await query(sql, isAdmin ? [id] : [id, userId]);
+    const result = await query(sql, isAdmin ? [id, companyId] : [id, companyId, userId]);
     if (!result.rows?.length) {
       return res.status(404).json({ success: false, error: 'Draft not found' });
     }

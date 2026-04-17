@@ -61,7 +61,7 @@ export default function FormResponsesPage() {
       copied.transaction.transactionDate = moment().tz('Australia/Sydney').format('YYYY-MM-DDTHH:mm');
 
       const res = await draftsApi.save(copied);
-      navigate(`/transactions/new?draft=${res.draft.id}`);
+      navigate(`/momentum/transactions/new?draft=${res.draft.id}`);
     } catch (err) {
       setError((err as { response?: { data?: { error?: string } } })?.response?.data?.error || 'Failed to copy form');
     } finally {
@@ -102,7 +102,7 @@ export default function FormResponsesPage() {
           <FileText className="w-12 h-12 mx-auto mb-3 text-gray-300" />
           <p>No submissions yet.</p>
           <p className="text-sm mt-1">Submit a transaction to see it here.</p>
-          <Link to="/transactions/new" className="inline-block mt-4 text-primary-600 hover:text-primary-700 font-medium">
+          <Link to="/momentum/transactions/new" className="inline-block mt-4 text-primary-600 hover:text-primary-700 font-medium">
             New Transaction
           </Link>
         </div>
@@ -160,7 +160,7 @@ export default function FormResponsesPage() {
                 <div className="shrink-0 flex items-center gap-1">
                   {s.salesTransactionId ? (
                     <Link
-                      to={`/transactions/${s.salesTransactionId}`}
+                      to={`/momentum/transactions/${s.salesTransactionId}`}
                       aria-label="Open transaction details"
                       title="Open details"
                       className="inline-flex items-center justify-center w-9 h-9 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 hover:text-primary-700 cursor-pointer"

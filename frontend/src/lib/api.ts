@@ -18,8 +18,9 @@ api.interceptors.response.use(
   (err) => {
     if (err.response?.status === 401) {
       clearAuthStorage();
-      if (typeof window !== 'undefined' && !window.location.pathname.includes('/login') && !window.location.pathname.includes('/register')) {
-        window.location.href = '/login';
+      const w = globalThis.window;
+      if (w && !w.location.pathname.includes('/login') && !w.location.pathname.includes('/register')) {
+        w.location.href = '/login';
       }
     }
     return Promise.reject(err);
@@ -50,19 +51,24 @@ export interface Submission {
 }
 
 export const submissionsApi = {
-  list: async (options?: { limit?: number; from?: string; to?: string }) => {
+  list: async (options?: { limit?: number; from?: string; to?: string; companyId?: 'momentum' | 'first-energy' }) => {
     const limit = options?.limit ?? 100;
     const { data } = await api.get<{ success: boolean; submissions: Submission[] }>('/submissions', {
       params: {
         limit,
+        ...(options?.companyId ? { companyId: options.companyId } : {}),
         ...(options?.from ? { from: options.from } : {}),
         ...(options?.to ? { to: options.to } : {}),
       },
     });
     return data;
   },
-  delete: async (id: string) => {
-    const { data } = await api.delete<{ success: boolean }>(`/submissions/${id}`);
+  delete: async (id: string, options?: { companyId?: 'momentum' | 'first-energy' }) => {
+    const { data } = await api.delete<{ success: boolean }>(`/submissions/${id}`, {
+      params: {
+        ...(options?.companyId ? { companyId: options.companyId } : {}),
+      },
+    });
     return data;
   },
 };
@@ -75,32 +81,108 @@ export interface Draft {
 }
 
 export const draftsApi = {
-  list: async (options?: { limit?: number; from?: string; to?: string }) => {
+  list: async (options?: { limit?: number; from?: string; to?: string; companyId?: 'momentum' | 'first-energy' }) => {
     const limit = options?.limit ?? 50;
     const { data } = await api.get<{ success: boolean; drafts: Draft[] }>('/drafts', {
       params: {
         limit,
+        ...(options?.companyId ? { companyId: options.companyId } : {}),
         ...(options?.from ? { from: options.from } : {}),
         ...(options?.to ? { to: options.to } : {}),
       },
     });
     return data;
   },
-  get: async (id: string) => {
-    const { data } = await api.get<{ success: boolean; draft: { id: string; payload: TransactionPayload; updatedAt: string } }>(`/drafts/${id}`);
+  get: async <TPayload = TransactionPayload>(id: string, options?: { companyId?: 'momentum' | 'first-energy' }) => {
+    const { data } = await api.get<{ success: boolean; draft: { id: string; payload: TPayload; updatedAt: string } }>(`/drafts/${id}`, {
+      params: {
+        ...(options?.companyId ? { companyId: options.companyId } : {}),
+      },
+    });
     return data;
   },
-  save: async (payload: TransactionPayload) => {
-    const { data } = await api.post<{ success: boolean; draft: { id: string; payload: TransactionPayload; updatedAt: string } }>('/drafts', { payload });
+  save: async <TPayload = TransactionPayload>(payload: TPayload, options?: { companyId?: 'momentum' | 'first-energy' }) => {
+    const { data } = await api.post<{ success: boolean; draft: { id: string; payload: TPayload; updatedAt: string } }>('/drafts', {
+      payload,
+      ...(options?.companyId ? { companyId: options.companyId } : {}),
+    });
     return data;
   },
-  update: async (id: string, payload: TransactionPayload) => {
-    const { data } = await api.put<{ success: boolean; draft: { id: string; payload: TransactionPayload; updatedAt: string } }>(`/drafts/${id}`, { payload });
+  update: async <TPayload = TransactionPayload>(
+    id: string,
+    payload: TPayload,
+    options?: { companyId?: 'momentum' | 'first-energy' }
+  ) => {
+    const { data } = await api.put<{ success: boolean; draft: { id: string; payload: TPayload; updatedAt: string } }>(`/drafts/${id}`, {
+      payload,
+      ...(options?.companyId ? { companyId: options.companyId } : {}),
+    });
     return data;
   },
-  delete: async (id: string) => {
-    const { data } = await api.delete<{ success: boolean }>(`/drafts/${id}`);
+  delete: async (id: string, options?: { companyId?: 'momentum' | 'first-energy' }) => {
+    const { data } = await api.delete<{ success: boolean }>(`/drafts/${id}`, {
+      params: {
+        ...(options?.companyId ? { companyId: options.companyId } : {}),
+      },
+    });
     return data;
+  },
+};
+
+export type FirstEnergyCompanyId = 'first-energy';
+
+export type FirstEnergySaleType = { type: string };
+
+export type FirstEnergyAddressSuggestion = Record<string, unknown> & { id?: string; Id?: string };
+
+export const firstEnergyApi = {
+  lookups: {
+    saleTypes: async () => {
+      const { data } = await api.get<{ success: boolean; data: FirstEnergySaleType[] }>('/first-energy/lookups/sale-type');
+      return data;
+    },
+    customerTitles: async () => {
+      const { data } = await api.get<{ success: boolean; data: Record<string, string> }>('/first-energy/lookups/customer-titles');
+      return data;
+    },
+    postcode: async (postcode: string) => {
+      const { data } = await api.get<{ success: boolean; data: unknown }>(`/first-energy/lookups/postcodes/${encodeURIComponent(postcode)}`);
+      return data;
+    },
+    addressSearch: async (searchTerm: string) => {
+      const { data } = await api.get<{ success: boolean; data: unknown[] }>('/first-energy/lookups/address/search', {
+        params: { searchTerm },
+      });
+      return data;
+    },
+    addressDetails: async (id: string) => {
+      const { data } = await api.get<{ success: boolean; data: Record<string, unknown> }>('/first-energy/lookups/address/details', {
+        params: { id },
+      });
+      return data;
+    },
+  },
+  proxy: {
+    get: async (path: string, params?: Record<string, unknown>) => {
+      const normalized = path.replace(/^\/+/, '');
+      const { data } = await api.get<{ success: boolean; data: unknown }>(`/first-energy/proxy/${normalized}`, { params });
+      return data;
+    },
+    post: async (path: string, body?: Record<string, unknown>, params?: Record<string, unknown>) => {
+      const normalized = path.replace(/^\/+/, '');
+      const { data } = await api.post<{ success: boolean; data: unknown }>(`/first-energy/proxy/${normalized}`, body ?? {}, { params });
+      return data;
+    },
+  },
+  accounts: {
+    create: async (payload: Record<string, unknown>) => {
+      const { data } = await api.post<{ success: boolean; data: unknown }>('/first-energy/accounts', { payload });
+      return data;
+    },
+    get: async (accountId: string) => {
+      const { data } = await api.get<{ success: boolean; data: unknown }>(`/first-energy/accounts/${encodeURIComponent(accountId)}`);
+      return data;
+    },
   },
 };
 

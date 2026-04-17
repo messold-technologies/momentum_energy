@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable react-hooks/set-state-in-effect */
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { CopyToClipboard } from 'react-copy-to-clipboard';

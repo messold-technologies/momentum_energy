@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
 import { authApi } from '../lib/api';
 import { setAuthToken } from '../lib/auth';
@@ -26,10 +27,13 @@ interface AuthContextValue extends AuthState {
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [state, setState] = useState<AuthState>({
-    user: null,
-    token: null,
-    loading: true,
+  const [state, setState] = useState<AuthState>(() => {
+    const token = localStorage.getItem(TOKEN_KEY);
+    if (!token) {
+      return { user: null, token: null, loading: false };
+    }
+    setAuthToken(token);
+    return { user: null, token, loading: true };
   });
 
   const logout = useCallback(() => {
@@ -39,12 +43,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    const token = localStorage.getItem(TOKEN_KEY);
-    if (!token) {
-      setState((s) => ({ ...s, loading: false }));
-      return;
-    }
-    setAuthToken(token);
+    const token = state.token;
+    if (!token) return;
     authApi
       .me()
       .then((res) => {
@@ -59,7 +59,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setAuthToken(null);
         setState({ user: null, token: null, loading: false });
       });
-  }, []);
+  }, [state.token]);
 
   const login = useCallback(
     async (email: string, password: string) => {

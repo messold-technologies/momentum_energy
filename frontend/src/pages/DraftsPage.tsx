@@ -70,7 +70,7 @@ export default function DraftsPage() {
           <FileEdit className="w-12 h-12 mx-auto mb-3 text-gray-300" />
           <p>No saved drafts yet.</p>
           <p className="text-sm mt-1">Start a new transaction and click Save draft to save your progress.</p>
-          <Link to="/transactions/new" className="inline-block mt-4 text-primary-600 hover:text-primary-700 font-medium">
+          <Link to="/momentum/transactions/new" className="inline-block mt-4 text-primary-600 hover:text-primary-700 font-medium">
             New Transaction
           </Link>
         </div>
@@ -92,7 +92,7 @@ export default function DraftsPage() {
               <div className="flex items-center gap-2 shrink-0">
                 <button
                   type="button"
-                  onClick={() => navigate(`/transactions/new?draft=${d.id}`)}
+                  onClick={() => navigate(`/momentum/transactions/new?draft=${d.id}`)}
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 cursor-pointer"
                 >
                   <FileEdit className="w-4 h-4" />

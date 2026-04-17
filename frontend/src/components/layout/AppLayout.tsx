@@ -1,4 +1,4 @@
-import { Outlet, NavLink } from 'react-router-dom';
+import { Outlet, NavLink, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard,
   FilePlus,
@@ -11,18 +11,36 @@ import {
 } from 'lucide-react';
 import { useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
+import { useCompany, useSyncCompanyFromPath } from '../../contexts/CompanyContext';
 
 export default function AppLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { user, logout } = useAuth();
+  const { company } = useCompany();
+  const location = useLocation();
+  useSyncCompanyFromPath(location.pathname);
 
-  const navItems = [
+  const momentumNav = [
     { to: '/', label: 'Dashboard', icon: LayoutDashboard },
-    { to: '/transactions/new?fresh=1', label: 'New Transaction', icon: FilePlus },
-    { to: '/drafts', label: 'My Drafts', icon: FileEdit },
-    { to: '/form-responses', label: 'Form Responses', icon: FileText },
-    ...(user?.isAdmin ? [{ to: '/excel-dashboard', label: 'Excel Dashboard', icon: Sheet }] : []),
+    { to: '/momentum/transactions/new?fresh=1', label: 'New Transaction', icon: FilePlus },
+    { to: '/momentum/drafts', label: 'My Drafts', icon: FileEdit },
+    { to: '/momentum/form-responses', label: 'Form Responses', icon: FileText },
+    ...(user?.isAdmin ? [{ to: '/momentum/excel-dashboard', label: 'Excel Dashboard', icon: Sheet }] : []),
   ];
+
+  const firstEnergyNav = [
+    { to: '/', label: 'Dashboard', icon: LayoutDashboard },
+    { to: '/first-energy/transactions/new', label: 'New sale', icon: FilePlus },
+    { to: '/first-energy/drafts', label: 'My Drafts', icon: FileEdit },
+    { to: '/first-energy/form-responses', label: 'Form Responses', icon: FileText },
+  ];
+
+  let navItems = momentumNav;
+  if (company === 'first-energy') {
+    navItems = firstEnergyNav;
+  } else if (company !== 'momentum') {
+    navItems = [];
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 flex">
@@ -59,11 +77,31 @@ export default function AppLayout() {
         </div>
 
         <nav className="flex-1 px-3 py-4 space-y-1">
-          {navItems.map(({ to, label, icon: Icon }) => (
+          {navItems.length === 0 ? (
+            <p className="px-3 text-xs text-gray-400 leading-relaxed">Choose a retailer to see navigation.</p>
+          ) : (
+            navItems.map(({ to, label, icon: Icon }) => (
+              <NavLink
+                key={to}
+                to={to}
+                end={to === '/'}
+                onClick={() => setSidebarOpen(false)}
+                className={({ isActive }) =>
+                  `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                    isActive
+                      ? 'bg-primary-50 text-primary-700'
+                      : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                  }`
+                }
+              >
+                <Icon className="w-5 h-5" />
+                {label}
+              </NavLink>
+            ))
+          )}
+          {company ? (
             <NavLink
-              key={to}
-              to={to}
-              end={to === '/'}
+              to="/select-company"
               onClick={() => setSidebarOpen(false)}
               className={({ isActive }) =>
                 `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
@@ -73,10 +111,9 @@ export default function AppLayout() {
                 }`
               }
             >
-              <Icon className="w-5 h-5" />
-              {label}
+              Switch retailer
             </NavLink>
-          ))}
+          ) : null}
         </nav>
 
         <div className="border-t border-gray-200 p-4 space-y-2">

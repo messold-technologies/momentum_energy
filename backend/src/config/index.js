@@ -14,6 +14,11 @@ export default {
     sourceSystem: process.env.MOMENTUM_SOURCE_SYSTEM || 'PowerMarket',
   },
 
+  firstEnergy: {
+    baseUrl: process.env.FIRST_ENERGY_BASE_URL || 'https://firstenergy.uconx.com.au/v2',
+    apiKey: process.env.FIRST_ENERGY_API_KEY,
+  },
+
   portal: {
     allowedOrigins: (process.env.ALLOWED_ORIGINS || 'http://localhost:5173').split(','),
   },

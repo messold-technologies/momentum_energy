@@ -596,7 +596,7 @@ export default function NewTransactionPage() {
             {submitResult.success && (
               <>
                 <button
-                  onClick={() => navigate(`/transactions/${submitResult.salesTransactionId}`)}
+                  onClick={() => navigate(`/momentum/transactions/${submitResult.salesTransactionId}`)}
                   className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 text-sm font-medium cursor-pointer"
                 >
                   View Transaction

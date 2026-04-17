@@ -24,19 +24,6 @@ export default function Step2Customer() {
   const customerType = useWatch({ control, name: 'customer.customerType' });
   const customerSubType = useWatch({ control, name: 'customer.customerSubType' });
   const hasPassport = useWatch({ control, name: 'customer.residentIdentity.passport.documentId' });
-
-  useEffect(() => {
-    if (customerType === 'RESIDENT' && customerSubType !== 'RESIDENT' && customerSubType !== '') {
-      setValue('customer.customerSubType', 'RESIDENT');
-    } else if (customerType === 'COMPANY') {
-      if (customerSubType === 'RESIDENT') {
-        setValue('customer.customerSubType', '');
-      }
-      clearIdentitySection('passport');
-      clearIdentitySection('drivingLicense');
-      clearIdentitySection('medicare');
-    }
-  }, [customerType, customerSubType, setValue]);
   const hasDL = useWatch({ control, name: 'customer.residentIdentity.drivingLicense.documentId' });
   const hasMC = useWatch({ control, name: 'customer.residentIdentity.medicare.documentId' });
 
@@ -50,6 +37,19 @@ export default function Step2Customer() {
           : ['documentId', 'documentNumber', 'documentExpiryDate'];
     fields.forEach((f) => setValue(`${base}.${f}`, ''));
   }
+
+  useEffect(() => {
+    if (customerType === 'RESIDENT' && customerSubType !== 'RESIDENT' && customerSubType !== '') {
+      setValue('customer.customerSubType', 'RESIDENT');
+    } else if (customerType === 'COMPANY') {
+      if (customerSubType === 'RESIDENT') {
+        setValue('customer.customerSubType', '');
+      }
+      clearIdentitySection('passport');
+      clearIdentitySection('drivingLicense');
+      clearIdentitySection('medicare');
+    }
+  }, [customerType, customerSubType, setValue, clearIdentitySection]);
 
   return (
     <div className="space-y-6">
