@@ -1685,6 +1685,7 @@ export default function FirstEnergyNewTransactionPage() {
                   <div className="flex items-center justify-between gap-4">
                     <div>
                       <h3 className="text-sm font-semibold text-gray-900">Concession</h3>
+                     
                     </div>
                     <label className="inline-flex items-center gap-2 text-sm text-gray-700">
                       <input type="checkbox" {...methods.register('customer.concession.enabled')} className="rounded border-gray-300" />

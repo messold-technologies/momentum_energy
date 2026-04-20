@@ -90,6 +90,13 @@ function sanitizeTransactionRef(ref: string | undefined): string {
   return `UHM${digits}`;
 }
 
+/** Sanitize verification code: OWR- prefix + up to 26 digits */
+function sanitizeVerificationCode(code: string | undefined): string {
+  const raw = String(code ?? '').toUpperCase();
+  const digits = raw.replace(/^OWR-?/, '').replaceAll(/\D/g, '').slice(0, 26);
+  return digits.length ? `OWR-${digits}` : '';
+}
+
 function getDefaultValues(): TransactionPayload {
   const saved = localStorage.getItem(DRAFT_KEY);
   if (saved) {
@@ -98,6 +105,11 @@ function getDefaultValues(): TransactionPayload {
       if (parsed?.transaction?.transactionReference) {
         parsed.transaction.transactionReference = sanitizeTransactionRef(
           parsed.transaction.transactionReference
+        );
+      }
+      if (parsed?.transaction) {
+        parsed.transaction.transactionVerificationCode = sanitizeVerificationCode(
+          parsed.transaction.transactionVerificationCode
         );
       }
       parsed.portalMeta = {
@@ -118,6 +130,7 @@ function getDefaultValues(): TransactionPayload {
       transactionReference: 'UHM',
       transactionChannel: 'UtilityHub',
       transactionDate: moment().tz('Australia/Sydney').format('YYYY-MM-DDTHH:mm'),
+      transactionVerificationCode: '',
       transactionSource: 'EXTERNAL',
     },
     portalMeta: { center: '', dncNumber: '', agentName: '', closer: '', auditorName: '' },
@@ -210,11 +223,6 @@ function omitIfEmpty(obj: Record<string, unknown>, key: string): void {
 
 function cleanPayload(data: TransactionPayload): TransactionPayload {
   const cleaned = structuredClone(data);
-
-  // Transaction: Momentum API requires transactionVerificationCode - use placeholder when empty (pattern: A-Za-z0-9-)
-  if (!cleaned.transaction.transactionVerificationCode?.trim()) {
-    cleaned.transaction.transactionVerificationCode = 'OPTIONAL';
-  }
 
   // Ensure transactionDate is ISO 8601 datetime. Treat datetime-local inputs as Australia/Sydney time and convert to UTC (Z).
   if (cleaned.transaction.transactionDate) {
@@ -379,6 +387,9 @@ export default function NewTransactionPage() {
     const copied = structuredClone(lastSubmittedPayload);
     copied.transaction = copied.transaction ?? {};
     copied.transaction.transactionReference = sanitizeTransactionRef(copied.transaction.transactionReference);
+    copied.transaction.transactionVerificationCode = sanitizeVerificationCode(
+      copied.transaction.transactionVerificationCode
+    );
     copied.transaction.transactionDate = moment().tz('Australia/Sydney').format('YYYY-MM-DDTHH:mm');
 
     methods.reset(copied);
@@ -400,6 +411,11 @@ export default function NewTransactionPage() {
           if (payload.transaction?.transactionReference) {
             payload.transaction.transactionReference = sanitizeTransactionRef(
               payload.transaction.transactionReference
+            );
+          }
+          if (payload.transaction) {
+            payload.transaction.transactionVerificationCode = sanitizeVerificationCode(
+              payload.transaction.transactionVerificationCode
             );
           }
           payload.portalMeta = {

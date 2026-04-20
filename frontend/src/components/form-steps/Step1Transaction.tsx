@@ -12,8 +12,19 @@ export default function Step1Transaction() {
     setValue('transaction.transactionReference', `UHM${digits}`, { shouldDirty: true, shouldTouch: true });
   }
 
+  function handleVerificationDigitsChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const digits = (e.target.value ?? '').replaceAll(/\D/g, '');
+    setValue('transaction.transactionVerificationCode', `OWR-${digits}`, { shouldDirty: true, shouldTouch: true });
+  }
+
   const currentRef = String(watch('transaction.transactionReference') ?? '');
   const currentDigits = currentRef.toUpperCase().replace(/^UHM/, '').replaceAll(/\D/g, '').slice(0, 9);
+
+  const currentVerification = String(watch('transaction.transactionVerificationCode') ?? '');
+  const verificationDigits = currentVerification
+    .toUpperCase()
+    .replace(/^OWR-?/, '')
+    .replaceAll(/\D/g, '')
 
   return (
     <div className="space-y-6">
@@ -110,14 +121,35 @@ export default function Step1Transaction() {
 
         <FormField
           label="Verification Code"
+          required
           error={errors.transaction?.transactionVerificationCode}
-          hint="Optional verification code"
+          hint="Fixed prefix OWR-; enter the numeric part only"
         >
-          <input
-            {...register('transaction.transactionVerificationCode')}
-            className={inputClass}
-            placeholder="Optional"
-          />
+          <div className="flex">
+            <span className="inline-flex items-center px-3 py-2 rounded-l-lg border border-r-0 border-gray-300 bg-gray-50 text-sm font-mono text-gray-700">
+              OWR-
+            </span>
+            <input
+              inputMode="numeric"
+              autoComplete="off"
+              aria-label="Verification code digits"
+              onChange={handleVerificationDigitsChange}
+              value={verificationDigits}
+              className={`${inputClass} rounded-l-none font-mono`}
+              placeholder="Enter digits"
+              maxLength={26}
+            />
+            <input
+              type="hidden"
+              {...register('transaction.transactionVerificationCode', {
+                setValueAs: (v) => {
+                  const raw = String(v ?? '').toUpperCase();
+                  const digits = raw.replace(/^OWR-?/, '').replaceAll(/\D/g, '').slice(0, 26);
+                  return digits.length ? `OWR-${digits}` : '';
+                },
+              })}
+            />
+          </div>
         </FormField>
 
         <FormField label="Transaction Source" required>

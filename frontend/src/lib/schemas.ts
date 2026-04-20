@@ -60,7 +60,8 @@ function isExpiryNotExpired(v: string): boolean {
 
 // Transaction field patterns per CAF spec
 const TRANSACTION_CHANNEL_REGEX = /^[A-Za-z0-9\s]+$/;
-const TRANSACTION_VERIFICATION_REGEX = /^[A-Za-z0-9-]{1,30}$/;
+/** Momentum portal: fixed prefix OWR- plus 1–26 digits (total length ≤ 30). */
+const TRANSACTION_VERIFICATION_REGEX = /^OWR-\d+$/
 /** Valid ISO 8601 date/time (YYYY-MM-DD or with time) */
 function isValidISO8601(v: string): boolean {
   if (!v || v.length < 10) return false;
@@ -274,8 +275,12 @@ export const step1Schema = z
         .refine(isValidISO8601, 'Transaction date must be ISO 8601 format'),
       transactionVerificationCode: z
         .string()
-        .optional()
-        .refine((v) => !v || v === '' || TRANSACTION_VERIFICATION_REGEX.test(v), '1-30 chars: letters, numbers, hyphen only'),
+        .transform((v) => {
+          const raw = String(v ?? '').trim().toUpperCase();
+          const digits = raw.replace(/^OWR-?/, '').replace(/\D/g, '').slice(0, 26);
+          return digits.length ? `OWR-${digits}` : '';
+        })
+        .refine((v) => TRANSACTION_VERIFICATION_REGEX.test(v), 'Verification code is required (OWR- plus your numbers)'),
       transactionSource: z.literal('EXTERNAL'),
     }),
     portalMeta: z.object({

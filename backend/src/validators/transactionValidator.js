@@ -50,7 +50,7 @@ function isNotPastDateOnly(v) {
 // Transaction field validations per CAF spec
 const TRANSACTION_REF_REGEX = /^[A-Z0-9]{1,12}$/;
 const TRANSACTION_CHANNEL_REGEX = /^[A-Za-z0-9\s]+$/;
-const TRANSACTION_VERIFICATION_REGEX = /^[A-Za-z0-9\-]{1,30}$/;
+const TRANSACTION_VERIFICATION_REGEX = /^OWR-\d+$/;
 
 /** Portal-only; must match `frontend/src/lib/centerOptions.ts` */
 const PORTAL_CENTER_OPTIONS = [
@@ -131,9 +131,11 @@ const transactionValidation = [
     .withMessage('transactionDate must be ISO 8601 datetime'),
 
   body('transaction.transactionVerificationCode')
-    .optional({ values: 'falsy' })
+    .notEmpty()
+    .withMessage('transactionVerificationCode is required')
+    .customSanitizer((v) => (v && typeof v === 'string' ? v.trim().toUpperCase() : v))
     .matches(TRANSACTION_VERIFICATION_REGEX)
-    .withMessage('transactionVerificationCode must be 1-30 chars: letters, numbers, hyphen'),
+    .withMessage('transactionVerificationCode must be OWR- followed by digits'),
 
   body('transaction.transactionSource')
     .notEmpty()

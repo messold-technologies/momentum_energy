@@ -4,7 +4,7 @@ export interface TransactionInfo {
   transactionReference: string;
   transactionChannel: string;
   transactionDate: string;
-  transactionVerificationCode?: string;
+  transactionVerificationCode: string;
   transactionSource: 'EXTERNAL';
 }
 

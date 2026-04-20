@@ -29,11 +29,6 @@ function omitIfEmpty(obj, key) {
 function sanitizeBody(body) {
   const cleaned = JSON.parse(JSON.stringify(body));
 
-  // Transaction: Momentum requires transactionVerificationCode (pattern: A-Za-z0-9-)
-  if (!cleaned.transaction?.transactionVerificationCode?.trim()) {
-    cleaned.transaction.transactionVerificationCode = 'OPTIONAL';
-  }
-
   // Add contactType (required by Momentum API)
   if (cleaned.customer?.contacts?.primaryContact) {
     cleaned.customer.contacts.primaryContact.contactType = 'PRIMARY';
