@@ -90,10 +90,10 @@ function sanitizeTransactionRef(ref: string | undefined): string {
   return `UHM${digits}`;
 }
 
-/** Sanitize verification code: OWR- prefix + up to 26 digits */
+
 function sanitizeVerificationCode(code: string | undefined): string {
   const raw = String(code ?? '').toUpperCase();
-  const digits = raw.replace(/^OWR-?/, '').replaceAll(/\D/g, '').slice(0, 26);
+  const digits = raw.replace(/^OWR-?/, '').replaceAll(/\D/g, '')
   return digits.length ? `OWR-${digits}` : '';
 }
 

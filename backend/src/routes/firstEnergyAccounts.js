@@ -14,6 +14,7 @@ import {
   addressGetDetails,
   proxyRequest,
 } from '../services/firstEnergyService.js';
+import { sanitizeFirstEnergyAccountPayload } from '../utils/sanitizeFirstEnergyPayload.js';
 
 async function storeSubmission({
   userId,
@@ -153,9 +154,10 @@ router.post('/accounts', async (req, res, next) => {
   }
 
   const payloadSnapshot = structuredClone(payload);
+  const sanitizedPayload = sanitizeFirstEnergyAccountPayload(structuredClone(payload));
 
   try {
-    const result = await createAccount(payload);
+    const result = await createAccount(sanitizedPayload);
     const externalId = result?.id || result?.account_id || result?.accountId || result?.reference || null;
     await storeSubmission({
       userId,
