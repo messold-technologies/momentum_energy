@@ -177,8 +177,18 @@ function buildCustomerIdentifications(v: FormValues): Array<Record<string, unkno
   return items;
 }
 
-export function buildAccountPayload(v: FormValues): Record<string, unknown> {
-  const address = buildAddress(v);
+type PricingQueryLike = {
+  latitude?: number;
+  longitude?: number;
+  nmi_status?: string;
+  has_basic_meter?: boolean;
+};
+
+export function buildAccountPayload(v: FormValues, pricingQuery?: PricingQueryLike | null): Record<string, unknown> {
+  const address = buildAddress(v) as Record<string, unknown>;
+  if (pricingQuery?.nmi_status && typeof pricingQuery.nmi_status === 'string') {
+    address.nmiStatus = pricingQuery.nmi_status;
+  }
   const customerIdentifications = buildCustomerIdentifications(v);
 
   return {
@@ -264,8 +274,8 @@ export function buildAccountPayload(v: FormValues): Record<string, unknown> {
         identifier: v.site.identifier,
         fuel_id: v.site.fuel_id,
         move_in_terms_accepted: toBoolInt(v.site.move_in_terms_accepted === true),
-        latitude: null,
-        longitude: null,
+        latitude: typeof pricingQuery?.latitude === 'number' ? pricingQuery.latitude : null,
+        longitude: typeof pricingQuery?.longitude === 'number' ? pricingQuery.longitude : null,
         transfer_instructions: v.site.transfer_instructions || null,
         is_owner: toBoolInt(v.site.is_owner === true),
         usage_start_date: v.site.usage_start_date || null,
@@ -280,13 +290,14 @@ export function buildAccountPayload(v: FormValues): Record<string, unknown> {
         lifeSupport: {},
         has_solar: toBoolInt(v.site.has_solar),
         has_interest_on_solar: toBoolInt(v.site.has_interest_on_solar === true),
-        feed_in_type_id: v.site.feed_in_type_id ?? null,
-        selected_greenpower_id: v.site.selected_greenpower_id ?? null,
+        feed_in_type_id: typeof v.site.feed_in_type_id === 'number' && v.site.feed_in_type_id > 0 ? v.site.feed_in_type_id : null,
+        selected_greenpower_id:
+          typeof v.site.selected_greenpower_id === 'number' && v.site.selected_greenpower_id > 0 ? v.site.selected_greenpower_id : null,
         selectedGreenpower: {},
         vsi_time: v.site.vsi_time ?? null,
         vsi_method: v.site.vsi_method ?? null,
         existing_account_number: v.site.existing_account_number ?? null,
-        has_basic_meter: toBoolInt(v.site.has_basic_meter === true),
+        has_basic_meter: toBoolInt((typeof pricingQuery?.has_basic_meter === 'boolean' ? pricingQuery.has_basic_meter : v.site.has_basic_meter) === true),
         is_mains_switch_off: toBoolInt(v.site.is_mains_switch_off === true),
         is_electricity_disconnected_period: toBoolInt(v.site.is_electricity_disconnected_period === true),
         has_ecoc: toBoolInt(v.site.has_ecoc === true),

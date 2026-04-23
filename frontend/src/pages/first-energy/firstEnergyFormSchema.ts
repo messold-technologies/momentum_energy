@@ -6,6 +6,7 @@ export const FIRST_ENERGY_WIZARD_STEPS = [
   { label: 'Address', description: 'Supply address' },
   { label: 'Site', description: 'NMI/MIRN & offer' },
   { label: 'Review', description: 'Preview & submit' },
+  { label: 'Submit', description: 'Final sale submission' },
 ] as const;
 
 export const formSchema = z
@@ -177,6 +178,14 @@ export const formSchema = z
       if (!c.expires_on?.trim()) ctx.addIssue({ code: 'custom', message: 'Expiry is required', path: ['customer', 'concession', 'expires_on'] });
       if (!c.first_name?.trim()) ctx.addIssue({ code: 'custom', message: 'First name is required', path: ['customer', 'concession', 'first_name'] });
       if (!c.last_name?.trim()) ctx.addIssue({ code: 'custom', message: 'Last name is required', path: ['customer', 'concession', 'last_name'] });
+    }
+
+    // Electricity + solar requires feed-in type.
+    if (v.site?.fuel_id === 1 && v.site?.has_solar === true) {
+      const fit = Number(v.site.feed_in_type_id ?? 0);
+      if (!Number.isFinite(fit) || fit <= 0) {
+        ctx.addIssue({ code: 'custom', message: 'Feed-in type is required when Solar is enabled', path: ['site', 'feed_in_type_id'] });
+      }
     }
   });
 

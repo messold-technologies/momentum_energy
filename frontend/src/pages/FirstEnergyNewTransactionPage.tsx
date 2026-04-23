@@ -19,8 +19,6 @@ import {
   parseBusinessNameResults,
   numOrUndef,
   pickFirstAbnSearchHit,
-  pickStr,
-  firstNmiResultRow,
   parseGstDateToIso,
 } from './first-energy/firstEnergyPayload';
 import { FirstEnergyWizardProvider, type FirstEnergyWizardContextValue } from './first-energy/FirstEnergyWizardContext';
@@ -29,6 +27,7 @@ import { FirstEnergyStepCustomer } from './first-energy/steps/FirstEnergyStepCus
 import { FirstEnergyStepAddress } from './first-energy/steps/FirstEnergyStepAddress';
 import { FirstEnergyStepSite } from './first-energy/steps/FirstEnergyStepSite';
 import { FirstEnergyStepReview } from './first-energy/steps/FirstEnergyStepReview';
+import { FirstEnergyStepSubmit } from './first-energy/steps/FirstEnergyStepSubmit.tsx';
 
 const COMPANY_ID = 'first-energy' as const;
 const DRAFT_KEY = 'first_energy_draft_account';
@@ -60,8 +59,16 @@ export default function FirstEnergyNewTransactionPage() {
   const [abnValidated, setAbnValidated] = useState(false);
   const [acnValidated, setAcnValidated] = useState(false);
   const [industryTypes, setIndustryTypes] = useState<Array<{ id: number; label: string }>>([]);
-  const [meterLookupLoading, setMeterLookupLoading] = useState(false);
-  const [meterLookupMessage, setMeterLookupMessage] = useState<string | null>(null);
+  const [identifierLookupLoading, setIdentifierLookupLoading] = useState(false);
+  const [identifierLookupMessage, setIdentifierLookupMessage] = useState<string | null>(null);
+  const [identifierOptions, setIdentifierOptions] = useState<string[]>([]);
+  const [pricingLoading, setPricingLoading] = useState(false);
+  const [pricingMessage, setPricingMessage] = useState<string | null>(null);
+  const [pricingQuery, setPricingQuery] = useState<Record<string, unknown> | null>(null);
+  const [offers, setOffers] = useState<Array<Record<string, unknown>>>([]);
+  const [feedInTypesLoading, setFeedInTypesLoading] = useState(false);
+  const [feedInTypesMessage, setFeedInTypesMessage] = useState<string | null>(null);
+  const [feedInTypes, setFeedInTypes] = useState<Array<Record<string, unknown>>>([]);
   const [moveInDateOptions, setMoveInDateOptions] = useState<string[]>([]);
 
   const [promoChecking, setPromoChecking] = useState(false);
@@ -76,6 +83,12 @@ export default function FirstEnergyNewTransactionPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [addressSearching, setAddressSearching] = useState(false);
+
+  const [createdAccountId, setCreatedAccountId] = useState<string | null>(null);
+  const [saleHash, setSaleHash] = useState<string | null>(null);
+  const [signupSubmitting, setSignupSubmitting] = useState(false);
+  const [signupResult, setSignupResult] = useState<Record<string, unknown> | null>(null);
+  const [signupError, setSignupError] = useState<string | null>(null);
 
   const methods = useForm<FormValues>({
     defaultValues: defaultValues(),
@@ -401,57 +414,248 @@ export default function FirstEnergyNewTransactionPage() {
     }
   }
 
-  async function lookupMeterIdentifier() {
+  function extractStringsFromLookupRows(data: unknown, key: string): string[] {
+    const raw =
+      Array.isArray(data) ? data : data && typeof data === 'object' ? ((data as any).data ?? (data as any).results ?? (data as any).items) : null;
+    const rows: unknown[] = Array.isArray(raw) ? raw : [];
+    const out: string[] = [];
+    for (const r of rows) {
+      if (!r || typeof r !== 'object') continue;
+      const v = (r as Record<string, unknown>)[key];
+      if (typeof v === 'string' && v.trim()) out.push(v.trim());
+    }
+    return Array.from(new Set(out));
+  }
+
+  function splitHouseNumber(raw: string): { num?: string; suffix?: string } {
+    const t = raw.trim();
+    const m = t.match(/^(\d+)(.*)$/);
+    if (!m) return {};
+    const num = m[1];
+    const suffix = m[2]?.trim() ? m[2].trim() : undefined;
+    return { num, suffix };
+  }
+
+  async function fetchIdentifierOptions(reason: 'address' | 'typed') {
+    // Only run on the Site step.
+    if (step !== 3) return;
+
     const fuelId = Number(methods.getValues('site.fuel_id'));
-    const idRaw = String(methods.getValues('site.identifier') ?? '').trim();
-    const state = String(methods.getValues('address.State') ?? '').trim();
-    setMeterLookupMessage(null);
-    if (!idRaw) {
-      setMeterLookupMessage('Enter the NMI or MIRN first.');
-      return;
-    }
-    if (fuelId === 2 && !state) {
-      setMeterLookupMessage('Add the site state on the Address step (or enter State) — it is required for MIRN lookup.');
-      return;
-    }
-    const cleaned = idRaw.replace(/\s+/g, '');
-    setMeterLookupLoading(true);
+    const identifierRaw = String(methods.getValues('site.identifier') ?? '').trim().replace(/\s+/g, '');
+
+    const StreetNumber = String(methods.getValues('address.StreetNumber') ?? '').trim();
+    const StreetName = String(methods.getValues('address.StreetName') ?? '').trim();
+    const StreetType = String(methods.getValues('address.StreetType') ?? '').trim();
+    const Suburb = String(methods.getValues('address.Suburb') ?? '').trim();
+    const State = String(methods.getValues('address.State') ?? '').trim();
+    const PostCode = String(methods.getValues('address.PostCode') ?? '').trim();
+
+    // Always clear previous results before a new lookup.
+    setIdentifierOptions([]);
+    setIdentifierLookupMessage(null);
+    setIdentifierLookupLoading(true);
+
     try {
-      const params: Record<string, string> =
-        fuelId === 2
-          ? { Meter: cleaned, State: state }
-          : { nmi: cleaned, ...(state ? { State: state } : {}) };
-      const res = await firstEnergyApi.proxy.get('nmi-lookup', params);
-      const row = firstNmiResultRow(res?.data);
-      if (!row) {
-        setMeterLookupMessage('No results for that identifier.');
-        return;
+      if (fuelId === 1) {
+        // Electricity → NMI lookup
+        const params: Record<string, string> = {};
+
+        if (reason === 'typed' && identifierRaw.length >= 6) {
+          params.nmi = identifierRaw;
+        } else {
+          if (!StreetNumber || !StreetName || !StreetType || !Suburb || !State || !PostCode) {
+            setIdentifierOptions([]);
+            setIdentifierLookupMessage('Enter the supply address (street, suburb, state, postcode) to fetch NMI suggestions.');
+            return;
+          }
+          params.StreetNumber = StreetNumber;
+          params.StreetName = StreetName;
+          params.StreetType = StreetType;
+          params.Suburb = Suburb;
+          params.State = State;
+          params.PostCode = PostCode;
+        }
+
+        const res = await firstEnergyApi.proxy.get('nmi-lookup', params);
+        const options = extractStringsFromLookupRows(res?.data, 'nmi');
+        setIdentifierOptions(options);
+        if (options.length === 0) {
+          setIdentifierLookupMessage(reason === 'address' ? 'For this address no NMI found.' : 'No NMI found.');
+        }
+      } else {
+        // Gas → MIRN lookup
+        const params: Record<string, string> = {};
+
+        if (reason === 'typed' && identifierRaw.length >= 6) {
+          params.gasMeter = identifierRaw;
+        } else {
+          if (!StreetNumber || !StreetName || !StreetType || !Suburb || !State || !PostCode) {
+            setIdentifierOptions([]);
+            setIdentifierLookupMessage('Enter the supply address (street, suburb, state, postcode) to fetch MIRN suggestions.');
+            return;
+          }
+          const { num, suffix } = splitHouseNumber(StreetNumber);
+          if (num) params.houseNumber1 = num;
+          if (suffix) params.houseNumberSuffix1 = suffix;
+          params.streetName = StreetName;
+          params.streetType = StreetType;
+          params.suburb = Suburb;
+          params.state = State;
+          params.postcode = PostCode;
+        }
+
+        const res = await firstEnergyApi.proxy.get('mirn-lookup', params);
+        const options = extractStringsFromLookupRows(res?.data, 'mirn');
+        setIdentifierOptions(options);
+        if (options.length === 0) {
+          setIdentifierLookupMessage(reason === 'address' ? 'For this address no MIRN found.' : 'No MIRN found.');
+        }
       }
-      const sn = pickStr(row, 'StreetNumber', 'streetNumber', 'street_number');
-      const snSuffix = pickStr(row, 'StreetNumberSuffix', 'streetNumberSuffix');
-      const name = pickStr(row, 'StreetName', 'streetName', 'street_name');
-      const typ = pickStr(row, 'StreetType', 'streetType', 'street_type');
-      const suburb = pickStr(row, 'Suburb', 'suburb', 'Locality', 'locality');
-      const st = pickStr(row, 'State', 'state');
-      const pc = pickStr(row, 'PostCode', 'postCode', 'postcode', 'Postcode');
-      const line = pickStr(row, 'street_address', 'StreetAddress', 'formattedAddress', 'addressLine', 'AddressLine1');
-      if (sn) methods.setValue('address.StreetNumber', snSuffix ? `${sn}${snSuffix}` : sn, { shouldDirty: true });
-      else if (snSuffix) methods.setValue('address.StreetNumber', snSuffix, { shouldDirty: true });
-      if (name) methods.setValue('address.StreetName', name, { shouldDirty: true });
-      if (typ) methods.setValue('address.StreetType', typ, { shouldDirty: true });
-      if (suburb) methods.setValue('address.Suburb', suburb, { shouldDirty: true });
-      if (st) methods.setValue('address.State', st, { shouldDirty: true });
-      if (pc) methods.setValue('address.PostCode', pc, { shouldDirty: true });
-      if (line) methods.setValue('address.street_address', line, { shouldDirty: true });
-      const basicRaw = row.hasBasicMeter ?? row.has_basic_meter ?? row.BasicMeter ?? row.basicMeter;
-      if (typeof basicRaw === 'boolean') methods.setValue('site.has_basic_meter', basicRaw, { shouldDirty: true });
-      setMeterLookupMessage('Lookup succeeded — address fields were updated where the API returned them. Review the Address step.');
     } catch (e) {
-      setMeterLookupMessage(getApiErrorMessage(e, 'NMI/MIRN lookup failed.'));
+      setIdentifierOptions([]);
+      setIdentifierLookupMessage(getApiErrorMessage(e, 'Identifier lookup failed.'));
     } finally {
-      setMeterLookupLoading(false);
+      setIdentifierLookupLoading(false);
     }
   }
+
+  // Auto-fetch identifier suggestions from the supply address whenever Site step is active.
+  useEffect(() => {
+    void fetchIdentifierOptions('address');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    step,
+    values.site?.fuel_id,
+    values.address?.StreetNumber,
+    values.address?.StreetName,
+    values.address?.StreetType,
+    values.address?.Suburb,
+    values.address?.State,
+    values.address?.PostCode,
+  ]);
+
+  // If user types a full identifier, fetch/validate by identifier.
+  useEffect(() => {
+    if (step !== 3) return;
+    const raw = String(values.site?.identifier ?? '').trim().replace(/\s+/g, '');
+    if (raw.length < 6) return;
+    const t = globalThis.setTimeout(() => void fetchIdentifierOptions('typed'), 350);
+    return () => globalThis.clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step, values.site?.fuel_id, values.site?.identifier]);
+
+  async function fetchPricing() {
+    if (step !== 3) return;
+    const fuelId = Number(methods.getValues('site.fuel_id'));
+    const identifier = String(methods.getValues('site.identifier') ?? '').trim().replace(/\s+/g, '');
+    if (identifier.length < 10) {
+      setPricingQuery(null);
+      setOffers([]);
+      setPricingMessage(null);
+      methods.setValue('site.offer_id', 0, { shouldDirty: true, shouldValidate: true });
+      return;
+    }
+
+    setPricingLoading(true);
+    // Clear previous offer selection + list before fetching.
+    setOffers([]);
+    methods.setValue('site.offer_id', 0, { shouldDirty: true, shouldValidate: true });
+    setPricingMessage(null);
+    try {
+      const params: Record<string, unknown> =
+        fuelId === 2
+          ? {
+              mirn: identifier,
+              // MIRN pricing needs market segment; default to Residential for now.
+              market_segment_id: 1,
+              customer_type_id: 1,
+              postcode: Number(methods.getValues('address.PostCode')) || undefined,
+            }
+          : { nmi: identifier };
+
+      const res = await firstEnergyApi.proxy.post('pricing/new', {}, params as Record<string, unknown>);
+      const data = res?.data as any;
+      const q = data?.query && typeof data.query === 'object' ? (data.query as Record<string, unknown>) : null;
+      const off = Array.isArray(data?.offers) ? (data.offers as Array<Record<string, unknown>>) : [];
+      setPricingQuery(q);
+      setOffers(off);
+
+      const ids = off
+        .map((o) => Number((o as any).id))
+        .filter((n) => Number.isFinite(n) && n > 0);
+      if (ids.length === 1) {
+        methods.setValue('site.offer_id', ids[0], { shouldDirty: true, shouldValidate: true });
+      }
+      if (off.length === 0) {
+        methods.setValue('site.offer_id', 0, { shouldDirty: true, shouldValidate: true });
+        setPricingMessage('No offers returned for that identifier.');
+      }
+    } catch (e) {
+      setPricingQuery(null);
+      setOffers([]);
+      methods.setValue('site.offer_id', 0, { shouldDirty: true, shouldValidate: true });
+      setPricingMessage(getApiErrorMessage(e, 'Pricing lookup failed.'));
+    } finally {
+      setPricingLoading(false);
+    }
+  }
+
+  // Auto-fetch pricing/offers when identifier changes (Site step).
+  useEffect(() => {
+    if (step !== 3) return;
+    const raw = String(values.site?.identifier ?? '').trim().replace(/\s+/g, '');
+    if (raw.length < 10) {
+      setPricingQuery(null);
+      setOffers([]);
+      methods.setValue('site.offer_id', 0, { shouldDirty: true, shouldValidate: true });
+      return;
+    }
+    const t = globalThis.setTimeout(() => void fetchPricing(), 400);
+    return () => globalThis.clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step, values.site?.fuel_id, values.site?.identifier]);
+
+  // Feed-in types (only relevant for electricity + solar).
+  useEffect(() => {
+    if (step !== 3) return;
+    const fuelId = Number(values.site?.fuel_id);
+    const hasSolar = values.site?.has_solar === true;
+
+    if (fuelId !== 1 || !hasSolar) {
+      setFeedInTypes([]);
+      setFeedInTypesMessage(null);
+      setFeedInTypesLoading(false);
+      methods.setValue('site.feed_in_type_id', 0, { shouldDirty: true, shouldValidate: true });
+      return;
+    }
+
+    let cancelled = false;
+    const t = globalThis.setTimeout(async () => {
+      setFeedInTypes([]);
+      setFeedInTypesMessage(null);
+      setFeedInTypesLoading(true);
+      try {
+        const res = await firstEnergyApi.proxy.get('feed-in-types');
+        const data = res?.data as unknown;
+        const rows = Array.isArray(data) ? data : (data && typeof data === 'object' && Array.isArray((data as any).data) ? (data as any).data : []);
+        if (cancelled) return;
+        setFeedInTypes(Array.isArray(rows) ? (rows as Array<Record<string, unknown>>) : []);
+        if (!Array.isArray(rows) || rows.length === 0) setFeedInTypesMessage('No feed-in types returned.');
+      } catch (e) {
+        if (cancelled) return;
+        setFeedInTypes([]);
+        setFeedInTypesMessage(getApiErrorMessage(e, 'Failed to load feed-in types.'));
+      } finally {
+        if (!cancelled) setFeedInTypesLoading(false);
+      }
+    }, 250);
+
+    return () => {
+      cancelled = true;
+      globalThis.clearTimeout(t);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step, values.site?.fuel_id, values.site?.has_solar]);
 
   // Load draft from DB if `?draft=<id>` present, otherwise localStorage.
   useEffect(() => {
@@ -575,16 +779,43 @@ export default function FirstEnergyNewTransactionPage() {
         setError('MoveIn requires a move-in start date');
         return;
       }
-      const payload = buildAccountPayload(v);
+      const payload = buildAccountPayload(v, pricingQuery as any);
 
       const res = await firstEnergyApi.accounts.create(payload);
-      localStorage.removeItem(DRAFT_KEY);
-      navigate('/first-energy/form-responses', { replace: true });
+      const data = (res as any)?.data ?? res;
+      const id =
+        (data && typeof data === 'object' && (data.id ?? data.account_id ?? data.accountId ?? data.reference)) ? String((data as any).id ?? (data as any).account_id ?? (data as any).accountId ?? (data as any).reference) : null;
+      setCreatedAccountId(id);
+      const h = typeof globalThis.crypto?.randomUUID === 'function' ? globalThis.crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+      setSaleHash(h);
+      setSignupResult(null);
+      setSignupError(null);
+      setStep(5);
       return res;
     } catch (e) {
       setError(getApiErrorMessage(e, 'Account creation failed'));
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  async function submitSignup() {
+    if (!createdAccountId || !saleHash) {
+      setSignupError('Missing account id or hash.');
+      return;
+    }
+    setSignupSubmitting(true);
+    setSignupError(null);
+    setSignupResult(null);
+    try {
+      const res = await firstEnergyApi.proxy.post('signup/create', {}, { account_id: createdAccountId, hash: saleHash });
+      setSignupResult((res as any)?.data ?? res);
+      localStorage.removeItem(DRAFT_KEY);
+      navigate('/first-energy/form-responses', { replace: true });
+    } catch (e) {
+      setSignupError(getApiErrorMessage(e, 'Sale submission failed.'));
+    } finally {
+      setSignupSubmitting(false);
     }
   }
 
@@ -604,7 +835,8 @@ export default function FirstEnergyNewTransactionPage() {
       'customer.identification.expires_on',
     ],
     ['address.StreetNumber', 'address.StreetName', 'address.StreetType', 'address.Suburb', 'address.State', 'address.PostCode'],
-    ['site.fuel_id', 'site.identifier', 'site.offer_id', 'site.start_date'],
+    ['site.fuel_id', 'site.identifier', 'site.offer_id', 'site.start_date', 'site.feed_in_type_id'],
+    [],
     [],
   ];
 
@@ -637,18 +869,14 @@ export default function FirstEnergyNewTransactionPage() {
   }
 
   function handlePreview() {
-    const payload = buildAccountPayload(methods.getValues());
+    const payload = buildAccountPayload(methods.getValues(), pricingQuery as any);
     setPreviewPayload(payload);
     setPreviewOpen(true);
   }
 
   async function handleFinalSubmit() {
     setValidationError(null);
-    const ok = await methods.trigger();
-    if (!ok) {
-      setValidationError('Please fix the highlighted fields before submitting.');
-      return;
-    }
+    // Review step has no additional inputs; proceed to create account.
     await onSubmit(methods.getValues());
   }
 
@@ -683,12 +911,18 @@ export default function FirstEnergyNewTransactionPage() {
     postcodeLoading,
     concessionOptions,
     concessionLoading,
-    meterLookupLoading,
-    meterLookupMessage,
-    lookupMeterIdentifier,
+    identifierLookupLoading,
+    identifierLookupMessage,
+    identifierOptions,
     moveInDateOptions,
-    buildAccountPayload,
+    buildAccountPayload: (v) => buildAccountPayload(v, pricingQuery as any),
     handlePreview,
+    pricingLoading,
+    pricingMessage,
+    offers: offers as any,
+    feedInTypesLoading,
+    feedInTypesMessage,
+    feedInTypes: feedInTypes as any,
   };
 
   return (
@@ -743,6 +977,16 @@ export default function FirstEnergyNewTransactionPage() {
               {step === 2 ? <FirstEnergyStepAddress /> : null}
               {step === 3 ? <FirstEnergyStepSite /> : null}
               {step === 4 ? <FirstEnergyStepReview /> : null}
+              {step === 5 ? (
+                <FirstEnergyStepSubmit
+                  accountId={createdAccountId}
+                  hash={saleHash}
+                  submitting={signupSubmitting}
+                  error={signupError}
+                  result={signupResult}
+                  onSubmit={() => void submitSignup()}
+                />
+              ) : null}
             </FirstEnergyWizardProvider>
           </form>
         </FormProvider>
@@ -761,13 +1005,22 @@ export default function FirstEnergyNewTransactionPage() {
           {step < FIRST_ENERGY_WIZARD_STEPS.length - 1 ? (
             <button
               type="button"
-              onClick={handleNext}
+              onClick={step === 4 ? handleFinalSubmit : handleNext}
               className="inline-flex items-center gap-2 px-5 py-2 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 cursor-pointer"
             >
-              Next
-              <ArrowRight className="w-4 h-4" />
+              {step === 4 ? (
+                <>
+                  <Send className="w-4 h-4" />
+                  Create account
+                </>
+              ) : (
+                <>
+                  Next
+                  <ArrowRight className="w-4 h-4" />
+                </>
+              )}
             </button>
-          ) : (
+          ) : step === 5 ? null : (
             <button
               type="button"
               onClick={handleFinalSubmit}
@@ -818,7 +1071,7 @@ export default function FirstEnergyNewTransactionPage() {
               </div>
               <div className="p-5 overflow-auto max-h-[calc(85vh-64px)]">
                 <pre className="text-xs bg-gray-50 border border-gray-200 rounded-lg p-4 overflow-auto">
-                  {JSON.stringify(previewPayload ?? buildAccountPayload(methods.getValues()), null, 2)}
+                  {JSON.stringify(previewPayload ?? buildAccountPayload(methods.getValues(), pricingQuery as any), null, 2)}
                 </pre>
               </div>
             </div>

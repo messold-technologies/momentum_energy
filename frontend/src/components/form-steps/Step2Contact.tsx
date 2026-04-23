@@ -128,7 +128,7 @@ function AddressFields({ basePath }: Readonly<{ basePath: string }>) {
           placeholder="Main Street"
         />
       </FormField>
-      <FormField label="Street Type" required error={getErr('streetTypeCode')}>
+      <FormField label="Street Type" error={getErr('streetTypeCode')}>
         <select {...register(`${basePath}.streetTypeCode`)} className={selectClass}>
           <option value="">Select...</option>
           {STREET_TYPE_CODES.map((code) => (

@@ -415,8 +415,7 @@ const addressValidation = [
     .withMessage('streetName invalid'),
 
   body('customer.contacts.primaryContact.addresses.*.streetTypeCode')
-    .notEmpty()
-    .withMessage('streetTypeCode is required')
+    .optional({ values: 'falsy' })
     .isIn(STREET_TYPE_CODES)
     .withMessage('streetTypeCode must be a valid AS 4590 street type'),
 

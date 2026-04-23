@@ -25,25 +25,29 @@ export function FirstEnergyStepSite() {
           <label htmlFor="fe_identifier" className="block text-sm font-medium text-gray-700 mb-1">
             Identifier (NMI/MIRN) <RequiredMark />
           </label>
-          <div className="flex flex-col sm:flex-row gap-2 sm:items-stretch">
+          <div className="relative">
             <input
               id="fe_identifier"
+              list="fe_identifier_list"
               {...methods.register('site.identifier')}
-              className={`${fieldClass(!!methods.formState.errors.site?.identifier)} sm:flex-1`}
+              className={`${fieldClass(!!methods.formState.errors.site?.identifier)} pr-10`}
+              placeholder={Number(w.values.site?.fuel_id) === 2 ? 'Type MIRN or pick from list…' : 'Type NMI or pick from list…'}
             />
-            <button
-              type="button"
-              onClick={() => void w.lookupMeterIdentifier()}
-              disabled={w.meterLookupLoading}
-              className="shrink-0 px-4 py-2 rounded-lg border border-gray-300 bg-white text-sm font-medium text-gray-800 hover:bg-gray-50 disabled:opacity-50"
-            >
-              {w.meterLookupLoading ? 'Looking up…' : 'Look up'}
-            </button>
+            {w.identifierLookupLoading ? (
+              <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                <div className="w-4 h-4 border-2 border-primary-400 border-t-transparent rounded-full animate-spin" />
+              </div>
+            ) : null}
+            <datalist id="fe_identifier_list">
+              {w.identifierOptions.map((v) => (
+                <option key={v} value={v} />
+              ))}
+            </datalist>
           </div>
           <FieldError message={methods.formState.errors.site?.identifier?.message} />
-          {w.meterLookupMessage ? <p className="mt-1 text-xs text-gray-600">{w.meterLookupMessage}</p> : null}
+          {w.identifierLookupMessage ? <p className="mt-1 text-xs text-gray-600">{w.identifierLookupMessage}</p> : null}
           <p className="mt-1 text-xs text-gray-500">
-            Gas (MIRN) lookup uses the meter id and the state from your address. Complete the address step first if state is missing.
+            We’ll auto-suggest identifiers from your supply address. You can also type the full number to validate / refine the list.
           </p>
         </div>
       </div>
@@ -117,37 +121,96 @@ export function FirstEnergyStepSite() {
           <label htmlFor="fe_offer_id" className="block text-sm font-medium text-gray-700 mb-1">
             Offer ID <RequiredMark />
           </label>
-          <input
-            id="fe_offer_id"
-            type="number"
-            {...methods.register('site.offer_id')}
-            className={fieldClass(!!methods.formState.errors.site?.offer_id)}
-          />
+          {w.offers.length ? (
+            <select
+              id="fe_offer_id"
+              {...methods.register('site.offer_id')}
+              className={`${fieldClass(!!methods.formState.errors.site?.offer_id)} disabled:opacity-50`}
+              disabled={w.pricingLoading}
+            >
+              <option value={0}>Select…</option>
+              {w.offers.map((o) => {
+                const id = Number(o.id);
+                const label =
+                  (typeof o.summary === 'string' && o.summary.trim()) ||
+                  (typeof o.description === 'string' && o.description.trim()) ||
+                  `Offer ${id}`;
+                const featured = o.featured ? ' ★' : '';
+                return (
+                  <option key={id} value={id}>
+                    {label} ({id})
+                    {featured}
+                  </option>
+                );
+              })}
+            </select>
+          ) : (
+            <input
+              id="fe_offer_id"
+              type="number"
+              {...methods.register('site.offer_id')}
+              className={fieldClass(!!methods.formState.errors.site?.offer_id)}
+              placeholder={w.pricingLoading ? 'Loading offers…' : 'Offer id'}
+            />
+          )}
           <FieldError message={methods.formState.errors.site?.offer_id?.message} />
-          <p className="mt-1 text-xs text-gray-500">This is `siteOffer.offer_id` from the 1st Energy pricing APIs.</p>
+          {w.pricingMessage ? <p className="mt-1 text-xs text-gray-600">{w.pricingMessage}</p> : null}
+          <p className="mt-1 text-xs text-gray-500">Offer list comes from the 1st Energy pricing API using your NMI/MIRN.</p>
         </div>
-        <div className="flex items-end gap-6">
-          <label className="inline-flex items-center gap-2 text-sm text-gray-700">
-            <input type="checkbox" {...methods.register('site.has_solar')} className="rounded border-gray-300" />
-            Solar
-          </label>
-          <label className="inline-flex items-center gap-2 text-sm text-gray-700">
-            <input type="checkbox" {...methods.register('site.has_interest_on_solar')} className="rounded border-gray-300" />
-            Interested in solar
-          </label>
-          <label className="inline-flex items-center gap-2 text-sm text-gray-700">
-            <input type="checkbox" {...methods.register('site.has_medical_cooling')} className="rounded border-gray-300" />
-            Medical cooling
-          </label>
+        <div className="sm:col-span-2">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:pt-7">
+            <label className="flex items-center gap-2 text-sm text-gray-700">
+              <input type="checkbox" {...methods.register('site.has_solar')} className="h-4 w-4 rounded border-gray-300" />
+              Solar
+            </label>
+            <label className="flex items-center gap-2 text-sm text-gray-700">
+              <input
+                type="checkbox"
+                {...methods.register('site.has_interest_on_solar')}
+                className="h-4 w-4 rounded border-gray-300"
+              />
+              Interested in solar
+            </label>
+            <label className="flex items-center gap-2 text-sm text-gray-700">
+              <input type="checkbox" {...methods.register('site.has_medical_cooling')} className="h-4 w-4 rounded border-gray-300" />
+              Medical cooling
+            </label>
+          </div>
         </div>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div>
           <label htmlFor="fe_feed_in_type_id" className="block text-sm font-medium text-gray-700 mb-1">
-            Feed-in type ID (optional)
+            Feed-in type{' '}
+            {Number(w.values.site?.fuel_id) === 1 && methods.watch('site.has_solar') ? <RequiredMark /> : <span className="text-gray-500 font-normal text-xs">(optional)</span>}
           </label>
-          <input id="fe_feed_in_type_id" type="number" {...methods.register('site.feed_in_type_id')} className={fieldClass(false)} />
+          {Number(w.values.site?.fuel_id) === 1 && methods.watch('site.has_solar') ? (
+            <>
+              <select
+                id="fe_feed_in_type_id"
+                {...methods.register('site.feed_in_type_id')}
+                className={`${fieldClass(false)} disabled:opacity-50`}
+                disabled={w.feedInTypesLoading}
+              >
+                <option value={0}>Select…</option>
+                {w.feedInTypes.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {(t.description && String(t.description)) || `Feed-in type ${t.id}`} ({t.id})
+                  </option>
+                ))}
+              </select>
+              {w.feedInTypesMessage ? <p className="mt-1 text-xs text-gray-600">{w.feedInTypesMessage}</p> : null}
+            </>
+          ) : (
+            <input
+              id="fe_feed_in_type_id"
+              type="number"
+              {...methods.register('site.feed_in_type_id')}
+              className={fieldClass(false)}
+              placeholder="Only needed for electricity + solar"
+            />
+          )}
         </div>
         <div>
           <label htmlFor="fe_greenpower_id" className="block text-sm font-medium text-gray-700 mb-1">
@@ -174,12 +237,12 @@ export function FirstEnergyStepSite() {
           <label htmlFor="fe_vsi_method" className="block text-sm font-medium text-gray-700 mb-1">
             VSI method (optional)
           </label>
-          <input
-            id="fe_vsi_method"
-            {...methods.register('site.vsi_method')}
-            className={fieldClass(false)}
-            placeholder="e.g. customer_on_site"
-          />
+          <select id="fe_vsi_method" {...methods.register('site.vsi_method')} className={fieldClass(false)}>
+            <option value="">Select…</option>
+            <option value="customer_on_site">customer_on_site</option>
+            <option value="keys_letter_box">keys_letter_box</option>
+            <option value="keys_meter_box">keys_meter_box</option>
+          </select>
         </div>
         <div />
         <div />
@@ -215,46 +278,42 @@ export function FirstEnergyStepSite() {
               )}
               <FieldError message={methods.formState.errors.site?.start_date?.message} />
             </div>
-            <div className="flex items-end">
-              <label className="inline-flex items-center gap-2 text-sm text-gray-700">
-                <input type="checkbox" {...methods.register('site.move_in_terms_accepted')} className="rounded border-gray-300" />
-                Move-in terms accepted
-              </label>
+            <div className="sm:col-span-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:pt-7">
+                <label className="flex items-center gap-2 text-sm text-gray-700">
+                  <input type="checkbox" {...methods.register('site.move_in_terms_accepted')} className="h-4 w-4 rounded border-gray-300" />
+                  Move-in terms accepted
+                </label>
+              </div>
             </div>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="flex items-end">
-              <label className="inline-flex items-center gap-2 text-sm text-gray-700">
-                <input type="checkbox" {...methods.register('site.is_mains_switch_off')} className="rounded border-gray-300" />
-                Mains switch off
-              </label>
-            </div>
-            <div className="flex items-end">
-              <label className="inline-flex items-center gap-2 text-sm text-gray-700">
-                <input type="checkbox" {...methods.register('site.is_electricity_disconnected_period')} className="rounded border-gray-300" />
-                Disconnected period
-              </label>
-            </div>
-            <div className="flex items-end">
-              <label className="inline-flex items-center gap-2 text-sm text-gray-700">
-                <input type="checkbox" {...methods.register('site.has_ecoc')} className="rounded border-gray-300" />
-                ECOC available
-              </label>
-            </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <label className="flex items-center gap-2 text-sm text-gray-700">
+              <input type="checkbox" {...methods.register('site.is_mains_switch_off')} className="h-4 w-4 rounded border-gray-300" />
+              Mains switch off
+            </label>
+            <label className="flex items-center gap-2 text-sm text-gray-700">
+              <input
+                type="checkbox"
+                {...methods.register('site.is_electricity_disconnected_period')}
+                className="h-4 w-4 rounded border-gray-300"
+              />
+              Disconnected period
+            </label>
+            <label className="flex items-center gap-2 text-sm text-gray-700">
+              <input type="checkbox" {...methods.register('site.has_ecoc')} className="h-4 w-4 rounded border-gray-300" />
+              ECOC available
+            </label>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="flex items-end">
-              <label className="inline-flex items-center gap-2 text-sm text-gray-700">
-                <input type="checkbox" {...methods.register('site.are_any_building_works')} className="rounded border-gray-300" />
-                Any building works
-              </label>
-            </div>
-            <div className="flex items-end">
-              <label className="inline-flex items-center gap-2 text-sm text-gray-700">
-                <input type="checkbox" {...methods.register('site.has_meter_access')} className="rounded border-gray-300" />
-                Meter access
-              </label>
-            </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <label className="flex items-center gap-2 text-sm text-gray-700">
+              <input type="checkbox" {...methods.register('site.are_any_building_works')} className="h-4 w-4 rounded border-gray-300" />
+              Any building works
+            </label>
+            <label className="flex items-center gap-2 text-sm text-gray-700">
+              <input type="checkbox" {...methods.register('site.has_meter_access')} className="h-4 w-4 rounded border-gray-300" />
+              Meter access
+            </label>
             <div />
           </div>
         </div>

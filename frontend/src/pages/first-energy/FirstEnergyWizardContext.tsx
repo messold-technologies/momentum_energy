@@ -38,9 +38,17 @@ export type FirstEnergyWizardContextValue = {
   concessionOptions: Array<{ id: string; label: string }>;
   concessionLoading: boolean;
 
-  meterLookupLoading: boolean;
-  meterLookupMessage: string | null;
-  lookupMeterIdentifier: () => Promise<void>;
+  identifierLookupLoading: boolean;
+  identifierLookupMessage: string | null;
+  identifierOptions: string[];
+
+  pricingLoading: boolean;
+  pricingMessage: string | null;
+  offers: Array<{ id: number; featured?: boolean; description?: string; summary?: string; fuels?: Array<{ fuel_id: number; fuel_description?: string; description?: string; summary?: string }> }>;
+
+  feedInTypesLoading: boolean;
+  feedInTypesMessage: string | null;
+  feedInTypes: Array<{ id: number; description?: string; state_id?: number }>;
 
   moveInDateOptions: string[];
 
