@@ -260,11 +260,15 @@ function cleanPayload(data: TransactionPayload): TransactionPayload {
   for (const addr of cleaned.customer.contacts.primaryContact.addresses) {
     if (!addr.addressType?.trim()) addr.addressType = 'POSTAL';
     omitIfEmpty(addr as unknown as Record<string, unknown>, 'unitNumber');
+    omitIfEmpty(addr as unknown as Record<string, unknown>, 'streetNumber');
+    omitIfEmpty(addr as unknown as Record<string, unknown>, 'streetTypeCode');
   }
   if (cleaned.customer.contacts.secondaryContact?.addresses) {
     for (const addr of cleaned.customer.contacts.secondaryContact.addresses) {
       if (!addr.addressType?.trim()) addr.addressType = 'POSTAL';
       omitIfEmpty(addr as unknown as Record<string, unknown>, 'unitNumber');
+      omitIfEmpty(addr as unknown as Record<string, unknown>, 'streetNumber');
+      omitIfEmpty(addr as unknown as Record<string, unknown>, 'streetTypeCode');
     }
   }
 
