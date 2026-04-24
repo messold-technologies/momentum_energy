@@ -46,6 +46,10 @@ export async function lookupCustomerTitles() {
   return await firstEnergyRequest('GET', '/customer-titles');
 }
 
+export async function lookupReferrers() {
+  return await firstEnergyRequest('GET', '/referrers');
+}
+
 export async function lookupIdentificationTypes(state) {
   return await firstEnergyRequest('GET', '/identification', { params: state ? { state } : undefined });
 }

@@ -190,13 +190,14 @@ export function buildAccountPayload(v: FormValues, pricingQuery?: PricingQueryLi
     address.nmiStatus = pricingQuery.nmi_status;
   }
   const customerIdentifications = buildCustomerIdentifications(v);
+  const referralId = typeof v.referral_id === 'number' && Number.isFinite(v.referral_id) && v.referral_id > 0 ? v.referral_id : undefined;
 
   return {
+    ...(referralId ? { referral_id: referralId } : {}),
     promo_code: v.promo_code?.trim() ? v.promo_code.trim() : null,
     terms_accepted: toBoolInt(v.terms_accepted),
     property_type: v.property_type,
     preferred_contact: v.preferred_contact?.trim() ? v.preferred_contact.trim() : '',
-    referral_id: v.referral_id ?? 0,
     type: v.type,
     email_invoice: toBoolInt(v.email_invoice),
     email_notice: toBoolInt(v.email_notice),

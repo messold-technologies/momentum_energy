@@ -6,6 +6,9 @@ export type BusinessNameHit = { abn: string; name: string; state?: string; postc
 export type FirstEnergyWizardContextValue = {
   loadingLookups: boolean;
   saleTypes: Array<{ type: string }>;
+  referrers: Array<{ id: number; description?: string; sort?: number; is_active?: boolean; show_in_zappy?: boolean }>;
+  referrersLoading: boolean;
+  referrersMessage: string | null;
   industryTypes: Array<{ id: number; label: string }>;
   titles: string[];
   identificationTypes: string[];
@@ -58,7 +61,10 @@ export type FirstEnergyWizardContextValue = {
 
 const Ctx = createContext<FirstEnergyWizardContextValue | null>(null);
 
-export function FirstEnergyWizardProvider({ value, children }: { value: FirstEnergyWizardContextValue; children: ReactNode }) {
+export function FirstEnergyWizardProvider({
+  value,
+  children,
+}: Readonly<{ value: FirstEnergyWizardContextValue; children: ReactNode }>) {
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 

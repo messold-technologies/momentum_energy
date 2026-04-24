@@ -45,6 +45,11 @@ export default function FirstEnergyNewTransactionPage() {
 
   const [loadingLookups, setLoadingLookups] = useState(true);
   const [saleTypes, setSaleTypes] = useState<Array<{ type: string }>>([]);
+  const [referrers, setReferrers] = useState<Array<{ id: number; description?: string; sort?: number; is_active?: boolean; show_in_zappy?: boolean }>>(
+    [],
+  );
+  const [referrersLoading, setReferrersLoading] = useState(false);
+  const [referrersMessage, setReferrersMessage] = useState<string | null>(null);
   const [titles, setTitles] = useState<string[]>([]);
   const [addressSuggestions, setAddressSuggestions] = useState<Array<Record<string, unknown>>>([]);
   const [identificationTypes, setIdentificationTypes] = useState<string[]>([]);
@@ -102,9 +107,12 @@ export default function FirstEnergyNewTransactionPage() {
     let mounted = true;
     (async () => {
       try {
-        const [st, ct, idt, industryTypesRes, moveInDatesRes] = await Promise.all([
+        setReferrersLoading(true);
+        setReferrersMessage(null);
+        const [st, ct, rr, idt, industryTypesRes, moveInDatesRes] = await Promise.all([
           firstEnergyApi.lookups.saleTypes(),
           firstEnergyApi.lookups.customerTitles(),
+          firstEnergyApi.lookups.referrers(),
           firstEnergyApi.proxy.get('identification'),
           firstEnergyApi.proxy.get('industry-types'),
           firstEnergyApi.proxy.get('move-in-date'),
@@ -113,6 +121,22 @@ export default function FirstEnergyNewTransactionPage() {
         setSaleTypes(Array.isArray(st.data) ? st.data : []);
         const rawTitles = ct.data && typeof ct.data === 'object' ? Object.keys(ct.data) : [];
         setTitles(rawTitles);
+        const rows = Array.isArray(rr.data) ? (rr.data as Array<Record<string, unknown>>) : [];
+        const parsed = rows
+          .map((r) => {
+            const id = Number((r as any).id);
+            if (!Number.isFinite(id) || id <= 0) return null;
+            return {
+              id,
+              description: typeof (r as any).description === 'string' ? (r as any).description : undefined,
+              sort: typeof (r as any).sort === 'number' ? (r as any).sort : undefined,
+              is_active: typeof (r as any).is_active === 'boolean' ? (r as any).is_active : undefined,
+              show_in_zappy: typeof (r as any).show_in_zappy === 'boolean' ? (r as any).show_in_zappy : undefined,
+            };
+          })
+          .filter(Boolean) as Array<{ id: number; description?: string; sort?: number; is_active?: boolean; show_in_zappy?: boolean }>;
+        setReferrers(parsed);
+        if (!parsed.length) setReferrersMessage('No referrers returned.');
         const rawIdTypes = idt?.data && typeof idt.data === 'object' ? Object.keys(idt.data as Record<string, unknown>) : [];
         setIdentificationTypes(rawIdTypes.length ? rawIdTypes : ['DriversLicence', 'MedicareCard', 'Passport', 'Plus18Card']);
 
@@ -124,8 +148,13 @@ export default function FirstEnergyNewTransactionPage() {
       } catch (e) {
         if (!mounted) return;
         setError(getApiErrorMessage(e, 'Failed to load lookups'));
+        setReferrers([]);
+        setReferrersMessage(getApiErrorMessage(e, 'Failed to load referrers'));
       } finally {
-        if (mounted) setLoadingLookups(false);
+        if (mounted) {
+          setLoadingLookups(false);
+          setReferrersLoading(false);
+        }
       }
     })();
     return () => {
@@ -883,6 +912,9 @@ export default function FirstEnergyNewTransactionPage() {
   const wizardValue: FirstEnergyWizardContextValue = {
     loadingLookups,
     saleTypes,
+    referrers,
+    referrersLoading,
+    referrersMessage,
     industryTypes,
     titles,
     identificationTypes,

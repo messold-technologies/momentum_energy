@@ -145,6 +145,10 @@ export const firstEnergyApi = {
       const { data } = await api.get<{ success: boolean; data: Record<string, string> }>('/first-energy/lookups/customer-titles');
       return data;
     },
+    referrers: async () => {
+      const { data } = await api.get<{ success: boolean; data: unknown }>('/first-energy/lookups/referrers');
+      return data;
+    },
     postcode: async (postcode: string) => {
       const { data } = await api.get<{ success: boolean; data: unknown }>(`/first-energy/lookups/postcodes/${encodeURIComponent(postcode)}`);
       return data;

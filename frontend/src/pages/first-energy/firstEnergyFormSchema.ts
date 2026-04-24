@@ -11,7 +11,7 @@ export const FIRST_ENERGY_WIZARD_STEPS = [
 
 export const formSchema = z
   .object({
-    referral_id: z.coerce.number().int().optional().default(0),
+    referral_id: z.coerce.number().int().optional(),
     type: z.string().min(1, 'Sale type is required'),
     property_type: z.enum(['RESIDENT', 'COMPANY']),
     terms_accepted: z.boolean().refine((v) => v === true, 'You must accept the terms'),
@@ -193,7 +193,7 @@ export type FormValues = z.infer<typeof formSchema>;
 
 export function defaultValues(): FormValues {
   return {
-    referral_id: 0,
+    referral_id: undefined,
     type: '',
     property_type: 'RESIDENT',
     terms_accepted: false,

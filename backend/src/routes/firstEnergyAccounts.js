@@ -9,6 +9,7 @@ import {
   lookupSaleTypes,
   lookupPostcode,
   lookupCustomerTitles,
+  lookupReferrers,
   lookupIdentificationTypes,
   addressSearch,
   addressGetDetails,
@@ -52,6 +53,15 @@ router.get('/lookups/sale-type', async (_req, res, next) => {
 router.get('/lookups/customer-titles', async (_req, res, next) => {
   try {
     const data = await lookupCustomerTitles();
+    res.json({ success: true, data });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get('/lookups/referrers', async (_req, res, next) => {
+  try {
+    const data = await lookupReferrers();
     res.json({ success: true, data });
   } catch (err) {
     next(err);

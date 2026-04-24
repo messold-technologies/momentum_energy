@@ -61,15 +61,30 @@ export function FirstEnergyStepSale() {
         </div>
         <div>
           <label htmlFor="fe_referral_id" className="block text-sm font-medium text-gray-700 mb-1">
-            Referral ID (optional)
+            Referral (optional)
           </label>
-          <input
+          <select
             id="fe_referral_id"
-            type="number"
-            {...methods.register('referral_id')}
-            className={fieldClass(!!methods.formState.errors.referral_id)}
-          />
+            {...methods.register('referral_id', {
+              setValueAs: (v) => {
+                const raw = String(v ?? '').trim();
+                if (!raw) return undefined;
+                const n = Number(raw);
+                return Number.isFinite(n) && n > 0 ? n : undefined;
+              },
+            })}
+            disabled={w.referrersLoading}
+            className={`${fieldClass(!!methods.formState.errors.referral_id)} disabled:opacity-50`}
+          >
+            <option value="">Select…</option>
+            {w.referrers.map((r) => (
+              <option key={r.id} value={r.id}>
+                {(r.description && String(r.description)) || `Referrer ${r.id}`} ({r.id})
+              </option>
+            ))}
+          </select>
           <FieldError message={methods.formState.errors.referral_id?.message} />
+          {w.referrersMessage ? <p className="mt-1 text-xs text-gray-600">{w.referrersMessage}</p> : null}
         </div>
         <div>
           <label htmlFor="fe_promo_code" className="block text-sm font-medium text-gray-700 mb-1">
