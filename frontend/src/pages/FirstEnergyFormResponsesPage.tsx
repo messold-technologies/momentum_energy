@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import moment from 'moment-timezone';
-import { CheckCircle, ChevronDown, ChevronUp, FileText, Trash2, XCircle } from 'lucide-react';
-import { firstEnergyApi, submissionsApi, type Submission } from '../lib/api';
+import { CheckCircle, ChevronDown, ChevronUp, Copy, FileText, Trash2, XCircle } from 'lucide-react';
+import { draftsApi, firstEnergyApi, submissionsApi, type Submission } from '../lib/api';
 import { getApiErrorMessage } from '../lib/errorMessage';
 
 const COMPANY_ID = 'first-energy' as const;
@@ -20,8 +21,10 @@ export default function FirstEnergyFormResponsesPage() {
   const [error, setError] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [copyingId, setCopyingId] = useState<string | null>(null);
   const [accountDetailsById, setAccountDetailsById] = useState<Record<string, unknown>>({});
   const [accountLoadingById, setAccountLoadingById] = useState<Record<string, boolean>>({});
+  const navigate = useNavigate();
 
   useEffect(() => {
     submissionsApi
@@ -65,6 +68,22 @@ export default function FirstEnergyFormResponsesPage() {
       setError(getApiErrorMessage(err, 'Failed to delete submission'));
     } finally {
       setDeletingId(null);
+    }
+  };
+
+  const handleCopySubmission = async (submission: Submission, e: React.MouseEvent<HTMLButtonElement>) => {
+    e.stopPropagation();
+    if (!submission.payloadSnapshot) return;
+    setCopyingId(submission.id);
+    setError(null);
+    try {
+      const copied = structuredClone(submission.payloadSnapshot) as unknown as Record<string, unknown>;
+      const res = await draftsApi.save(copied, { companyId: COMPANY_ID });
+      navigate(`/first-energy/transactions/new?draft=${res.draft.id}`);
+    } catch (err) {
+      setError(getApiErrorMessage(err, 'Failed to copy form'));
+    } finally {
+      setCopyingId(null);
     }
   };
 
@@ -133,6 +152,20 @@ export default function FirstEnergyFormResponsesPage() {
                     </button>
                   </div>
                   <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      aria-label="Copy form"
+                      title="Copy form"
+                      disabled={!s.payloadSnapshot || copyingId === s.id}
+                      onClick={(e) => handleCopySubmission(s, e)}
+                      className="p-2 text-gray-400 hover:text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                    >
+                      {copyingId === s.id ? (
+                        <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
+                      ) : (
+                        <Copy className="w-4 h-4" />
+                      )}
+                    </button>
                     <button
                       type="button"
                       aria-label="Delete submission"

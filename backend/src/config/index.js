@@ -15,8 +15,7 @@ export default {
   },
 
   firstEnergy: {
-    baseUrl: process.env.FIRST_ENERGY_BASE_URL || 'https://firstenergy.uconx.com.au/v2',
-    apiKey: process.env.FIRST_ENERGY_API_KEY,
+    baseUrl: process.env.FIRST_ENERGY_BASE_URL || 'https://firstenergy-stage.uconx.com.au',
   },
 
   portal: {
