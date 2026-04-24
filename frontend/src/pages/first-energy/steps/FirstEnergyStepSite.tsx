@@ -189,7 +189,7 @@ export function FirstEnergyStepSite() {
             <>
               <select
                 id="fe_feed_in_type_id"
-                {...methods.register('site.feed_in_type_id')}
+                {...methods.register('site.feed_in_type_id', { valueAsNumber: true })}
                 className={`${fieldClass(false)} disabled:opacity-50`}
                 disabled={w.feedInTypesLoading}
               >
@@ -206,7 +206,7 @@ export function FirstEnergyStepSite() {
             <input
               id="fe_feed_in_type_id"
               type="number"
-              {...methods.register('site.feed_in_type_id')}
+              {...methods.register('site.feed_in_type_id', { valueAsNumber: true })}
               className={fieldClass(false)}
               placeholder="Only needed for electricity + solar"
             />
