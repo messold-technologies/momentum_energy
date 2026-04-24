@@ -153,7 +153,11 @@ router.post('/accounts', async (req, res, next) => {
     return res.status(400).json({ success: false, error: 'payload is required' });
   }
 
-  const payloadSnapshot = structuredClone(payload);
+  // Store *form values* snapshot when provided (used for "Copy form" → new draft).
+  // Fallback to API payload for backwards compatibility.
+  const formSnapshot = req.body?.formSnapshot;
+  const payloadSnapshot =
+    formSnapshot && typeof formSnapshot === 'object' ? structuredClone(formSnapshot) : structuredClone(payload);
   const sanitizedPayload = sanitizeFirstEnergyAccountPayload(structuredClone(payload));
 
   try {

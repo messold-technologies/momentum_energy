@@ -781,7 +781,7 @@ export default function FirstEnergyNewTransactionPage() {
       }
       const payload = buildAccountPayload(v, pricingQuery as any);
 
-      const res = await firstEnergyApi.accounts.create(payload);
+      const res = await firstEnergyApi.accounts.create(payload, { formSnapshot: v as unknown as Record<string, unknown> });
       const data = (res as any)?.data ?? res;
       const id =
         (data && typeof data === 'object' && (data.id ?? data.account_id ?? data.accountId ?? data.reference)) ? String((data as any).id ?? (data as any).account_id ?? (data as any).accountId ?? (data as any).reference) : null;

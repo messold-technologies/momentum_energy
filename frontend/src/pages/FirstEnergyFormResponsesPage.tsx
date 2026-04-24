@@ -77,7 +77,17 @@ export default function FirstEnergyFormResponsesPage() {
     setCopyingId(submission.id);
     setError(null);
     try {
-      const copied = structuredClone(submission.payloadSnapshot) as unknown as Record<string, unknown>;
+      const snap = submission.payloadSnapshot as Record<string, unknown>;
+      // First Energy drafts must be saved in *form values* shape (wizard state).
+      // Older submissions stored the API payload instead; copying those will lead to validation errors.
+      const looksLikeFormValues = typeof snap.type === 'string' && typeof snap.customer === 'object' && snap.customer !== null;
+      if (!looksLikeFormValues) {
+        throw new Error(
+          'This submission was saved before copy support. Please open it and manually re-enter, or submit a new one (new submissions will be copyable).',
+        );
+      }
+
+      const copied = structuredClone(snap) as unknown as Record<string, unknown>;
       const res = await draftsApi.save(copied, { companyId: COMPANY_ID });
       navigate(`/first-energy/transactions/new?draft=${res.draft.id}`);
     } catch (err) {

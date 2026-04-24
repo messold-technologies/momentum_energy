@@ -175,8 +175,11 @@ export const firstEnergyApi = {
     },
   },
   accounts: {
-    create: async (payload: Record<string, unknown>) => {
-      const { data } = await api.post<{ success: boolean; data: unknown }>('/first-energy/accounts', { payload });
+    create: async (payload: Record<string, unknown>, options?: { formSnapshot?: Record<string, unknown> }) => {
+      const { data } = await api.post<{ success: boolean; data: unknown }>('/first-energy/accounts', {
+        payload,
+        ...(options?.formSnapshot ? { formSnapshot: options.formSnapshot } : {}),
+      });
       return data;
     },
     get: async (accountId: string) => {
