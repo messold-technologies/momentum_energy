@@ -42,6 +42,7 @@ function sanitizeBody(body) {
   if (cleaned.customer?.contacts?.secondaryContact) {
     cleaned.customer.contacts.secondaryContact.contactType = 'SECONDARY';
     omitIfEmpty(cleaned.customer.contacts.secondaryContact, 'middleName');
+    omitIfEmpty(cleaned.customer.contacts.secondaryContact, 'email');
     if (cleaned.customer.contacts.secondaryContact.dateOfBirth) {
       cleaned.customer.contacts.secondaryContact.dateOfBirth = toDateOnly(
         cleaned.customer.contacts.secondaryContact.dateOfBirth
