@@ -78,6 +78,26 @@ const contactPhoneSchema = z.object({
     .regex(AU_PHONE_REGEX, 'Must be a valid Australian phone number (e.g. 0412345678, 1300123456)'),
 });
 
+// Secondary contact phone numbers are optional in the portal UI.
+// If a row is added, allow it to be blank (it will be dropped on submit),
+// but if either phone or type is provided, validate them.
+const secondaryContactPhoneSchema = z
+  .object({
+    contactPhoneType: z.union([z.enum(['WORK', 'HOME', 'MOBILE']), z.literal('')]).optional(),
+    phone: z
+      .string()
+      .optional()
+      .refine((v) => !v || v === '' || AU_PHONE_REGEX.test(v), 'Must be a valid Australian phone number (e.g. 0412345678, 1300123456)'),
+  })
+  .superRefine((p, ctx) => {
+    const hasPhone = Boolean(String(p.phone ?? '').trim());
+    const hasType = Boolean(String(p.contactPhoneType ?? '').trim());
+    if (hasPhone && !hasType) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Phone type is required when phone is provided', path: ['contactPhoneType'] });
+    }
+   
+  });
+
 // Concession (per spec)
 const CONCESSION_CARD_TYPES = [
   'DVAGV',
@@ -254,6 +274,38 @@ const addressSchema = z.object({
     message: 'State must be ACT, NT, WA, SA, VIC, NSW, QLD',
   }),
   postCode: z.string().regex(/^\d{4}$/, 'Postcode must be 4 digits'),
+});
+
+// Secondary contact address fields are optional in the portal UI. If provided, validate format only.
+const secondaryAddressSchema = z.object({
+  addressType: z.string().optional().refine((v) => !v || v === '' || /^[A-Za-z]+$/.test(v), 'addressType must be letters only'),
+  unitNumber: z
+    .string()
+    .optional()
+    .refine((v) => !v || v === '' || /^[a-zA-Z0-9,./&:\s-]+$/.test(v), 'unitNumber invalid'),
+  streetNumber: z
+    .string()
+    .optional()
+    .refine((v) => !v || v === '' || /^[A-Za-z0-9-]+$/.test(v), 'Letters, numbers, hyphen only'),
+  streetName: z
+    .string()
+    .optional()
+    .refine((v) => !v || v === '' || /^[a-zA-Z0-9'.,/()\s-]+$/.test(v), 'Invalid street name'),
+  streetTypeCode: z
+    .string()
+    .optional()
+    .refine((v) => !v || v === '' || STREET_TYPE_CODES.includes(v as (typeof STREET_TYPE_CODES)[number]), 'Street type must be a valid AS 4590 code'),
+  suburb: z
+    .string()
+    .optional()
+    .refine((v) => !v || v === '' || /^[A-Za-z0-9 ]+$/.test(v), 'Letters and numbers only'),
+  state: z
+    .union([z.enum(['ACT', 'NT', 'WA', 'SA', 'VIC', 'NSW', 'QLD']), z.literal('')])
+    .optional(),
+  postCode: z
+    .string()
+    .optional()
+    .refine((v) => !v || v === '' || /^\d{4}$/.test(v), 'Postcode must be 4 digits'),
 });
 
 
@@ -568,8 +620,8 @@ export const step2Schema = z.object({
             .optional()
             .refine((v) => !v || v === '' || CONTACT_EMAIL_REGEX.test(v), 'Invalid email format')
             .or(z.literal('')),
-          addresses: z.array(addressSchema).optional(),
-          contactPhones: z.array(contactPhoneSchema).optional(),
+          addresses: z.array(secondaryAddressSchema).optional(),
+          contactPhones: z.array(secondaryContactPhoneSchema).optional(),
         })
         .optional()
         .superRefine((sc, ctx) => {

@@ -11,7 +11,7 @@ const SALUTATIONS = ['Mr.', 'Ms.', 'Mrs.', 'Dr.', 'Prof.'];
 const STATES = ['ACT', 'NT', 'WA', 'SA', 'VIC', 'NSW', 'QLD'] as const;
 const PHONE_TYPES = ['MOBILE', 'HOME', 'WORK'] as const;
 
-function PhoneFields({ basePath }: Readonly<{ basePath: string }>) {
+function PhoneFields({ basePath, required }: Readonly<{ basePath: string; required?: boolean }>) {
   const { register, control, formState } = useFormContext();
   const { fields, append, remove } = useFieldArray({ control, name: `${basePath}.contactPhones` });
 
@@ -30,7 +30,7 @@ function PhoneFields({ basePath }: Readonly<{ basePath: string }>) {
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <label className="block text-sm font-medium text-gray-700" htmlFor={`${basePath}.contactPhones.0.phone`}>
-          Phone Numbers <span className="text-danger-500">*</span>
+          Phone Numbers {required ? <span className="text-danger-500">*</span> : null}
         </label>
         <button
           type="button"
@@ -40,9 +40,7 @@ function PhoneFields({ basePath }: Readonly<{ basePath: string }>) {
           <Plus className="w-3.5 h-3.5" /> Add Phone
         </button>
       </div>
-      {fields.length === 0 && (
-        <p className="text-xs text-danger-500">At least one phone number is required.</p>
-      )}
+      {required && fields.length === 0 ? <p className="text-xs text-danger-500">At least one phone number is required.</p> : null}
       {fields.map((field, index) => (
         <div key={field.id} className="flex gap-2 items-start">
           <select
@@ -83,7 +81,7 @@ function PhoneFields({ basePath }: Readonly<{ basePath: string }>) {
   );
 }
 
-function AddressFields({ basePath }: Readonly<{ basePath: string }>) {
+function AddressFields({ basePath, required }: Readonly<{ basePath: string; required?: boolean }>) {
   const { register, formState } = useFormContext();
 
   const getErr = (field: string): FieldError | undefined => {
@@ -114,18 +112,18 @@ function AddressFields({ basePath }: Readonly<{ basePath: string }>) {
           placeholder="Optional"
         />
       </FormField>
-      <FormField label="Street Number" required error={getErr('streetNumber')}>
+      <FormField label="Street Number" required={required} error={getErr('streetNumber')}>
         <input
           {...register(`${basePath}.streetNumber`)}
           className={inputClass}
-          placeholder="123"
+          placeholder={required ? '123' : 'Optional'}
         />
       </FormField>
-      <FormField label="Street Name" required error={getErr('streetName')}>
+      <FormField label="Street Name" required={required} error={getErr('streetName')}>
         <input
           {...register(`${basePath}.streetName`)}
           className={inputClass}
-          placeholder="Main Street"
+          placeholder={required ? 'Main Street' : 'Optional'}
         />
       </FormField>
       <FormField label="Street Type" error={getErr('streetTypeCode')}>
@@ -138,10 +136,10 @@ function AddressFields({ basePath }: Readonly<{ basePath: string }>) {
           ))}
         </select>
       </FormField>
-      <FormField label="Suburb" required error={getErr('suburb')}>
-        <input {...register(`${basePath}.suburb`)} className={inputClass} placeholder="Melbourne" />
+      <FormField label="Suburb" required={required} error={getErr('suburb')}>
+        <input {...register(`${basePath}.suburb`)} className={inputClass} placeholder={required ? 'Melbourne' : 'Optional'} />
       </FormField>
-      <FormField label="State" required error={getErr('state')}>
+      <FormField label="State" required={required} error={getErr('state')}>
         <select {...register(`${basePath}.state`)} className={selectClass}>
           <option value="">Select...</option>
           {STATES.map((s) => (
@@ -151,11 +149,11 @@ function AddressFields({ basePath }: Readonly<{ basePath: string }>) {
           ))}
         </select>
       </FormField>
-      <FormField label="Post Code" required error={getErr('postCode')}>
+      <FormField label="Post Code" required={required} error={getErr('postCode')}>
         <input
           {...register(`${basePath}.postCode`)}
           className={inputClass}
-          placeholder="3000"
+          placeholder={required ? '3000' : 'Optional'}
           maxLength={4}
         />
       </FormField>
@@ -275,10 +273,10 @@ export default function Step3Contact() {
 
         <div>
           <p className="text-sm font-medium text-gray-700 mb-3">Address</p>
-          <AddressFields basePath="customer.contacts.primaryContact.addresses.0" />
+          <AddressFields basePath="customer.contacts.primaryContact.addresses.0" required />
         </div>
 
-        <PhoneFields basePath="customer.contacts.primaryContact" />
+        <PhoneFields basePath="customer.contacts.primaryContact" required />
       </div>
 
       {/* Secondary contact toggle */}
@@ -381,6 +379,13 @@ export default function Step3Contact() {
                   placeholder="Optional"
                 />
               </FormField>
+            </div>
+
+            <PhoneFields basePath="customer.contacts.secondaryContact" />
+
+            <div>
+              <p className="text-sm font-medium text-gray-700 mb-3">Address</p>
+              <AddressFields basePath="customer.contacts.secondaryContact.addresses.0" />
             </div>
           </div>
         )}

@@ -365,7 +365,7 @@ const contactValidation = [
     .optional({ values: 'falsy' })
     .matches(CONTACT_EMAIL_REGEX)
     .withMessage('secondary contact email invalid format'),
-
+  
   body('customer.contacts.secondaryContact')
     .custom((value) => {
       if (!value) return true;
@@ -445,6 +445,21 @@ const phoneValidation = [
     .withMessage('contactPhoneType must be WORK, HOME, or MOBILE'),
 
   body('customer.contacts.primaryContact.contactPhones.*.phone')
+    .matches(/^(0[2378]\d{8}|0\d{9}|13\d{4}|1300\d{6}|1800\d{6})$/)
+    .withMessage('phone must be valid Australian number'),
+
+  body('customer.contacts.secondaryContact.contactPhones')
+    .optional({ values: 'falsy' })
+    .isArray()
+    .withMessage('secondary contactPhones must be an array'),
+
+  body('customer.contacts.secondaryContact.contactPhones.*.contactPhoneType')
+    .optional({ values: 'falsy' })
+    .isIn(['WORK', 'HOME', 'MOBILE'])
+    .withMessage('contactPhoneType must be WORK, HOME, or MOBILE'),
+
+  body('customer.contacts.secondaryContact.contactPhones.*.phone')
+    .optional({ values: 'falsy' })
     .matches(/^(0[2378]\d{8}|0\d{9}|13\d{4}|1300\d{6}|1800\d{6})$/)
     .withMessage('phone must be valid Australian number'),
 ];

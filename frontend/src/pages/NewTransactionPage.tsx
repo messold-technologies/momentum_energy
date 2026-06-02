@@ -256,6 +256,13 @@ function cleanPayload(data: TransactionPayload): TransactionPayload {
   const scObj = cleaned.customer.contacts.secondaryContact as unknown as Record<string, unknown>;
   if (scObj) omitIfEmpty(scObj, 'middleName');
 
+  // Secondary contact phones are optional: drop empty rows before submit.
+  if (cleaned.customer.contacts.secondaryContact?.contactPhones) {
+    const kept = cleaned.customer.contacts.secondaryContact.contactPhones.filter((p) => String(p?.phone ?? '').trim());
+    if (kept.length) cleaned.customer.contacts.secondaryContact.contactPhones = kept;
+    else delete cleaned.customer.contacts.secondaryContact.contactPhones;
+  }
+
   // Addresses: set addressType to POSTAL when missing; omit empty unitNumber
   for (const addr of cleaned.customer.contacts.primaryContact.addresses) {
     if (!addr.addressType?.trim()) addr.addressType = 'POSTAL';
@@ -264,12 +271,40 @@ function cleanPayload(data: TransactionPayload): TransactionPayload {
     omitIfEmpty(addr as unknown as Record<string, unknown>, 'streetTypeCode');
   }
   if (cleaned.customer.contacts.secondaryContact?.addresses) {
+    // Secondary address fields are optional in the UI. Only forward to Momentum if a complete address is provided.
+    const kept: typeof cleaned.customer.contacts.secondaryContact.addresses = [];
     for (const addr of cleaned.customer.contacts.secondaryContact.addresses) {
       if (!addr.addressType?.trim()) addr.addressType = 'POSTAL';
-      omitIfEmpty(addr as unknown as Record<string, unknown>, 'unitNumber');
-      omitIfEmpty(addr as unknown as Record<string, unknown>, 'streetNumber');
-      omitIfEmpty(addr as unknown as Record<string, unknown>, 'streetTypeCode');
+      const rec = addr as unknown as Record<string, unknown>;
+      omitIfEmpty(rec, 'unitNumber');
+      omitIfEmpty(rec, 'streetNumber');
+      omitIfEmpty(rec, 'streetName');
+      omitIfEmpty(rec, 'streetTypeCode');
+      omitIfEmpty(rec, 'suburb');
+      omitIfEmpty(rec, 'state');
+      omitIfEmpty(rec, 'postCode');
+
+      const hasAny =
+        Boolean(rec.unitNumber) ||
+        Boolean(rec.streetNumber) ||
+        Boolean(rec.streetName) ||
+        Boolean(rec.streetTypeCode) ||
+        Boolean(rec.suburb) ||
+        Boolean(rec.state) ||
+        Boolean(rec.postCode);
+
+      const isComplete =
+        Boolean(rec.streetNumber) &&
+        Boolean(rec.streetName) &&
+        Boolean(rec.suburb) &&
+        Boolean(rec.state) &&
+        Boolean(rec.postCode);
+
+      // Drop empty/partial addresses; keep only complete ones to avoid Momentum validation errors.
+      if (hasAny && isComplete) kept.push(addr);
     }
+    if (kept.length) cleaned.customer.contacts.secondaryContact.addresses = kept;
+    else delete cleaned.customer.contacts.secondaryContact.addresses;
   }
 
   if (cleaned.customer.customerType === 'RESIDENT') {
@@ -293,8 +328,17 @@ function cleanPayload(data: TransactionPayload): TransactionPayload {
     }
   }
 
-  if (!cleaned.customer.contacts.secondaryContact?.firstName?.trim()) {
-    delete cleaned.customer.contacts.secondaryContact;
+  const sc2 = cleaned.customer.contacts.secondaryContact as unknown as Record<string, unknown> | undefined;
+  if (sc2) {
+    const hasAny =
+      String(sc2.firstName ?? '').trim() ||
+      String(sc2.lastName ?? '').trim() ||
+      String(sc2.email ?? '').trim() ||
+      String(sc2.dateOfBirth ?? '').trim() ||
+      String(sc2.countryOfBirth ?? '').trim() ||
+      (Array.isArray(sc2.addresses) && sc2.addresses.length > 0) ||
+      (Array.isArray(sc2.contactPhones) && sc2.contactPhones.length > 0);
+    if (!hasAny) delete cleaned.customer.contacts.secondaryContact;
   }
 
   // Service: omit empty optionals; serviceStartDate as yyyy-MM-dd
