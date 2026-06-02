@@ -175,6 +175,17 @@ export default function Step3Contact() {
       clearErrors('customer.contacts.secondaryContact');
     } else if (secondaryCacheRef.current) {
       setValue('customer.contacts.secondaryContact', secondaryCacheRef.current, { shouldDirty: false, shouldValidate: false });
+    } else {
+      // Match primary contact UX: show a first phone row by default.
+      const current = getValues('customer.contacts.secondaryContact');
+      const hasPhones = Array.isArray(current?.contactPhones) && current.contactPhones.length > 0;
+      if (!hasPhones) {
+        setValue(
+          'customer.contacts.secondaryContact.contactPhones',
+          [{ contactPhoneType: 'MOBILE', phone: '' }],
+          { shouldDirty: false, shouldValidate: false }
+        );
+      }
     }
   };
 
