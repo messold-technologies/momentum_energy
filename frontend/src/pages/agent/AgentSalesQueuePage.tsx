@@ -135,7 +135,10 @@ export default function AgentSalesQueuePage() {
                         <span className="text-gray-400">—</span>
                       )}
                     </td>
-                    <td className="px-4 py-3 text-gray-700">{r.createdByName ?? '—'}</td>
+                    <td className="px-4 py-3">
+                      <p className="text-gray-900">{r.agentName ?? r.createdByName ?? '—'}</p>
+                      {r.agentEmail && <p className="text-xs text-gray-500">{r.agentEmail}</p>}
+                    </td>
                     <td className="px-4 py-3">
                       <span
                         className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_CLASS[r.status]}`}

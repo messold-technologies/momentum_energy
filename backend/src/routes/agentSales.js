@@ -42,6 +42,8 @@ function rowToJson(row, { includePayload = false } = {}) {
     companyId: row.company_id,
     createdBy: row.created_by,
     createdByName: row.created_by_name ?? null,
+    agentName: row.agent_name ?? null,
+    agentEmail: row.agent_email ?? null,
     customerName: row.customer_name,
     customerEmail: row.customer_email,
     serviceAddress: row.service_address,
@@ -63,15 +65,19 @@ function rowToJson(row, { includePayload = false } = {}) {
 
 async function loadSale(id, user) {
   const { rows } = await query(
-    `SELECT a.*, u.name AS created_by_name
+    `SELECT a.*, u.name AS created_by_name,
+            ag.name AS agent_name, ag.email AS agent_email
      FROM agent_sales a
      LEFT JOIN users u ON u.id = a.created_by
+     LEFT JOIN agent_users ag ON ag.id = a.agent_user_id
      WHERE a.id = $1`,
     [id]
   );
   const row = rows[0];
   if (!row) return { error: 'notFound' };
-  if (!canSeeAll(user) && row.created_by !== user.id) return { error: 'forbidden' };
+  const ownedByStaff = row.created_by === user.id;
+  const fromAgentPortal = row.agent_user_id !== null;
+  if (!canSeeAll(user) && !ownedByStaff && !fromAgentPortal) return { error: 'forbidden' };
   return { row };
 }
 
@@ -122,8 +128,10 @@ router.get('/', async (req, res, next) => {
     const where = ["company_id = 'momentum'"];
 
     if (!canSeeAll(req.user)) {
+      // Non-admin staff see sales they captured themselves, plus everything that came in
+      // from the agent portal, which is what they are here to review.
       params.push(req.user.id);
-      where.push(`a.created_by = $${params.length}`);
+      where.push(`(a.created_by = $${params.length} OR a.agent_user_id IS NOT NULL)`);
     }
     if (statuses.length) {
       params.push(statuses);
@@ -132,9 +140,11 @@ router.get('/', async (req, res, next) => {
     params.push(limit);
 
     const { rows } = await query(
-      `SELECT a.*, u.name AS created_by_name
+      `SELECT a.*, u.name AS created_by_name,
+              ag.name AS agent_name, ag.email AS agent_email
        FROM agent_sales a
        LEFT JOIN users u ON u.id = a.created_by
+       LEFT JOIN agent_users ag ON ag.id = a.agent_user_id
        WHERE ${where.join(' AND ')}
        ORDER BY a.created_at DESC
        LIMIT $${params.length}`,

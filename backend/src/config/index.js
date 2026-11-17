@@ -26,6 +26,11 @@ export default {
     url: process.env.DATABASE_URL,
   },
 
+  agentPortal: {
+    /** Agents sign up and log in with their own credentials; sessions are short-lived. */
+    sessionExpiresIn: process.env.AGENT_PORTAL_SESSION_EXPIRES_IN || '12h',
+  },
+
   jwt: {
     secret: process.env.JWT_SECRET || 'development-secret-change-in-production',
     expiresIn: process.env.JWT_EXPIRES_IN || '7d',

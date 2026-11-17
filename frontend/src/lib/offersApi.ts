@@ -1,3 +1,4 @@
+import type { AxiosInstance } from 'axios';
 import api from './api';
 
 export type EnergyType = 'ELECTRICITY' | 'GAS';
@@ -153,40 +154,51 @@ function unwrap<T>(data: { success: boolean; data: T }): T {
   return data.data;
 }
 
-export const offersApi = {
-  version: async (): Promise<RateCardVersion> => {
-    const { data } = await api.get('/offers/version');
-    return unwrap<RateCardVersion>(data);
-  },
+/**
+ * Built as a factory so the staff portal and the passphrase-gated agent portal can share
+ * one implementation while talking to different mount points with different credentials.
+ */
+export function createOffersApi(client: AxiosInstance, base = '/offers') {
+  return {
+    version: async (): Promise<RateCardVersion> => {
+      const { data } = await client.get(`${base}/version`);
+      return unwrap<RateCardVersion>(data);
+    },
 
-  networks: async (params: {
-    energyType: EnergyType;
-    postcode?: string;
-    connectionId?: string;
-  }): Promise<NetworksResponse> => {
-    const { data } = await api.get('/offers/networks', { params });
-    return unwrap<NetworksResponse>(data);
-  },
+    networks: async (params: {
+      energyType: EnergyType;
+      postcode?: string;
+      connectionId?: string;
+    }): Promise<NetworksResponse> => {
+      const { data } = await client.get(`${base}/networks`, { params });
+      return unwrap<NetworksResponse>(data);
+    },
 
-  list: async (params: OfferQuery): Promise<OffersResponse> => {
-    try {
-      const { data } = await api.get('/offers', { params });
-      return unwrap<OffersResponse>(data);
-    } catch (err: unknown) {
-      const res = (err as { response?: { status?: number; data?: { error?: string; data?: { networks?: NetworkOption[] } } } })
-        .response;
-      if (res?.status === 409) {
-        throw new NetworkSelectionRequiredError(
-          res.data?.error || 'Select a distribution network',
-          res.data?.data?.networks ?? []
-        );
+    list: async (params: OfferQuery): Promise<OffersResponse> => {
+      try {
+        const { data } = await client.get(base, { params });
+        return unwrap<OffersResponse>(data);
+      } catch (err: unknown) {
+        const res = (
+          err as { response?: { status?: number; data?: { error?: string; data?: { networks?: NetworkOption[] } } } }
+        ).response;
+        if (res?.status === 409) {
+          throw new NetworkSelectionRequiredError(
+            res.data?.error || 'Select a distribution network',
+            res.data?.data?.networks ?? []
+          );
+        }
+        throw err;
       }
-      throw err;
-    }
-  },
+    },
 
-  byCode: async (offerCode: string): Promise<OfferCard> => {
-    const { data } = await api.get(`/offers/${offerCode}`);
-    return unwrap<OfferCard>(data);
-  },
-};
+    byCode: async (offerCode: string): Promise<OfferCard> => {
+      const { data } = await client.get(`${base}/${offerCode}`);
+      return unwrap<OfferCard>(data);
+    },
+  };
+}
+
+export type OffersApi = ReturnType<typeof createOffersApi>;
+
+export const offersApi = createOffersApi(api);

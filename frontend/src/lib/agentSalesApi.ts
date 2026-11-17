@@ -79,6 +79,9 @@ export interface AgentSale {
   companyId: string;
   createdBy: string;
   createdByName: string | null;
+  /** Set when the sale came from the agent portal, from the agent's own account. */
+  agentName: string | null;
+  agentEmail: string | null;
   customerName: string | null;
   customerEmail: string | null;
   serviceAddress: string | null;

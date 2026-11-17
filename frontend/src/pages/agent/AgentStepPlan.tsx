@@ -6,8 +6,9 @@ import moment from 'moment-timezone';
 import FormField from '../../components/ui/FormField';
 import PlanCard, { type PriceView } from '../../components/plan/PlanCard';
 import {
-  offersApi,
+  offersApi as defaultOffersApi,
   NetworkSelectionRequiredError,
+  type OffersApi,
   type EnergyType,
   type NetworkOption,
   type OfferCard,
@@ -44,9 +45,18 @@ const CONTRACT_TERM_FROM_PLAN: Record<string, 'OPEN' | '12MTH' | '24MTH' | '36MT
 interface Props {
   selectedPlan: SelectedPlanSnapshot | null;
   onSelectPlan: (plan: SelectedPlanSnapshot) => void;
+  /** Lets the passphrase-gated agent portal use its own scoped client. */
+  offers?: OffersApi;
+  /** The portal hides its own heading, since the page already has one. */
+  showHeading?: boolean;
 }
 
-export default function AgentStepPlan({ selectedPlan, onSelectPlan }: Props) {
+export default function AgentStepPlan({
+  selectedPlan,
+  onSelectPlan,
+  offers: offersApi = defaultOffersApi,
+  showHeading = true,
+}: Props) {
   const { control, setValue, register, formState } = useFormContext<TransactionPayload>();
   const errors = formState.errors;
 
@@ -71,7 +81,7 @@ export default function AgentStepPlan({ selectedPlan, onSelectPlan }: Props) {
 
   useEffect(() => {
     offersApi.version().then(setVersion).catch(() => setVersion(null));
-  }, []);
+  }, [offersApi]);
 
   const search = useCallback(
     async (overrides?: { networkName?: string }) => {
@@ -110,7 +120,7 @@ export default function AgentStepPlan({ selectedPlan, onSelectPlan }: Props) {
         setLoading(false);
       }
     },
-    [energyType, customerType, postcode, connectionId, tariffKey, hasEV, networkName]
+    [energyType, customerType, postcode, connectionId, tariffKey, hasEV, networkName, offersApi]
   );
 
   function handleSelect(offer: OfferCard) {
@@ -152,12 +162,14 @@ export default function AgentStepPlan({ selectedPlan, onSelectPlan }: Props) {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-lg font-semibold text-gray-900">Plan &amp; Billing</h2>
-        <p className="text-sm text-gray-500 mt-1">
-          Find the customer's plan first. The offer code is set from the plan you select.
-        </p>
-      </div>
+      {showHeading && (
+        <div>
+          <h2 className="text-lg font-semibold text-gray-900">Plan &amp; Billing</h2>
+          <p className="text-sm text-gray-500 mt-1">
+            Find the customer's plan first. The offer code is set from the plan you select.
+          </p>
+        </div>
+      )}
 
       {/* ---------------------------------------------------------------- search */}
       <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 lg:p-5">

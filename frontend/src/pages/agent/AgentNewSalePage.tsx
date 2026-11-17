@@ -258,14 +258,7 @@ export default function AgentNewSalePage() {
   return (
     <div className="max-w-6xl mx-auto">
       <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
-        <div>
-          <h1 className="text-xl font-semibold text-gray-900">
-            {sale ? 'Agent sale' : 'New agent sale'}
-          </h1>
-          <p className="text-sm text-gray-500 mt-0.5">
-            Capture the sale, then send the customer a consent link. QA submits it to Momentum.
-          </p>
-        </div>
+        <div />
         <div className="flex items-center gap-3">
           {sale && (
             <span className="text-xs text-gray-500">

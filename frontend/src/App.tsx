@@ -21,6 +21,7 @@ import AgentNewSalePage from './pages/agent/AgentNewSalePage';
 import AgentSalesQueuePage from './pages/agent/AgentSalesQueuePage';
 import AgentSaleReviewPage from './pages/agent/AgentSaleReviewPage';
 import ConsentPage from './pages/ConsentPage';
+import AgentPortalPage from './pages/agent-portal/AgentPortalPage';
 
 export default function App() {
   return (
@@ -31,6 +32,8 @@ export default function App() {
             <Route path="/login" element={<LoginPage />} />
             {/* Public: the customer holds only a link, so this sits outside ProtectedRoute. */}
             <Route path="/consent/:token" element={<ConsentPage />} />
+            {/* Agent portal: own passphrase gate, no staff layout or navigation. */}
+            <Route path="/agent" element={<AgentPortalPage />} />
             <Route path="/register" element={<RegisterPage />} />
             <Route
               path="/"
