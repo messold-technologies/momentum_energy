@@ -17,6 +17,10 @@ import FirstEnergyNewTransactionPage from './pages/FirstEnergyNewTransactionPage
 import FirstEnergyDraftsPage from './pages/FirstEnergyDraftsPage';
 import FirstEnergyFormResponsesPage from './pages/FirstEnergyFormResponsesPage';
 import { LegacyTransactionRedirect } from './components/LegacyMomentumRedirect';
+import AgentNewSalePage from './pages/agent/AgentNewSalePage';
+import AgentSalesQueuePage from './pages/agent/AgentSalesQueuePage';
+import AgentSaleReviewPage from './pages/agent/AgentSaleReviewPage';
+import ConsentPage from './pages/ConsentPage';
 
 export default function App() {
   return (
@@ -25,6 +29,8 @@ export default function App() {
         <CompanyProvider>
           <Routes>
             <Route path="/login" element={<LoginPage />} />
+            {/* Public: the customer holds only a link, so this sits outside ProtectedRoute. */}
+            <Route path="/consent/:token" element={<ConsentPage />} />
             <Route path="/register" element={<RegisterPage />} />
             <Route
               path="/"
@@ -48,6 +54,11 @@ export default function App() {
                   </AdminRoute>
                 }
               />
+              {/* Agent portal: capture -> customer consent -> QA submit. */}
+              <Route path="momentum/agent/sales" element={<AgentSalesQueuePage />} />
+              <Route path="momentum/agent/sales/new" element={<AgentNewSalePage />} />
+              <Route path="momentum/agent/sales/:id" element={<AgentSaleReviewPage />} />
+              <Route path="momentum/agent/sales/:id/edit" element={<AgentNewSalePage />} />
               <Route path="first-energy/transactions/new" element={<FirstEnergyNewTransactionPage />} />
               <Route path="first-energy/drafts" element={<FirstEnergyDraftsPage />} />
               <Route path="first-energy/form-responses" element={<FirstEnergyFormResponsesPage />} />

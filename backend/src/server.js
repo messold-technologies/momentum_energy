@@ -16,6 +16,8 @@ import healthRoutes from './routes/health.js';
 import authRoutes from './routes/auth.js';
 import firstEnergyRoutes from './routes/firstEnergyAccounts.js';
 import offersRoutes from './routes/offers.js';
+import agentSalesRoutes from './routes/agentSales.js';
+import consentRoutes from './routes/consent.js';
 import { requireAuth } from './middleware/requireAuth.js';
 
 const app = express();
@@ -48,6 +50,9 @@ app.use('/api/submissions', requireAuth, submissionsRoutes);
 app.use('/api/drafts', requireAuth, draftsRoutes);
 app.use('/api/first-energy', requireAuth, firstEnergyRoutes);
 app.use('/api/offers', requireAuth, offersRoutes);
+app.use('/api/agent-sales', requireAuth, agentSalesRoutes);
+// Public: the customer holds only a consent link, so this one sits outside requireAuth.
+app.use('/api/consent', consentRoutes);
 
 app.use((req, res) => {
   res.status(404).json({ success: false, error: `Route ${req.method} ${req.path} not found` });
