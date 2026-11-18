@@ -161,7 +161,7 @@ export default function AgentStepPlan({
   const billingErrors = errors.service?.serviceBilling;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {showHeading && (
         <div>
           <h2 className="text-lg font-semibold text-gray-900">Plan &amp; Billing</h2>
@@ -172,7 +172,7 @@ export default function AgentStepPlan({
       )}
 
       {/* ---------------------------------------------------------------- search */}
-      <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 lg:p-5">
+      <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div className="md:col-span-2">
             <FormField label="Service postcode" hint="4 digits, e.g. 3000">
@@ -274,11 +274,6 @@ export default function AgentStepPlan({
           </button>
         </div>
 
-        {version && (
-          <p className="mt-3 text-xs text-gray-500">
-            Rate card: <span className="font-medium text-gray-700">{version.label}</span>
-          </p>
-        )}
       </div>
 
       {/* ------------------------------------------------- network disambiguation */}
@@ -333,7 +328,7 @@ export default function AgentStepPlan({
               <span>
                 No network tariff supplied, so these are flat-rate estimates — the same basis
                 Momentum's own site quotes on. Enter the network tariff from the customer's bill to
-                pin the exact offer before QA submits.
+                pin the exact offer.
               </span>
             </div>
           )}
@@ -343,7 +338,7 @@ export default function AgentStepPlan({
               No plans available for this combination.
             </p>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3">
               {result.offers.map((offer) => (
                 <PlanCard
                   key={offer.offerCode}
@@ -361,7 +356,7 @@ export default function AgentStepPlan({
 
       {/* --------------------------------------------------------------- selected */}
       {selectedPlan && (
-        <div className="rounded-xl border border-primary-200 bg-primary-50 p-4 lg:p-5">
+        <div className="rounded-xl border border-primary-200 bg-primary-50 p-4">
           <p className="text-sm font-semibold text-primary-900">Selected plan</p>
           <dl className="mt-3 grid grid-cols-2 lg:grid-cols-4 gap-3 text-sm">
             <div>
@@ -393,7 +388,7 @@ export default function AgentStepPlan({
           {selectedPlan.indicativeOnly && (
             <p className="mt-3 flex items-start gap-1.5 text-xs text-amber-800">
               <AlertTriangle className="w-3.5 h-3.5 mt-px shrink-0" />
-              Quoted on flat-rate pricing. Confirm the network tariff before QA submits.
+              Quoted on flat-rate pricing. Confirm the network tariff.
             </p>
           )}
         </div>
