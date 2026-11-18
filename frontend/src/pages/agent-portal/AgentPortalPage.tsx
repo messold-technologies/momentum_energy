@@ -16,10 +16,8 @@ import {
   agentPortalApi,
   agentOffersApi,
   getAgentToken,
-  getStoredAgent,
   clearAgentSession,
   AgentSessionExpiredError,
-  type AgentProfile,
   type AgentSaleView,
 } from '../../lib/agentPortalApi';
 import type { SelectedPlanSnapshot } from '../../lib/agentSalesApi';
@@ -155,26 +153,20 @@ function defaultValues(): TransactionPayload {
 }
 
 export default function AgentPortalPage() {
-  const [agent, setAgent] = useState<AgentProfile | null>(() =>
-    getAgentToken() ? getStoredAgent() : null
-  );
+  const [unlocked, setUnlocked] = useState(Boolean(getAgentToken()));
 
   function signOut() {
     clearAgentSession();
-    setAgent(null);
+    setUnlocked(false);
   }
 
-  if (!agent) return <AuthScreen onSignedIn={setAgent} />;
-  return <SaleForm agent={agent} onSessionLost={signOut} />;
+  if (!unlocked) return <AccessGate onUnlocked={() => setUnlocked(true)} />;
+  return <SaleForm onSessionLost={signOut} />;
 }
 
-/* ------------------------------------------------------------------- auth */
+/* ------------------------------------------------------------------- gate */
 
-function AuthScreen({ onSignedIn }: { onSignedIn: (a: AgentProfile) => void }) {
-  const [mode, setMode] = useState<'login' | 'signup'>('login');
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [phone, setPhone] = useState('');
+function AccessGate({ onUnlocked }: { onUnlocked: () => void }) {
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -184,75 +176,33 @@ function AuthScreen({ onSignedIn }: { onSignedIn: (a: AgentProfile) => void }) {
     setBusy(true);
     setError(null);
     try {
-      const agent =
-        mode === 'signup'
-          ? await agentPortalApi.signup({
-              name: name.trim(),
-              email: email.trim(),
-              phone: phone.trim() || undefined,
-              password,
-            })
-          : await agentPortalApi.login(email.trim(), password);
-      onSignedIn(agent);
+      await agentPortalApi.access(password);
+      onUnlocked();
     } catch (err) {
-      setError(apiError(err, mode === 'signup' ? 'Could not create your account' : 'Could not sign you in'));
+      setError(apiError(err, 'That password is not recognised'));
     } finally {
       setBusy(false);
     }
   }
 
-  const field =
-    'w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500';
-
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4 py-8">
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
       <form onSubmit={handleSubmit} className="w-full max-w-sm bg-white rounded-2xl border border-gray-200 p-8">
         <img src="/utility-hub-logo.png" alt="Utility Hub" className="h-9 mx-auto" />
-        <h1 className="mt-5 text-lg font-semibold text-gray-900 text-center">
-          {mode === 'signup' ? 'Create your agent account' : 'Agent sign in'}
-        </h1>
+        <h1 className="mt-5 text-lg font-semibold text-gray-900 text-center">Agent access</h1>
         <p className="mt-1 text-sm text-gray-500 text-center">
-          {mode === 'signup'
-            ? 'Sign up to start submitting sales.'
-            : 'Sign in to submit a sale.'}
+          Enter the password to start a sale.
         </p>
 
-        <div className="mt-6 space-y-3">
-          {mode === 'signup' && (
-            <>
-              <input
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Full name"
-                autoComplete="name"
-                className={field}
-              />
-              <input
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="Phone (optional)"
-                autoComplete="tel"
-                className={field}
-              />
-            </>
-          )}
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="Email"
-            autoComplete="email"
-            className={field}
-          />
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder={mode === 'signup' ? 'Password (at least 8 characters)' : 'Password'}
-            autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
-            className={field}
-          />
-        </div>
+        <input
+          type="password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          autoFocus
+          autoComplete="off"
+          placeholder="Password"
+          className="mt-6 w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm text-center tracking-wide focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+        />
 
         {error && (
           <p role="alert" className="mt-3 text-sm text-red-700 text-center">
@@ -262,22 +212,11 @@ function AuthScreen({ onSignedIn }: { onSignedIn: (a: AgentProfile) => void }) {
 
         <button
           type="submit"
-          disabled={busy || !email.trim() || !password || (mode === 'signup' && name.trim().length < 2)}
+          disabled={busy || password.length === 0}
           className="mt-5 w-full inline-flex items-center justify-center gap-2 px-5 py-2.5 text-sm font-semibold text-white bg-primary-600 rounded-lg hover:bg-primary-700 disabled:opacity-40 cursor-pointer"
         >
           {busy && <Loader2 className="w-4 h-4 animate-spin" />}
-          {mode === 'signup' ? 'Create account' : 'Sign in'}
-        </button>
-
-        <button
-          type="button"
-          onClick={() => {
-            setMode((m) => (m === 'login' ? 'signup' : 'login'));
-            setError(null);
-          }}
-          className="mt-4 w-full text-sm text-primary-700 hover:underline cursor-pointer"
-        >
-          {mode === 'signup' ? 'I already have an account' : 'Create an account'}
+          Continue
         </button>
       </form>
     </div>
@@ -286,7 +225,7 @@ function AuthScreen({ onSignedIn }: { onSignedIn: (a: AgentProfile) => void }) {
 
 /* ------------------------------------------------------------------- form */
 
-function SaleForm({ agent, onSessionLost }: { agent: AgentProfile; onSessionLost: () => void }) {
+function SaleForm({ onSessionLost }: { onSessionLost: () => void }) {
   const [step, setStep] = useState(0);
   const [sale, setSale] = useState<AgentSaleView | null>(null);
   const [selectedPlan, setSelectedPlan] = useState<SelectedPlanSnapshot | null>(null);
@@ -297,8 +236,7 @@ function SaleForm({ agent, onSessionLost }: { agent: AgentProfile; onSessionLost
   const [error, setError] = useState<string | null>(null);
 
   const methods = useForm<TransactionPayload>({
-    // The signed-in agent's name is recorded on the sale, so QA can see who took it.
-    defaultValues: { ...defaultValues(), portalMeta: { ...defaultValues().portalMeta, agentName: agent.name } },
+    defaultValues: defaultValues(),
     resolver: zodResolver(stepSchemas[step]) as unknown as Resolver<TransactionPayload>,
     mode: 'onChange',
   });
@@ -374,7 +312,7 @@ function SaleForm({ agent, onSessionLost }: { agent: AgentProfile; onSessionLost
   }
 
   function startAnother() {
-    methods.reset({ ...defaultValues(), portalMeta: { ...defaultValues().portalMeta, agentName: agent.name } });
+    methods.reset(defaultValues());
     setSale(null);
     setSelectedPlan(null);
     setConsentUrl(null);
@@ -388,14 +326,13 @@ function SaleForm({ agent, onSessionLost }: { agent: AgentProfile; onSessionLost
         <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
           <img src="/utility-hub-logo.png" alt="Utility Hub" className="h-8" />
           <div className="flex items-center gap-4">
-            <span className="text-sm text-gray-600">{agent.name}</span>
           <button
             type="button"
             onClick={onSessionLost}
             className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 cursor-pointer"
           >
             <LogOut className="w-4 h-4" />
-            Sign out
+            Exit
           </button>
           </div>
         </div>

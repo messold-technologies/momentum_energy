@@ -79,9 +79,13 @@ export interface AgentSale {
   companyId: string;
   createdBy: string;
   createdByName: string | null;
-  /** Set when the sale came from the agent portal, from the agent's own account. */
+  /**
+   * Name the agent typed on the form. The portal is entered with a shared password, so
+   * this is self-reported and not verified against an account.
+   */
   agentName: string | null;
-  agentEmail: string | null;
+  agentNameIsSelfReported: boolean;
+  fromAgentPortal: boolean;
   customerName: string | null;
   customerEmail: string | null;
   serviceAddress: string | null;

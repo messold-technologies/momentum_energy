@@ -1,21 +1,20 @@
 /**
- * Agent portal: agents sign themselves up, log in, and submit sales for QA.
+ * Agent portal: entered with a shared password, then used to submit sales for QA.
  *
- * Agent accounts live in `agent_users`, separate from staff `users`, so an agent's
- * credentials can never obtain a staff token. Their session token carries scope 'agent'
- * and is accepted only by requireAgentScope, which guards this router alone -- an agent
- * cannot reach /api/transactions, /api/submissions, /api/drafts or the QA queue.
+ * There is no per-agent account. Everything created here belongs to one shared row in
+ * `agent_users`, which is a table separate from staff `users` -- so an agent session can
+ * never become a staff session. The token carries scope 'agent' and is accepted only by
+ * requireAgentScope, which guards this router alone: an agent cannot reach
+ * /api/transactions, /api/submissions, /api/drafts or the QA queue.
  *
- *   POST /api/agent-portal/signup
- *   POST /api/agent-portal/login
- *   GET  /api/agent-portal/me
+ *   POST /api/agent-portal/access           exchange the shared password for a session
  *   POST /api/agent-portal/sales
  *   PATCH/GET /api/agent-portal/sales/:id
  *   POST /api/agent-portal/sales/:id/consent-link
- *   GET  /api/agent-portal/sales            the agent's own sales only
+ *   GET  /api/agent-portal/sales
  */
 import express from 'express';
-import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 import rateLimit from 'express-rate-limit';
 
@@ -29,110 +28,58 @@ import { generateConsentToken, deriveSummary } from '../services/agentSaleServic
 const router = express.Router();
 
 const CONSENT_LINK_TTL_HOURS = 72;
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const AGENT_USER_ID = '00000000-0000-0000-0000-00000000a9e7';
 
-/** Credential endpoints are rate limited to blunt guessing and bulk signup. */
-const credentialLimiter = rateLimit({
+/** A shared password is guessable by design, so the gate is rate limited hard. */
+const accessLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 20,
+  max: 10,
   message: { success: false, error: 'Too many attempts, please try again later' },
 });
 
-function issueToken(agent) {
-  return jwt.sign(
-    { scope: 'agent', agentUserId: agent.id, agentName: agent.name, agentEmail: agent.email },
-    config.jwt.secret,
-    { expiresIn: config.agentPortal.sessionExpiresIn }
-  );
+/** Constant time, so the response cannot be used to narrow the password down. */
+function passwordMatches(supplied) {
+  const expected = Buffer.from(String(config.agentPortal.password));
+  const given = Buffer.from(String(supplied ?? ''));
+  if (expected.length !== given.length) return false;
+  return crypto.timingSafeEqual(expected, given);
 }
 
-function agentProfile(row) {
-  return { id: row.id, email: row.email, name: row.name, phone: row.phone ?? null };
+function issueToken() {
+  return jwt.sign({ scope: 'agent', agentUserId: AGENT_USER_ID }, config.jwt.secret, {
+    expiresIn: config.agentPortal.sessionExpiresIn,
+  });
 }
 
-/* ------------------------------------------------------------------ signup */
+/* ------------------------------------------------------------------ access */
 
-router.post('/signup', credentialLimiter, async (req, res, next) => {
+router.post('/access', accessLimiter, async (req, res, next) => {
   try {
-    const email = String(req.body?.email ?? '').trim().toLowerCase();
-    const name = String(req.body?.name ?? '').trim();
-    const phone = String(req.body?.phone ?? '').trim();
-    const password = String(req.body?.password ?? '');
+    if (!passwordMatches(req.body?.password)) {
+      logger.warn('Agent portal access denied', { ip: req.ip });
+      return res.status(401).json({ success: false, error: 'That password is not recognised' });
+    }
 
-    if (!EMAIL_RE.test(email)) {
-      return res.status(400).json({ success: false, error: 'Enter a valid email address' });
-    }
-    if (name.length < 2) {
-      return res.status(400).json({ success: false, error: 'Enter your full name' });
-    }
-    if (password.length < 8) {
+    const { rows } = await query('SELECT id, is_active FROM agent_users WHERE id = $1', [
+      AGENT_USER_ID,
+    ]);
+    if (!rows.length) {
+      logger.error('Agent portal account missing; run migrations');
       return res
-        .status(400)
-        .json({ success: false, error: 'Password must be at least 8 characters' });
+        .status(503)
+        .json({ success: false, error: 'Agent portal is not configured. Contact support.' });
+    }
+    if (!rows[0].is_active) {
+      return res.status(403).json({ success: false, error: 'The agent portal is currently closed' });
     }
 
-    const passwordHash = await bcrypt.hash(password, 12);
+    await query('UPDATE agent_users SET last_login_at = NOW() WHERE id = $1', [AGENT_USER_ID]);
 
-    let rows;
-    try {
-      ({ rows } = await query(
-        `INSERT INTO agent_users (email, name, phone, password_hash)
-         VALUES ($1, $2, $3, $4)
-         RETURNING id, email, name, phone`,
-        [email, name, phone || null, passwordHash]
-      ));
-    } catch (err) {
-      if (err.code === '23505') {
-        return res
-          .status(409)
-          .json({ success: false, error: 'An account already exists for this email' });
-      }
-      throw err;
-    }
-
-    logger.info('Agent signed up', { agentUserId: rows[0].id, email });
-    res.status(201).json({
+    logger.info('Agent portal session started', { ip: req.ip });
+    res.json({
       success: true,
-      data: { token: issueToken(rows[0]), agent: agentProfile(rows[0]) },
+      data: { token: issueToken(), expiresIn: config.agentPortal.sessionExpiresIn },
     });
-  } catch (err) {
-    next(err);
-  }
-});
-
-/* ------------------------------------------------------------------- login */
-
-router.post('/login', credentialLimiter, async (req, res, next) => {
-  try {
-    const email = String(req.body?.email ?? '').trim().toLowerCase();
-    const password = String(req.body?.password ?? '');
-    if (!email || !password) {
-      return res.status(400).json({ success: false, error: 'Email and password are required' });
-    }
-
-    const { rows } = await query(
-      `SELECT id, email, name, phone, password_hash, is_active
-       FROM agent_users WHERE lower(email) = $1`,
-      [email]
-    );
-    const agent = rows[0];
-
-    // Same message whether the account is missing or the password is wrong, so the
-    // response does not confirm which emails have accounts.
-    const valid = agent && (await bcrypt.compare(password, agent.password_hash));
-    if (!valid) {
-      return res.status(401).json({ success: false, error: 'Invalid email or password' });
-    }
-    if (!agent.is_active) {
-      return res
-        .status(403)
-        .json({ success: false, error: 'This account has been disabled. Contact your manager.' });
-    }
-
-    await query('UPDATE agent_users SET last_login_at = NOW() WHERE id = $1', [agent.id]);
-
-    logger.info('Agent logged in', { agentUserId: agent.id });
-    res.json({ success: true, data: { token: issueToken(agent), agent: agentProfile(agent) } });
   } catch (err) {
     next(err);
   }
@@ -142,27 +89,12 @@ router.post('/login', credentialLimiter, async (req, res, next) => {
 
 router.use(requireAgentScope);
 
-router.get('/me', async (req, res, next) => {
-  try {
-    const { rows } = await query(
-      'SELECT id, email, name, phone, is_active FROM agent_users WHERE id = $1',
-      [req.agent.userId]
-    );
-    if (!rows.length || !rows[0].is_active) {
-      return res.status(401).json({ success: false, error: 'Session no longer valid' });
-    }
-    res.json({ success: true, data: agentProfile(rows[0]) });
-  } catch (err) {
-    next(err);
-  }
-});
-
-/** An agent only ever sees sales they created themselves. */
+/** Every portal sale belongs to the one shared account, and only that account's. */
 async function loadOwnSale(id, agentUserId) {
-  const { rows } = await query(
-    'SELECT * FROM agent_sales WHERE id = $1 AND agent_user_id = $2',
-    [id, agentUserId]
-  );
+  const { rows } = await query('SELECT * FROM agent_sales WHERE id = $1 AND agent_user_id = $2', [
+    id,
+    agentUserId,
+  ]);
   return rows[0] ?? null;
 }
 

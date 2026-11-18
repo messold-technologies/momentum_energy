@@ -42,8 +42,11 @@ function rowToJson(row, { includePayload = false } = {}) {
     companyId: row.company_id,
     createdBy: row.created_by,
     createdByName: row.created_by_name ?? null,
-    agentName: row.agent_name ?? null,
-    agentEmail: row.agent_email ?? null,
+    // The portal is entered with a shared password, so there is no per-agent identity.
+    // The name here is whatever the agent typed on the form: self-reported, not verified.
+    agentName: row.payload?.portalMeta?.agentName || null,
+    agentNameIsSelfReported: Boolean(row.agent_user_id),
+    fromAgentPortal: Boolean(row.agent_user_id),
     customerName: row.customer_name,
     customerEmail: row.customer_email,
     serviceAddress: row.service_address,
@@ -65,11 +68,9 @@ function rowToJson(row, { includePayload = false } = {}) {
 
 async function loadSale(id, user) {
   const { rows } = await query(
-    `SELECT a.*, u.name AS created_by_name,
-            ag.name AS agent_name, ag.email AS agent_email
+    `SELECT a.*, u.name AS created_by_name
      FROM agent_sales a
      LEFT JOIN users u ON u.id = a.created_by
-     LEFT JOIN agent_users ag ON ag.id = a.agent_user_id
      WHERE a.id = $1`,
     [id]
   );
@@ -140,11 +141,9 @@ router.get('/', async (req, res, next) => {
     params.push(limit);
 
     const { rows } = await query(
-      `SELECT a.*, u.name AS created_by_name,
-              ag.name AS agent_name, ag.email AS agent_email
+      `SELECT a.*, u.name AS created_by_name
        FROM agent_sales a
        LEFT JOIN users u ON u.id = a.created_by
-       LEFT JOIN agent_users ag ON ag.id = a.agent_user_id
        WHERE ${where.join(' AND ')}
        ORDER BY a.created_at DESC
        LIMIT $${params.length}`,

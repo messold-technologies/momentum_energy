@@ -137,7 +137,11 @@ export default function AgentSalesQueuePage() {
                     </td>
                     <td className="px-4 py-3">
                       <p className="text-gray-900">{r.agentName ?? r.createdByName ?? '—'}</p>
-                      {r.agentEmail && <p className="text-xs text-gray-500">{r.agentEmail}</p>}
+                      {r.fromAgentPortal && (
+                        <p className="text-xs text-gray-500" title="Entered by the agent; the portal uses a shared password">
+                          Agent portal · self-reported
+                        </p>
+                      )}
                     </td>
                     <td className="px-4 py-3">
                       <span

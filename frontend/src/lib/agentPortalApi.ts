@@ -86,32 +86,7 @@ function unwrap<T>(data: { success: boolean; data: T }): T {
   return data.data;
 }
 
-export interface AgentProfile {
-  id: string;
-  email: string;
-  name: string;
-  phone: string | null;
-}
-
 const PROFILE_KEY = 'agent_portal_profile';
-
-export function getStoredAgent(): AgentProfile | null {
-  try {
-    const raw = sessionStorage.getItem(PROFILE_KEY);
-    return raw ? (JSON.parse(raw) as AgentProfile) : null;
-  } catch {
-    return null;
-  }
-}
-
-function storeSession(token: string, agent: AgentProfile) {
-  setAgentToken(token);
-  try {
-    sessionStorage.setItem(PROFILE_KEY, JSON.stringify(agent));
-  } catch {
-    /* private browsing */
-  }
-}
 
 export function clearAgentSession() {
   setAgentToken(null);
@@ -123,23 +98,12 @@ export function clearAgentSession() {
 }
 
 export const agentPortalApi = {
-  signup: async (input: { name: string; email: string; phone?: string; password: string }) => {
-    const { data } = await axios.post('/api/agent-portal/signup', input);
-    const { token, agent } = (data as { data: { token: string; agent: AgentProfile } }).data;
-    storeSession(token, agent);
-    return agent;
-  },
-
-  login: async (email: string, password: string) => {
-    const { data } = await axios.post('/api/agent-portal/login', { email, password });
-    const { token, agent } = (data as { data: { token: string; agent: AgentProfile } }).data;
-    storeSession(token, agent);
-    return agent;
-  },
-
-  me: async () => {
-    const { data } = await agentClient.get('/me');
-    return unwrap<AgentProfile>(data);
+  /** Exchanges the shared password for a short-lived, agent-scoped session. */
+  access: async (password: string) => {
+    const { data } = await axios.post('/api/agent-portal/access', { password });
+    const token = (data as { data: { token: string } }).data.token;
+    setAgentToken(token);
+    return token;
   },
 
   create: async (payload: TransactionPayload, selectedPlan: SelectedPlanSnapshot | null) => {
