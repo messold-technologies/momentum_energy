@@ -1,0 +1,248 @@
+/**
+ * Agent portal: entered with a shared password, then used to submit sales for QA.
+ *
+ * There is no per-agent account. Everything created here belongs to one shared row in
+ * `agent_users`, which is a table separate from staff `users` -- so an agent session can
+ * never become a staff session. The token carries scope 'agent' and is accepted only by
+ * requireAgentScope, which guards this router alone: an agent cannot reach
+ * /api/transactions, /api/submissions, /api/drafts or the QA queue.
+ *
+ *   POST /api/agent-portal/access           exchange the shared password for a session
+ *   POST /api/agent-portal/sales
+ *   PATCH/GET /api/agent-portal/sales/:id
+ *   POST /api/agent-portal/sales/:id/consent-link
+ *   GET  /api/agent-portal/sales
+ */
+import express from 'express';
+import crypto from 'crypto';
+import jwt from 'jsonwebtoken';
+import rateLimit from 'express-rate-limit';
+
+import { query } from '../db/connection.js';
+import config from '../config/index.js';
+import logger from '../config/logger.js';
+import { sanitizeBody } from '../utils/sanitizeBody.js';
+import { requireAgentScope } from '../middleware/requireAgentScope.js';
+import { generateConsentToken, deriveSummary } from '../services/agentSaleService.js';
+
+const router = express.Router();
+
+const CONSENT_LINK_TTL_HOURS = 72;
+const AGENT_USER_ID = '00000000-0000-0000-0000-00000000a9e7';
+
+/** A shared password is guessable by design, so the gate is rate limited hard. */
+const accessLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  message: { success: false, error: 'Too many attempts, please try again later' },
+});
+
+/** Constant time, so the response cannot be used to narrow the password down. */
+function passwordMatches(supplied) {
+  const expected = Buffer.from(String(config.agentPortal.password));
+  const given = Buffer.from(String(supplied ?? ''));
+  if (expected.length !== given.length) return false;
+  return crypto.timingSafeEqual(expected, given);
+}
+
+function issueToken() {
+  return jwt.sign({ scope: 'agent', agentUserId: AGENT_USER_ID }, config.jwt.secret, {
+    expiresIn: config.agentPortal.sessionExpiresIn,
+  });
+}
+
+/* ------------------------------------------------------------------ access */
+
+router.post('/access', accessLimiter, async (req, res, next) => {
+  try {
+    if (!passwordMatches(req.body?.password)) {
+      logger.warn('Agent portal access denied', { ip: req.ip });
+      return res.status(401).json({ success: false, error: 'That password is not recognised' });
+    }
+
+    const { rows } = await query('SELECT id, is_active FROM agent_users WHERE id = $1', [
+      AGENT_USER_ID,
+    ]);
+    if (!rows.length) {
+      logger.error('Agent portal account missing; run migrations');
+      return res
+        .status(503)
+        .json({ success: false, error: 'Agent portal is not configured. Contact support.' });
+    }
+    if (!rows[0].is_active) {
+      return res.status(403).json({ success: false, error: 'The agent portal is currently closed' });
+    }
+
+    await query('UPDATE agent_users SET last_login_at = NOW() WHERE id = $1', [AGENT_USER_ID]);
+
+    logger.info('Agent portal session started', { ip: req.ip });
+    res.json({
+      success: true,
+      data: { token: issueToken(), expiresIn: config.agentPortal.sessionExpiresIn },
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/* --------------------------------------------------- everything below: agent */
+
+router.use(requireAgentScope);
+
+/** Every portal sale belongs to the one shared account, and only that account's. */
+async function loadOwnSale(id, agentUserId) {
+  const { rows } = await query('SELECT * FROM agent_sales WHERE id = $1 AND agent_user_id = $2', [
+    id,
+    agentUserId,
+  ]);
+  return rows[0] ?? null;
+}
+
+/** Agents never see QA fields: no reviewer, no rejection reason, no submission ids. */
+function agentView(row) {
+  return {
+    id: row.id,
+    status: row.status,
+    customerName: row.customer_name,
+    serviceAddress: row.service_address,
+    selectedPlan: row.selected_plan,
+    consentSentAt: row.consent_sent_at,
+    consentedAt: row.consented_at,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    payload: row.payload,
+  };
+}
+
+router.get('/sales', async (req, res, next) => {
+  try {
+    const { rows } = await query(
+      `SELECT * FROM agent_sales
+       WHERE agent_user_id = $1
+       ORDER BY created_at DESC
+       LIMIT 50`,
+      [req.agent.userId]
+    );
+    res.json({ success: true, data: rows.map(agentView) });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post('/sales', async (req, res, next) => {
+  try {
+    const payload = sanitizeBody(req.body?.payload ?? {});
+    const selectedPlan = req.body?.selectedPlan ?? null;
+    const summary = deriveSummary(payload);
+
+    const { rows } = await query(
+      `INSERT INTO agent_sales
+         (company_id, status, agent_user_id, payload, selected_plan,
+          customer_name, customer_email, service_address, transaction_reference)
+       VALUES ('momentum', 'agent_draft', $1, $2, $3, $4, $5, $6, $7)
+       RETURNING *`,
+      [
+        req.agent.userId,
+        JSON.stringify(payload),
+        selectedPlan ? JSON.stringify(selectedPlan) : null,
+        summary.customerName,
+        summary.customerEmail,
+        summary.serviceAddress,
+        summary.transactionReference,
+      ]
+    );
+    res.status(201).json({ success: true, data: agentView(rows[0]) });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get('/sales/:id', async (req, res, next) => {
+  try {
+    const row = await loadOwnSale(req.params.id, req.agent.userId);
+    if (!row) return res.status(404).json({ success: false, error: 'Not found' });
+    res.json({ success: true, data: agentView(row) });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.patch('/sales/:id', async (req, res, next) => {
+  try {
+    const row = await loadOwnSale(req.params.id, req.agent.userId);
+    if (!row) return res.status(404).json({ success: false, error: 'Not found' });
+
+    // Once the customer has consented the payload is frozen: changing it would mean
+    // submitting something the customer never saw.
+    if (!['agent_draft', 'awaiting_consent'].includes(row.status)) {
+      return res.status(409).json({ success: false, error: 'This sale can no longer be edited' });
+    }
+
+    const payload = sanitizeBody(req.body?.payload ?? row.payload);
+    const selectedPlan =
+      req.body?.selectedPlan === undefined ? row.selected_plan : req.body.selectedPlan;
+    const summary = deriveSummary(payload);
+
+    const { rows } = await query(
+      `UPDATE agent_sales
+       SET payload = $2, selected_plan = $3, customer_name = $4, customer_email = $5,
+           service_address = $6, transaction_reference = $7, updated_at = NOW()
+       WHERE id = $1 RETURNING *`,
+      [
+        row.id,
+        JSON.stringify(payload),
+        selectedPlan ? JSON.stringify(selectedPlan) : null,
+        summary.customerName,
+        summary.customerEmail,
+        summary.serviceAddress,
+        summary.transactionReference,
+      ]
+    );
+    res.json({ success: true, data: agentView(rows[0]) });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post('/sales/:id/consent-link', async (req, res, next) => {
+  try {
+    const row = await loadOwnSale(req.params.id, req.agent.userId);
+    if (!row) return res.status(404).json({ success: false, error: 'Not found' });
+
+    if (!['agent_draft', 'awaiting_consent'].includes(row.status)) {
+      return res
+        .status(409)
+        .json({ success: false, error: 'A consent link cannot be issued for this sale' });
+    }
+
+    const { token, hash } = generateConsentToken();
+    const expires = new Date(Date.now() + CONSENT_LINK_TTL_HOURS * 3600 * 1000);
+
+    const { rows } = await query(
+      `UPDATE agent_sales
+       SET consent_token_hash = $2, consent_token_expires_at = $3,
+           consent_sent_at = NOW(), status = 'awaiting_consent', updated_at = NOW()
+       WHERE id = $1 RETURNING *`,
+      [row.id, hash, expires]
+    );
+
+    const base = (config.portal.allowedOrigins?.[0] || '').replace(/\/$/, '');
+    logger.info('Consent link issued from agent portal', {
+      agentSaleId: row.id,
+      agentUserId: req.agent.userId,
+    });
+
+    res.json({
+      success: true,
+      data: {
+        ...agentView(rows[0]),
+        consentUrl: `${base}/consent/${token}`,
+        expiresAt: expires.toISOString(),
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+export default router;
