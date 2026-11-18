@@ -317,7 +317,6 @@ export default function AgentNewSalePage() {
                         ? ` · ${selectedPlan.comparisonLabel} ${selectedPlan.benchmarkName}`
                         : ''}
                     </p>
-                    <p className="font-mono text-xs text-gray-500 mt-1">{selectedPlan.offerCode}</p>
                   </div>
                 )}
 
