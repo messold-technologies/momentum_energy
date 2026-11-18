@@ -55,8 +55,6 @@ export default function PlanCard({ offer, view, selected, onSelect, indicative }
     rateLine('Off-peak', pricing.rates?.offpeak),
   ].filter(Boolean) as string[];
 
-  const headlineFeature = plan.features.find((f) => f.heading)?.heading;
-
   return (
     <div
       className={`flex flex-col rounded-xl border overflow-hidden transition-shadow ${
@@ -69,10 +67,12 @@ export default function PlanCard({ offer, view, selected, onSelect, indicative }
       </div>
 
       <div className={`${accent.body} px-4 pt-5 pb-4 text-center`}>
+        {/*
+          No subtitle here. The Offers sheet's Feature_Heading_1 was used for this, but
+          those are section headings for a marketing block ("Why choose Momentum?"), not
+          plan taglines, so they read as nonsense under a plan name.
+        */}
         <h3 className="text-lg font-bold text-gray-900">{offer.planCode}</h3>
-        {headlineFeature && (
-          <p className="mt-1 text-xs text-gray-600 line-clamp-2">{headlineFeature}</p>
-        )}
       </div>
 
       <div className="flex-1 px-4 py-4 bg-white">
@@ -178,9 +178,6 @@ export default function PlanCard({ offer, view, selected, onSelect, indicative }
             'Select plan'
           )}
         </button>
-        <p className="mt-2 text-center font-mono text-[10px] text-gray-400 break-all">
-          {offer.offerCode}
-        </p>
       </div>
     </div>
   );

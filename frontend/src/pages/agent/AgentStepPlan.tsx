@@ -384,8 +384,10 @@ export default function AgentStepPlan({
               </dd>
             </div>
             <div>
-              <dt className="text-xs text-gray-500">Offer code</dt>
-              <dd className="font-mono text-xs text-gray-900 break-all">{selectedPlan.offerCode}</dd>
+              <dt className="text-xs text-gray-500">Quoted</dt>
+              <dd className="font-medium text-gray-900">
+                {new Date(selectedPlan.quotedAt).toLocaleDateString()}
+              </dd>
             </div>
           </dl>
           {selectedPlan.indicativeOnly && (
