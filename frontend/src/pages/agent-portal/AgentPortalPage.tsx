@@ -323,7 +323,7 @@ function SaleForm({ onSessionLost }: { onSessionLost: () => void }) {
   return (
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white border-b border-gray-200">
-        <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
+        <div className="w-full px-4 py-2 flex items-center justify-between">
           <img src="/utility-hub-logo.png" alt="Utility Hub" className="h-8" />
           <div className="flex items-center gap-4">
           <button
@@ -338,10 +338,10 @@ function SaleForm({ onSessionLost }: { onSessionLost: () => void }) {
         </div>
       </header>
 
-      <main className="max-w-6xl mx-auto px-4 py-6">
+      <main className="w-full px-4 py-4">
         <Stepper steps={STEPS} currentStep={step} />
 
-        <div className="bg-white rounded-xl border border-gray-200 p-6 lg:p-8">
+        <div className="bg-white rounded-xl border border-gray-200 p-4 lg:p-5">
           <FormProvider {...methods}>
             <form onSubmit={(e) => e.preventDefault()}>
               {step === 0 && (

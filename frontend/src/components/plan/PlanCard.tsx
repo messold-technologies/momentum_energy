@@ -49,13 +49,13 @@ export default function PlanCard({ offer, view, selected, onSelect, indicative }
   const { pricing, plan } = offer;
   const hasPrice = pricing.annualCost !== null;
 
+  const headlineFeature = plan.features.find((f) => f.heading)?.heading;
+
   const rateSummary = [
     rateLine('Peak', pricing.rates?.peak),
     rateLine('Shoulder', pricing.rates?.shoulder),
     rateLine('Off-peak', pricing.rates?.offpeak),
   ].filter(Boolean) as string[];
-
-  const headlineFeature = plan.features.find((f) => f.heading)?.heading;
 
   return (
     <div
@@ -64,18 +64,19 @@ export default function PlanCard({ offer, view, selected, onSelect, indicative }
       }`}
     >
       {/* Eligibility / promo band */}
-      <div className={`${accent.band} ${accent.text} px-4 py-2 text-xs font-semibold text-center`}>
+      <div className={`${accent.band} ${accent.text} px-3 py-1.5 text-xs font-semibold text-center`}>
         {plan.customerEligibility ?? offer.tariffCategory ?? ' '}
       </div>
 
-      <div className={`${accent.body} px-4 pt-5 pb-4 text-center`}>
-        <h3 className="text-lg font-bold text-gray-900">{offer.planCode}</h3>
+      <div className={`${accent.body} px-3 pt-4 pb-3 text-center`}>
+        <h3 className="text-base font-bold text-gray-900">{offer.planCode}</h3>
+        {/* Feature_Heading_1 from the Offers sheet, e.g. "Get a $50 Warm Welcome". */}
         {headlineFeature && (
           <p className="mt-1 text-xs text-gray-600 line-clamp-2">{headlineFeature}</p>
         )}
       </div>
 
-      <div className="flex-1 px-4 py-4 bg-white">
+      <div className="flex-1 px-3 py-3 bg-white">
         <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
           {offer.energyType === 'GAS' ? 'Gas' : 'Electricity'}
         </p>
@@ -159,7 +160,7 @@ export default function PlanCard({ offer, view, selected, onSelect, indicative }
         )}
       </div>
 
-      <div className="px-4 pb-4 bg-white">
+      <div className="px-3 pb-3 bg-white">
         <button
           type="button"
           onClick={() => onSelect(offer)}
@@ -178,9 +179,6 @@ export default function PlanCard({ offer, view, selected, onSelect, indicative }
             'Select plan'
           )}
         </button>
-        <p className="mt-2 text-center font-mono text-[10px] text-gray-400 break-all">
-          {offer.offerCode}
-        </p>
       </div>
     </div>
   );
