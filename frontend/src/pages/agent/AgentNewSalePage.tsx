@@ -62,11 +62,25 @@ const planStepSchema = z
 /** Consent step has nothing of its own to validate. */
 const consentStepSchema = z.object({}).passthrough();
 
+/*
+ * The agent never ticks promotion consent: the customer gives it themselves on the
+ * consent page, and recording it here would be a consent that was never given. The
+ * shared step3Schema requires it, so validate against a copy with it forced true. This
+ * only affects the value the resolver checks -- the form still holds false until the
+ * customer consents, and the sale is persisted from getValues().
+ */
+// Cast because z.preprocess widens the input to unknown, which zodResolver's generic
+// rejects; the runtime shape is identical to step3Schema.
+const agentCustomerStepSchema = z.preprocess((val) => {
+  const v = (val ?? {}) as TransactionPayload;
+  return { ...v, customer: { ...v.customer, promotionAllowed: true } };
+}, step3Schema) as unknown as typeof step3Schema;
+
 const stepSchemas = [
   planStepSchema,
   step1Schema,
   step2Schema,
-  step3Schema,
+  agentCustomerStepSchema,
   step4Schema,
   consentStepSchema,
 ];
@@ -294,7 +308,7 @@ export default function AgentNewSalePage() {
             )}
             {step === 1 && <Step1Transaction />}
             {step === 2 && <StepContact />}
-            {step === 3 && <StepCustomer />}
+            {step === 3 && <StepCustomer hidePromotionConsent />}
             {step === 4 && <StepService />}
             {step === 5 && (
               <div className="space-y-5">
