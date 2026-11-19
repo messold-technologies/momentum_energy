@@ -207,8 +207,5 @@ export function validateConsent(body, items) {
   if (missing.length) {
     return { ok: false, error: `All required consents must be agreed: ${missing.join(', ')}` };
   }
-  if (!body?.confirmedName || String(body.confirmedName).trim().length < 2) {
-    return { ok: false, error: 'Please type your full name to confirm' };
-  }
   return { ok: true };
 }

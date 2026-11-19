@@ -89,7 +89,6 @@ router.post('/:token', async (req, res, next) => {
       items: Object.fromEntries(
         summary.consentItems.map((i) => [i.key, given[i.key] === true])
       ),
-      confirmedName: String(req.body.confirmedName).trim().slice(0, 300),
       statementsShown: CONSENT_ITEMS.map((i) => ({ key: i.key, label: i.label, description: i.description })),
       planShown: summary.plan,
     };

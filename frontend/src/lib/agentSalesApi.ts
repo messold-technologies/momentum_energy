@@ -96,7 +96,6 @@ export interface AgentSale {
   consentedAt: string | null;
   consent: {
     items: Record<string, boolean>;
-    confirmedName: string;
     statementsShown: Array<{ key: string; label: string; description: string }>;
     planShown: Record<string, unknown>;
   } | null;
@@ -212,8 +211,8 @@ export const consentApi = {
     const { data } = await publicApi.get(`/consent/${token}`);
     return unwrap<ConsentSummary>(data);
   },
-  submit: async (token: string, consent: Record<string, boolean>, confirmedName: string) => {
-    const { data } = await publicApi.post(`/consent/${token}`, { consent, confirmedName });
+  submit: async (token: string, consent: Record<string, boolean>) => {
+    const { data } = await publicApi.post(`/consent/${token}`, { consent });
     return unwrap<{ consentedAt: string }>(data);
   },
 };
