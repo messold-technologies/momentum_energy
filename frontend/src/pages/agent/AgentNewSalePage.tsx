@@ -388,7 +388,7 @@ export default function AgentNewSalePage() {
                           </button>
                         </div>
                         <p className="mt-2 text-xs text-primary-800">
-                          Valid for 72 hours and usable once. Creating a new link invalidates this one.
+                          Usable once. Creating a new link invalidates this one.
                         </p>
                       </div>
                     )}

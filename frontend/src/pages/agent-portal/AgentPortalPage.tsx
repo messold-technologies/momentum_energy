@@ -462,8 +462,7 @@ function SaleForm({ onSessionLost }: { onSessionLost: () => void }) {
                             </button>
                           </div>
                           <p className="mt-2 text-xs text-primary-800">
-                            Valid for 72 hours and usable once. This page updates once the customer
-                            confirms.
+                            Usable once. This page updates once the customer confirms.
                           </p>
                         </div>
                       )}
