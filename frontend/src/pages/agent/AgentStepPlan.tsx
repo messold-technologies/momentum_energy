@@ -26,6 +26,11 @@ const selectClass = `${inputClass} bg-white`;
 
 const PRICE_VIEWS: PriceView[] = ['Monthly', 'Quarterly', 'Annually'];
 
+/** Gas networks repeat across zones, so the select is keyed on both. */
+function networkKeyOf(name: string, zone: string | null | undefined): string {
+  return zone ? `${name}::${zone}` : name;
+}
+
 /** Momentum's serviceType enum calls electricity POWER. */
 const SERVICE_TYPE: Record<EnergyType, 'POWER' | 'GAS'> = { ELECTRICITY: 'POWER', GAS: 'GAS' };
 
@@ -72,8 +77,10 @@ export default function AgentStepPlan({
   const [hasEV, setHasEV] = useState(false);
   const [view, setView] = useState<PriceView>('Monthly');
 
-  const [networkChoices, setNetworkChoices] = useState<NetworkOption[]>([]);
+  const [networkOptions, setNetworkOptions] = useState<NetworkOption[]>([]);
   const [networkName, setNetworkName] = useState('');
+  const [networkZone, setNetworkZone] = useState<string | null>(null);
+  const [resolvingNetwork, setResolvingNetwork] = useState(false);
   const [result, setResult] = useState<OffersResponse | null>(null);
   const [tariffOptions, setTariffOptions] = useState<NetworkTariffOption[]>([]);
   const [version, setVersion] = useState<RateCardVersion | null>(null);
@@ -84,59 +91,118 @@ export default function AgentStepPlan({
     offersApi.version().then(setVersion).catch(() => setVersion(null));
   }, [offersApi]);
 
-  const search = useCallback(
-    async (overrides?: { networkName?: string }) => {
-      const chosenNetwork = overrides?.networkName ?? networkName;
-      if (!postcode && !connectionId && !chosenNetwork) {
-        setError('Enter a postcode, or the NMI/MIRN, to see plans.');
-        return;
-      }
-      setLoading(true);
-      setError(null);
-      setResult(null);
-      try {
-        const res = await offersApi.list({
-          energyType,
-          customerType,
-          ...(postcode ? { postcode } : {}),
-          ...(connectionId ? { connectionId } : {}),
-          ...(chosenNetwork ? { networkName: chosenNetwork } : {}),
-          ...(tariffKey ? { tariffCombinationKey: tariffKey } : {}),
-          hasEV,
-        });
-        setResult(res);
-        setNetworkChoices([]);
-        if (!overrides?.networkName) setNetworkName(res.resolved.networkName);
+  /*
+   * Resolve the network as soon as there is enough to go on, rather than waiting for a
+   * search. The tariff list depends on the network, so deferring this left the tariff
+   * field empty until after the first "Find plans" -- by which point the agent had
+   * already searched without it.
+   */
+  useEffect(() => {
+    const hasPostcode = postcode.length === 4;
+    const hasConnection = connectionId.length >= 2;
+    if (!hasPostcode && !hasConnection) {
+      setNetworkOptions([]);
+      setNetworkName('');
+      setNetworkZone(null);
+      return;
+    }
 
-        // Momentum has no address or NMI lookup, so the site's network tariff cannot be
-        // derived. Offering the tariffs that exist on this network at least turns it
-        // from a guessed code into a pick from the customer's bill.
-        offersApi
-          .networkTariffs({
-            energyType,
-            networkName: res.resolved.networkName,
-            // Narrowed by customer type, so every option returns plans. The raw map is
-            // mostly dead ends: 52 of Citipower's 74 return nothing for a resident.
-            customerType,
-          })
-          .then(setTariffOptions)
-          .catch(() => setTariffOptions([]));
-      } catch (err: unknown) {
-        if (err instanceof NetworkSelectionRequiredError) {
-          setNetworkChoices(err.networks);
-          setError(err.message);
-        } else {
-          setError(
-            (err as { response?: { data?: { error?: string } } }).response?.data?.error ??
-              'Could not load plans.'
-          );
-        }
-      } finally {
-        setLoading(false);
+    let cancelled = false;
+    setResolvingNetwork(true);
+    const t = setTimeout(() => {
+      offersApi
+        .networks({
+          energyType,
+          ...(hasPostcode ? { postcode } : {}),
+          ...(hasConnection ? { connectionId } : {}),
+        })
+        .then((res) => {
+          if (cancelled) return;
+          // A NMI pins the network exactly; a postcode may offer several.
+          const fromNmi = res.fromConnectionId
+            ? [{ networkName: res.fromConnectionId.networkName, networkZone: null, isDefault: true }]
+            : [];
+          const opts = fromNmi.length ? fromNmi : res.networks;
+          setNetworkOptions(opts);
+
+          // Fall back to the first option rather than leaving the select empty. Gas
+          // postcodes carry no default flag, so an ambiguous one would otherwise resolve
+          // to nothing and the search would 409 asking for a network the agent can see
+          // perfectly well in the dropdown.
+          const current = opts.find((n) => n.networkName === networkName);
+          const pick = current ?? opts.find((n) => n.isDefault) ?? opts[0] ?? null;
+          setNetworkName(pick?.networkName ?? '');
+          setNetworkZone(pick?.networkZone ?? null);
+        })
+        .catch(() => {
+          if (!cancelled) setNetworkOptions([]);
+        })
+        .finally(() => {
+          if (!cancelled) setResolvingNetwork(false);
+        });
+    }, 300);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
+    // networkName is deliberately excluded: it is an output of this effect, not an input.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [energyType, postcode, connectionId, offersApi]);
+
+  /*
+   * Tariffs follow the network. Gas has no tariff field -- its retail tariff comes from
+   * the network zone, which the network picker already sets.
+   */
+  useEffect(() => {
+    if (energyType === 'GAS' || !networkName) {
+      setTariffOptions([]);
+      return;
+    }
+    let cancelled = false;
+    offersApi
+      .networkTariffs({ energyType, networkName, customerType })
+      .then((opts) => !cancelled && setTariffOptions(opts))
+      .catch(() => !cancelled && setTariffOptions([]));
+    return () => {
+      cancelled = true;
+    };
+  }, [energyType, networkName, customerType, offersApi]);
+
+  const search = useCallback(async () => {
+    if (!postcode && !connectionId && !networkName) {
+      setError('Enter a postcode, or the NMI/MIRN, to see plans.');
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    setResult(null);
+    try {
+      const res = await offersApi.list({
+        energyType,
+        customerType,
+        ...(postcode ? { postcode } : {}),
+        ...(connectionId ? { connectionId } : {}),
+        ...(networkName ? { networkName } : {}),
+        ...(networkZone ? { networkZone } : {}),
+        ...(tariffKey ? { tariffCombinationKey: tariffKey } : {}),
+        hasEV,
+      });
+      setResult(res);
+    } catch (err: unknown) {
+      if (err instanceof NetworkSelectionRequiredError) {
+        setNetworkOptions(err.networks);
+        setError(err.message);
+      } else {
+        setError(
+          (err as { response?: { data?: { error?: string } } }).response?.data?.error ??
+            'Could not load plans.'
+        );
       }
-    },
-    [energyType, customerType, postcode, connectionId, tariffKey, hasEV, networkName, offersApi]
-  );
+    } finally {
+      setLoading(false);
+    }
+  }, [energyType, customerType, postcode, connectionId, networkName, networkZone, tariffKey, hasEV, offersApi]);
 
   function handleSelect(offer: OfferCard) {
     const quotedAt = moment().tz('Australia/Sydney');
@@ -247,30 +313,78 @@ export default function AgentStepPlan({
             />
           </FormField>
           <FormField
-            label="Network tariff"
+            label="Network"
             hint={
-              tariffOptions.length
-                ? `From the customer's bill — ${tariffOptions.length} on this network. Type to filter.`
-                : "Optional — from the customer's bill. Without it, prices are flat-rate estimates."
+              resolvingNetwork
+                ? 'Resolving…'
+                : networkOptions.length > 1
+                  ? `${networkOptions.length} serve this postcode — pick the right one`
+                  : networkOptions.length === 1
+                    ? 'Resolved from the postcode'
+                    : 'Enter a postcode or NMI first'
             }
           >
-            <input
-              value={tariffKey}
-              onChange={(e) => setTariffKey(e.target.value.toUpperCase().trim())}
-              placeholder={tariffOptions.length ? 'Start typing, e.g. C1R' : 'e.g. EA010'}
-              list="network-tariff-options"
-              className={inputClass}
-            />
-            {/* Datalist rather than a select: some networks carry 170+ tariffs. */}
-            <datalist id="network-tariff-options">
-              {tariffOptions.map((t) => (
-                <option key={t.key} value={t.key}>
-                  {t.retailTariffCode}
-                  {t.solarApplicable ? ' · solar' : ''}
+            <select
+              value={networkKeyOf(networkName, networkZone)}
+              onChange={(e) => {
+                const hit = networkOptions.find(
+                  (n) => networkKeyOf(n.networkName, n.networkZone) === e.target.value
+                );
+                setNetworkName(hit?.networkName ?? '');
+                setNetworkZone(hit?.networkZone ?? null);
+                setResult(null);
+              }}
+              disabled={!networkOptions.length}
+              className={`${selectClass} disabled:bg-gray-100 disabled:text-gray-400`}
+            >
+              {!networkOptions.length && <option value="">—</option>}
+              {networkOptions.map((n) => (
+                <option
+                  key={networkKeyOf(n.networkName, n.networkZone)}
+                  value={networkKeyOf(n.networkName, n.networkZone)}
+                >
+                  {n.networkName}
+                  {n.networkZone ? ` · ${n.networkZone}` : ''}
                 </option>
               ))}
-            </datalist>
+            </select>
           </FormField>
+
+          {/*
+            Electricity only. Gas resolves its retail tariff from the network zone, which
+            the network picker above already sets, so there is nothing for the agent to
+            enter and an empty box would just look broken.
+          */}
+          {energyType === 'ELECTRICITY' && (
+            <FormField
+              label="Network tariff"
+              hint={
+                tariffOptions.length
+                  ? `From the customer's bill — ${tariffOptions.length} on this network. Type to filter.`
+                  : networkName
+                    ? 'No tariffs for this network and customer type'
+                    : 'Pick a network first'
+              }
+            >
+              <input
+                value={tariffKey}
+                onChange={(e) => setTariffKey(e.target.value.toUpperCase().trim())}
+                placeholder={tariffOptions.length ? 'Start typing, e.g. C1R' : 'e.g. EA010'}
+                list="network-tariff-options"
+                disabled={!tariffOptions.length}
+                className={`${inputClass} disabled:bg-gray-100 disabled:text-gray-400`}
+              />
+              {/* Datalist rather than a select: some networks carry 170+ tariffs. */}
+              <datalist id="network-tariff-options">
+                {tariffOptions.map((t) => (
+                  <option key={t.key} value={t.key}>
+                    {t.retailTariffCode}
+                    {t.solarApplicable ? ' · solar' : ''}
+                  </option>
+                ))}
+              </datalist>
+            </FormField>
+          )}
 
           <FormField label="Has EV">
             <label className="flex h-10.5 items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 text-sm text-gray-700 cursor-pointer">
@@ -315,34 +429,7 @@ export default function AgentStepPlan({
 
       </div>
 
-      {/* ------------------------------------------------- network disambiguation */}
-      {networkChoices.length > 0 && (
-        <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
-          <p className="flex items-center gap-2 text-sm font-medium text-amber-900">
-            <AlertTriangle className="w-4 h-4" />
-            This postcode is served by more than one network. Choose the one for this site.
-          </p>
-          <div className="mt-3 flex flex-wrap gap-2">
-            {networkChoices.map((n) => (
-              <button
-                key={`${n.networkName}-${n.networkZone ?? ''}`}
-                type="button"
-                onClick={() => {
-                  setNetworkName(n.networkName);
-                  setError(null);
-                  void search({ networkName: n.networkName });
-                }}
-                className="px-3 py-1.5 text-sm font-medium text-amber-900 bg-white border border-amber-300 rounded-lg hover:bg-amber-100 cursor-pointer"
-              >
-                {n.networkName}
-                {n.networkZone ? ` · ${n.networkZone}` : ''}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {error && networkChoices.length === 0 && (
+      {error && (
         <div role="alert" className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
           {error}
         </div>
