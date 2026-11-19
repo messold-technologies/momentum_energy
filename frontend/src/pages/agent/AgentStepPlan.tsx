@@ -13,6 +13,7 @@ import {
   type NetworkOption,
   type OfferCard,
   type OfferCustomerType,
+  type NetworkTariffOption,
   type OffersResponse,
   type RateCardVersion,
 } from '../../lib/offersApi';
@@ -67,12 +68,14 @@ export default function AgentStepPlan({
   const [customerType, setCustomerType] = useState<OfferCustomerType>('RESIDENTIAL');
   const [postcode, setPostcode] = useState('');
   const [connectionId, setConnectionId] = useState('');
+  const [tariffKey, setTariffKey] = useState('');
   const [hasEV, setHasEV] = useState(false);
   const [view, setView] = useState<PriceView>('Monthly');
 
   const [networkChoices, setNetworkChoices] = useState<NetworkOption[]>([]);
   const [networkName, setNetworkName] = useState('');
   const [result, setResult] = useState<OffersResponse | null>(null);
+  const [tariffOptions, setTariffOptions] = useState<NetworkTariffOption[]>([]);
   const [version, setVersion] = useState<RateCardVersion | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -98,11 +101,20 @@ export default function AgentStepPlan({
           ...(postcode ? { postcode } : {}),
           ...(connectionId ? { connectionId } : {}),
           ...(chosenNetwork ? { networkName: chosenNetwork } : {}),
+          ...(tariffKey ? { tariffCombinationKey: tariffKey } : {}),
           hasEV,
         });
         setResult(res);
         setNetworkChoices([]);
         if (!overrides?.networkName) setNetworkName(res.resolved.networkName);
+
+        // Momentum has no address or NMI lookup, so the site's network tariff cannot be
+        // derived. Offering the tariffs that exist on this network at least turns it
+        // from a guessed code into a pick from the customer's bill.
+        offersApi
+          .networkTariffs({ energyType, networkName: res.resolved.networkName })
+          .then(setTariffOptions)
+          .catch(() => setTariffOptions([]));
       } catch (err: unknown) {
         if (err instanceof NetworkSelectionRequiredError) {
           setNetworkChoices(err.networks);
@@ -117,7 +129,7 @@ export default function AgentStepPlan({
         setLoading(false);
       }
     },
-    [energyType, customerType, postcode, connectionId, hasEV, networkName, offersApi]
+    [energyType, customerType, postcode, connectionId, tariffKey, hasEV, networkName, offersApi]
   );
 
   function handleSelect(offer: OfferCard) {
@@ -187,6 +199,8 @@ export default function AgentStepPlan({
                 setEnergyType(e.target.value as EnergyType);
                 setResult(null);
                 setNetworkName('');
+                setTariffOptions([]);
+                setTariffKey('');
               }}
               className={selectClass}
             >
@@ -209,14 +223,45 @@ export default function AgentStepPlan({
           </FormField>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 mt-4">
           <FormField label="NMI / MIRN" hint="Optional — resolves the network exactly">
             <input
               value={connectionId}
-              onChange={(e) => setConnectionId(e.target.value.toUpperCase())}
+              onChange={(e) => {
+                const v = e.target.value.toUpperCase().replace(/[^0-9A-Z]/g, '');
+                setConnectionId(v);
+                // Same value the Service step asks for, so fill it in now rather than
+                // making the agent type the NMI twice.
+                setValue('service.serviceConnectionId', v, { shouldValidate: false });
+              }}
               placeholder="63051234567"
               className={inputClass}
             />
+          </FormField>
+          <FormField
+            label="Network tariff"
+            hint={
+              tariffOptions.length
+                ? `From the customer's bill — ${tariffOptions.length} on this network. Type to filter.`
+                : "Optional — from the customer's bill. Without it, prices are flat-rate estimates."
+            }
+          >
+            <input
+              value={tariffKey}
+              onChange={(e) => setTariffKey(e.target.value.toUpperCase().trim())}
+              placeholder={tariffOptions.length ? 'Start typing, e.g. C1R' : 'e.g. EA010'}
+              list="network-tariff-options"
+              className={inputClass}
+            />
+            {/* Datalist rather than a select: some networks carry 170+ tariffs. */}
+            <datalist id="network-tariff-options">
+              {tariffOptions.map((t) => (
+                <option key={t.key} value={t.key}>
+                  {t.retailTariffCode}
+                  {t.solarApplicable ? ' · solar' : ''}
+                </option>
+              ))}
+            </datalist>
           </FormField>
 
           <FormField label="Has EV">

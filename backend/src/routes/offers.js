@@ -16,6 +16,7 @@ import {
   getNetworksForPostcode,
   getNetworkForConnectionId,
   getRetailTariffCodes,
+  getNetworkTariffOptions,
   findOffers,
   getOfferByCode,
 } from '../services/offerService.js';
@@ -144,6 +145,33 @@ router.get(
       });
       res.json({ success: true, data: { retailTariffCodes: codes } });
     } catch (err) {
+      next(err);
+    }
+  }
+);
+
+/**
+ * Network tariffs on a network, so the agent can pick the one from the customer's bill
+ * instead of typing a code they may not know the format of.
+ */
+router.get(
+  '/network-tariffs',
+  [
+    query('energyType').customSanitizer(normaliseEnergyTypeParam).isIn(ENERGY_TYPES),
+    query('networkName').isString().notEmpty(),
+  ],
+  validate,
+  async (req, res, next) => {
+    try {
+      const options = await getNetworkTariffOptions({
+        energyType: req.query.energyType,
+        networkName: req.query.networkName,
+      });
+      res.json({ success: true, data: { count: options.length, options } });
+    } catch (err) {
+      if (err.statusCode === 503) {
+        return res.status(503).json({ success: false, error: err.message });
+      }
       next(err);
     }
   }

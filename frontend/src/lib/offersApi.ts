@@ -117,6 +117,13 @@ export interface OffersResponse {
   offers: OfferCard[];
 }
 
+export interface NetworkTariffOption {
+  key: string;
+  retailTariffCode: string;
+  customerType: string | null;
+  solarApplicable: boolean | null;
+}
+
 export interface RateCardVersion {
   id: string;
   label: string;
@@ -190,6 +197,14 @@ export function createOffersApi(client: AxiosInstance, base = '/offers') {
         }
         throw err;
       }
+    },
+
+    networkTariffs: async (params: {
+      energyType: EnergyType;
+      networkName: string;
+    }): Promise<NetworkTariffOption[]> => {
+      const { data } = await client.get(`${base}/network-tariffs`, { params });
+      return unwrap<{ count: number; options: NetworkTariffOption[] }>(data).options;
     },
 
     byCode: async (offerCode: string): Promise<OfferCard> => {
