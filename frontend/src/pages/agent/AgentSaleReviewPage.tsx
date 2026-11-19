@@ -197,11 +197,6 @@ export default function AgentSaleReviewPage() {
               <p className="mt-2 text-sm text-gray-700">
                 Consented {new Date(sale.consentedAt).toLocaleString()}
               </p>
-              {sale.consent?.confirmedName && (
-                <p className="text-sm text-gray-700">
-                  Confirmed by typing <strong>{sale.consent.confirmedName}</strong>
-                </p>
-              )}
               <ul className="mt-3 space-y-1.5">
                 {sale.consent?.statementsShown?.map((s) => (
                   <li key={s.key} className="flex items-start gap-2 text-sm">

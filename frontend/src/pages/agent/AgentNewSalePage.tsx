@@ -340,11 +340,6 @@ export default function AgentNewSalePage() {
                       <Check className="w-4 h-4" />
                       Customer consented on {new Date(sale.consentedAt).toLocaleString()}
                     </p>
-                    {sale.consent?.confirmedName && (
-                      <p className="mt-1 text-green-800">
-                        Confirmed by typing: <strong>{sale.consent.confirmedName}</strong>
-                      </p>
-                    )}
                     <p className="mt-2 text-green-800">This sale is now in the QA queue.</p>
                   </div>
                 ) : (
