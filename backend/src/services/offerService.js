@@ -126,6 +126,50 @@ export async function getRetailTariffCodes({
   return rows.map((r) => r.retail_tariff_code);
 }
 
+/**
+ * Network tariffs available on a network, for the agent to pick from the customer's bill.
+ *
+ * Momentum's API has no address or NMI lookup -- only submit, status and credit check --
+ * so the site's network tariff cannot be derived from the address. This at least turns
+ * it from free text into a list the agent can search, and shows which retail tariff each
+ * one resolves to.
+ */
+export async function getNetworkTariffOptions({ energyType, networkName }) {
+  const versionId = await requireActiveVersionId();
+
+  if (energyType === 'GAS') {
+    const { rows } = await query(
+      `SELECT DISTINCT network_zone AS key, retail_tariff_code, customer_type
+       FROM tariff_map
+       WHERE version_id = $1 AND energy_type = 'GAS' AND network_name = $2
+         AND network_zone IS NOT NULL
+       ORDER BY network_zone`,
+      [versionId, networkName]
+    );
+    return rows.map((r) => ({
+      key: r.key,
+      retailTariffCode: r.retail_tariff_code,
+      customerType: r.customer_type,
+      solarApplicable: null,
+    }));
+  }
+
+  const { rows } = await query(
+    `SELECT DISTINCT tariff_combination_key AS key, retail_tariff_code, solar_applicable
+     FROM tariff_map
+     WHERE version_id = $1 AND energy_type = 'ELECTRICITY' AND network_name = $2
+       AND tariff_combination_key IS NOT NULL
+     ORDER BY tariff_combination_key`,
+    [versionId, networkName]
+  );
+  return rows.map((r) => ({
+    key: r.key,
+    retailTariffCode: r.retail_tariff_code,
+    customerType: null,
+    solarApplicable: r.solar_applicable,
+  }));
+}
+
 function buildCard(row, { annualUsage } = {}) {
   const rates = row.rates || null;
   const flat = isFlatRate(rates);
