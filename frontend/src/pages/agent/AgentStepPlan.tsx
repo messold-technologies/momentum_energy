@@ -57,8 +57,7 @@ export default function AgentStepPlan({
   offers: offersApi = defaultOffersApi,
   showHeading = true,
 }: Props) {
-  const { control, setValue, register, formState } = useFormContext<TransactionPayload>();
-  const errors = formState.errors;
+  const { control, setValue } = useFormContext<TransactionPayload>();
 
   const serviceType = useWatch({ control, name: 'service.serviceType' });
 
@@ -158,13 +157,11 @@ export default function AgentStepPlan({
     );
   }
 
-  const billingErrors = errors.service?.serviceBilling;
-
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       {showHeading && (
         <div>
-          <h2 className="text-lg font-semibold text-gray-900">Plan &amp; Billing</h2>
+          <h2 className="text-lg font-semibold text-gray-900">Choose a plan</h2>
           <p className="text-sm text-gray-500 mt-1">
             Find the customer's plan first. The offer code is set from the plan you select.
           </p>
@@ -172,7 +169,7 @@ export default function AgentStepPlan({
       )}
 
       {/* ---------------------------------------------------------------- search */}
-      <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+      <div className="rounded-xl border border-gray-200 bg-gray-50 p-5 lg:p-6">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div className="md:col-span-2">
             <FormField label="Service postcode" hint="4 digits, e.g. 3000">
@@ -338,10 +335,12 @@ export default function AgentStepPlan({
               No plans available for this combination.
             </p>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3">
-              {result.offers.map((offer) => (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
+              {result.offers.map((offer, idx) => (
                 <PlanCard
                   key={offer.offerCode}
+                  // a short stagger so the grid cascades instead of appearing at once
+                  style={{ animationDelay: `${Math.min(idx, 8) * 40}ms` }}
                   offer={offer}
                   view={view}
                   selected={selectedPlan?.offerCode === offer.offerCode}
@@ -356,7 +355,7 @@ export default function AgentStepPlan({
 
       {/* --------------------------------------------------------------- selected */}
       {selectedPlan && (
-        <div className="rounded-xl border border-primary-200 bg-primary-50 p-4">
+        <div className="rounded-xl border border-primary-200 bg-primary-50 p-5">
           <p className="text-sm font-semibold text-primary-900">Selected plan</p>
           <dl className="mt-3 grid grid-cols-2 lg:grid-cols-4 gap-3 text-sm">
             <div>
@@ -394,75 +393,6 @@ export default function AgentStepPlan({
         </div>
       )}
 
-      {/* ---------------------------------------------------------------- billing */}
-      <div className="border-t border-gray-200 pt-5">
-        <p className="text-sm font-medium text-gray-900 mb-4">Billing</p>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-          <FormField
-            label="Quote date"
-            required
-            error={billingErrors?.offerQuoteDate}
-            hint="Stamped when you selected the plan; must not be older than 14 days"
-          >
-            <input
-              type="date"
-              readOnly
-              {...register('service.serviceBilling.offerQuoteDate')}
-              className={`${inputClass} bg-gray-50 text-gray-600`}
-            />
-          </FormField>
-
-          <FormField label="Contract term" required error={billingErrors?.contractTermCode}>
-            <select {...register('service.serviceBilling.contractTermCode')} className={selectClass}>
-              <option value="OPEN">Open</option>
-              <option value="12MTH">12 months</option>
-              <option value="24MTH">24 months</option>
-              <option value="36MTH">36 months</option>
-            </select>
-          </FormField>
-
-          <FormField label="Payment method" required error={billingErrors?.paymentMethod}>
-            <select {...register('service.serviceBilling.paymentMethod')} className={selectClass}>
-              <option value="">Select...</option>
-              <option value="Direct Debit Via Bank Account">Direct Debit Via Bank Account</option>
-              <option value="Cheque">Cheque</option>
-            </select>
-          </FormField>
-
-          <FormField
-            label="Bill cycle"
-            required
-            error={billingErrors?.billCycleCode}
-            hint={serviceType === 'GAS' ? 'Gas: Bi-Monthly only' : 'Electricity: Monthly or Quarterly'}
-          >
-            <select {...register('service.serviceBilling.billCycleCode')} className={selectClass}>
-              <option value="">Select...</option>
-              {(serviceType === 'GAS' ? BILL_CYCLES.GAS : BILL_CYCLES.ELECTRICITY).map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
-          </FormField>
-
-          <FormField
-            label="Bill delivery"
-            required
-            error={billingErrors?.billDeliveryMethod}
-            hint="Momentum requires EMAIL for external channels"
-          >
-            <select {...register('service.serviceBilling.billDeliveryMethod')} className={selectClass}>
-              <option value="EMAIL">EMAIL</option>
-            </select>
-          </FormField>
-        </div>
-
-        <p className="mt-4 flex items-start gap-1.5 text-xs text-gray-500">
-          <Info className="w-3.5 h-3.5 mt-px shrink-0" />
-          One fuel per sale. If the customer is taking both electricity and gas, create a second
-          sale for the other fuel with its own reference.
-        </p>
-      </div>
     </div>
   );
 }

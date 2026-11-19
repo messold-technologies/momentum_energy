@@ -11,6 +11,7 @@ import StepContact from '../../components/form-steps/Step2Contact';
 import StepCustomer from '../../components/form-steps/Step3Customer';
 import StepService from '../../components/form-steps/Step4Service';
 import AgentStepPlan from '../agent/AgentStepPlan';
+import AgentStepBilling from '../agent/AgentStepBilling';
 import { step1Schema, step2Schema, step3Schema, step4Schema } from '../../lib/schemas';
 import {
   agentPortalApi,
@@ -24,7 +25,8 @@ import type { SelectedPlanSnapshot } from '../../lib/agentSalesApi';
 import type { TransactionPayload } from '../../lib/types';
 
 const STEPS = [
-  { label: 'Plan', description: 'Plan & billing' },
+  { label: 'Plan', description: 'Choose a plan' },
+  { label: 'Billing', description: 'How they pay' },
   { label: 'Transaction', description: 'Sale info' },
   { label: 'Contact', description: 'Contact details' },
   { label: 'Customer', description: 'Identity' },
@@ -43,6 +45,19 @@ const planStepSchema = z
               .min(1, 'Select a plan to set the offer code')
               .regex(/^[a-zA-Z0-9]{15}(?:[a-zA-Z0-9]{3})?$/, 'Must be 15 or 18 alphanumeric characters'),
             servicePlanCode: z.string().min(1, 'Select a plan'),
+          })
+          .passthrough(),
+      })
+      .passthrough(),
+  })
+  .passthrough();
+
+const billingStepSchema = z
+  .object({
+    service: z
+      .object({
+        serviceBilling: z
+          .object({
             offerQuoteDate: z.string().min(1, 'Quote date is required'),
             contractTermCode: z.enum(['OPEN', '12MTH', '24MTH', '36MTH']),
             paymentMethod: z
@@ -61,6 +76,7 @@ const consentStepSchema = z.object({}).passthrough();
 
 const stepSchemas = [
   planStepSchema,
+  billingStepSchema,
   step1Schema,
   step2Schema,
   step3Schema,
@@ -323,7 +339,7 @@ function SaleForm({ onSessionLost }: { onSessionLost: () => void }) {
   return (
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white border-b border-gray-200">
-        <div className="w-full px-4 py-2 flex items-center justify-between">
+        <div className="w-full px-6 lg:px-8 py-3 flex items-center justify-between">
           <img src="/utility-hub-logo.png" alt="Utility Hub" className="h-8" />
           <div className="flex items-center gap-4">
           <button
@@ -338,12 +354,13 @@ function SaleForm({ onSessionLost }: { onSessionLost: () => void }) {
         </div>
       </header>
 
-      <main className="w-full px-4 py-4">
+      <main className="w-full px-6 lg:px-8 py-6 lg:py-8">
         <Stepper steps={STEPS} currentStep={step} />
 
-        <div className="bg-white rounded-xl border border-gray-200 p-4 lg:p-5">
+        <div className="bg-white rounded-xl border border-gray-200 p-6 lg:p-8">
           <FormProvider {...methods}>
-            <form onSubmit={(e) => e.preventDefault()}>
+            {/* key on the step so the animation replays on every stage change */}
+            <form key={step} onSubmit={(e) => e.preventDefault()} className="step-enter">
               {step === 0 && (
                 <AgentStepPlan
                   selectedPlan={selectedPlan}
@@ -351,11 +368,12 @@ function SaleForm({ onSessionLost }: { onSessionLost: () => void }) {
                   offers={agentOffersApi}
                 />
               )}
-              {step === 1 && <Step1Transaction />}
-              {step === 2 && <StepContact />}
-              {step === 3 && <StepCustomer />}
-              {step === 4 && <StepService />}
-              {step === 5 && (
+              {step === 1 && <AgentStepBilling selectedPlan={selectedPlan} />}
+              {step === 2 && <Step1Transaction />}
+              {step === 3 && <StepContact />}
+              {step === 4 && <StepCustomer />}
+              {step === 5 && <StepService />}
+              {step === 6 && (
                 <div className="space-y-5">
                   <div>
                     <h2 className="text-lg font-semibold text-gray-900">Customer consent</h2>
