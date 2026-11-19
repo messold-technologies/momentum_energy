@@ -21,7 +21,7 @@ export default function AgentSaleReviewPage() {
 
   const [sale, setSale] = useState<AgentSale | null>(null);
   const [loading, setLoading] = useState(true);
-  const [busy, setBusy] = useState(false);
+  const [busyAction, setBusyAction] = useState<'submit' | 'reject' | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [rejecting, setRejecting] = useState(false);
   const [reason, setReason] = useState('');
@@ -38,7 +38,7 @@ export default function AgentSaleReviewPage() {
 
   async function handleSubmit() {
     if (!sale) return;
-    setBusy(true);
+    setBusyAction('submit');
     setError(null);
     try {
       const updated = await agentSalesApi.submit(sale.id);
@@ -46,13 +46,13 @@ export default function AgentSaleReviewPage() {
     } catch (err) {
       setError(apiError(err, 'Submission failed'));
     } finally {
-      setBusy(false);
+      setBusyAction(null);
     }
   }
 
   async function handleReject() {
     if (!sale || !reason.trim()) return;
-    setBusy(true);
+    setBusyAction('reject');
     setError(null);
     try {
       const updated = await agentSalesApi.reject(sale.id, reason.trim());
@@ -61,7 +61,7 @@ export default function AgentSaleReviewPage() {
     } catch (err) {
       setError(apiError(err, 'Could not reject this sale'));
     } finally {
-      setBusy(false);
+      setBusyAction(null);
     }
   }
 
@@ -169,12 +169,6 @@ export default function AgentSaleReviewPage() {
                 <dt className="text-gray-500">Offer code</dt>
                 <dd className="font-mono text-xs text-gray-900 break-all">{plan.offerCode}</dd>
               </div>
-              {plan.rateCardVersion && (
-                <div className="flex justify-between gap-3">
-                  <dt className="text-gray-500">Rate card</dt>
-                  <dd className="text-xs text-gray-700">{plan.rateCardVersion}</dd>
-                </div>
-              )}
             </dl>
           ) : (
             <p className="mt-2 text-sm text-gray-500">No plan recorded.</p>
@@ -249,16 +243,16 @@ export default function AgentSaleReviewPage() {
             <button
               type="button"
               onClick={() => void handleSubmit()}
-              disabled={busy}
+              disabled={busyAction !== null}
               className="inline-flex items-center gap-2 px-5 py-2 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 disabled:opacity-50 cursor-pointer"
             >
-              {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+              {busyAction === 'submit' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
               Submit to Momentum
             </button>
             <button
               type="button"
               onClick={() => setRejecting((v) => !v)}
-              disabled={busy}
+              disabled={busyAction !== null}
               className="px-4 py-2 text-sm font-medium text-red-700 bg-white border border-red-200 rounded-lg hover:bg-red-50 disabled:opacity-50 cursor-pointer"
             >
               Reject
@@ -280,9 +274,10 @@ export default function AgentSaleReviewPage() {
           <button
             type="button"
             onClick={() => void handleReject()}
-            disabled={busy || !reason.trim()}
-            className="mt-2 px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 disabled:opacity-50 cursor-pointer"
+            disabled={busyAction !== null || !reason.trim()}
+            className="mt-2 inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 disabled:opacity-50 cursor-pointer"
           >
+            {busyAction === 'reject' ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
             Confirm rejection
           </button>
         </div>

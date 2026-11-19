@@ -11,12 +11,12 @@ import {
 } from '../../lib/agentSalesApi';
 
 const FILTERS: Array<{ label: string; statuses?: AgentSaleStatus[] }> = [
+  { label: 'All' },
   { label: 'Ready to submit', statuses: ['consented'] },
   { label: 'Consent pending', statuses: ['awaiting_consent'] },
   { label: 'Incomplete', statuses: ['agent_draft'] },
   { label: 'Sale complete', statuses: ['submitted'] },
   { label: 'Rejected', statuses: ['rejected', 'cancelled'] },
-  { label: 'All' },
 ];
 
 export default function AgentSalesQueuePage() {

@@ -1,4 +1,4 @@
-import { Check, ExternalLink, Info } from 'lucide-react';
+import { Check, Info } from 'lucide-react';
 import type { OfferCard } from '../../lib/offersApi';
 
 export type PriceView = 'Monthly' | 'Quarterly' | 'Annually';
@@ -150,17 +150,6 @@ export default function PlanCard({ offer, view, selected, onSelect, indicative, 
           </p>
         )}
 
-        {offer.links.factSheetUrl && (
-          <a
-            href={offer.links.factSheetUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="mt-3 inline-flex items-center gap-1 text-xs text-primary-700 hover:underline"
-          >
-            Energy fact sheet
-            <ExternalLink className="w-3 h-3" />
-          </a>
-        )}
       </div>
 
       <div className="px-4 pb-4 bg-white">
