@@ -27,7 +27,6 @@ import { generateConsentToken, deriveSummary } from '../services/agentSaleServic
 
 const router = express.Router();
 
-const CONSENT_LINK_TTL_HOURS = 72;
 const AGENT_USER_ID = '00000000-0000-0000-0000-00000000a9e7';
 
 /** A shared password is guessable by design, so the gate is rate limited hard. */
@@ -215,15 +214,16 @@ router.post('/sales/:id/consent-link', async (req, res, next) => {
         .json({ success: false, error: 'A consent link cannot be issued for this sale' });
     }
 
+    // No expiry: the link is single-use, and a customer confirming days later should
+    // not be turned away. Re-issuing invalidates the previous link.
     const { token, hash } = generateConsentToken();
-    const expires = new Date(Date.now() + CONSENT_LINK_TTL_HOURS * 3600 * 1000);
 
     const { rows } = await query(
       `UPDATE agent_sales
-       SET consent_token_hash = $2, consent_token_expires_at = $3,
+       SET consent_token_hash = $2, consent_token_expires_at = NULL,
            consent_sent_at = NOW(), status = 'awaiting_consent', updated_at = NOW()
        WHERE id = $1 RETURNING *`,
-      [row.id, hash, expires]
+      [row.id, hash]
     );
 
     const base = (config.portal.allowedOrigins?.[0] || '').replace(/\/$/, '');
@@ -237,7 +237,6 @@ router.post('/sales/:id/consent-link', async (req, res, next) => {
       data: {
         ...agentView(rows[0]),
         consentUrl: `${base}/consent/${token}`,
-        expiresAt: expires.toISOString(),
       },
     });
   } catch (err) {

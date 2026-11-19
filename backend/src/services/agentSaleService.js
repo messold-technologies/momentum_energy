@@ -7,7 +7,26 @@
  */
 import crypto from 'crypto';
 
-/** Consent statements a customer must agree to before the sale can go to QA. */
+/**
+ * Consent statements a customer must agree to before the sale can go to QA.
+ *
+ * ⚠️ THIS WORDING HAS NOT BEEN APPROVED BY ANYONE. It was drafted to cover the consents
+ * Momentum's integration guide requires, and the field each one sets is noted below, but
+ * the phrasing is a first pass and not taken from Momentum or from any legal source.
+ * Consent wording is a compliance artefact: have it reviewed before this is used with
+ * real customers.
+ *
+ * What the guide actually requires:
+ *   promotionAllowed      customer.promotionAllowed must be true -- "all requests most
+ *                         have customer consent obtained" (field table, section 3.1)
+ *   creditCheck           "Customer must expressly permit a credit check before the
+ *                         retailer retrieves or uses credit information" (section 8.3)
+ *   directDebit           directDebitConsent must be TRUE when paying by direct debit
+ *                         (validation rules, section 8.1.1)
+ *
+ * identityAndDetails and planAgreement are not required by Momentum. They are here so
+ * the customer verifies what the agent captured and agrees to the plan they were quoted.
+ */
 export const CONSENT_ITEMS = [
   {
     key: 'identityAndDetails',
@@ -31,10 +50,12 @@ export const CONSENT_ITEMS = [
       'I permit Momentum Energy to obtain and use credit information about me to assess this application.',
   },
   {
+    // Sets customer.promotionAllowed, which Momentum requires to be true.
     key: 'promotionAllowed',
     required: true,
-    label: 'I consent to being contacted about this sale',
-    description: 'Momentum Energy may contact me regarding this application and my account.',
+    label: 'I consent to marketing and promotional contact',
+    description:
+      'Momentum Energy may contact me about this application, my account, and their offers and promotions.',
   },
   {
     key: 'directDebit',

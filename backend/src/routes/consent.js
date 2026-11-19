@@ -4,7 +4,9 @@
  * Safeguards, because anyone with the URL reaches this:
  *   - the token is 32 random bytes and only its SHA-256 hash is stored, so a database
  *     leak does not yield a working link
- *   - links expire (72h) and are single-use for consent
+ *   - links are single-use: the hash is cleared the moment consent is recorded, so a
+ *     link cannot be replayed. There is deliberately no expiry -- a customer who opens
+ *     it days later should still be able to confirm rather than hit a dead end
  *   - the response is a narrow projection: no date of birth, no identity document
  *     numbers, no full bank account, nothing about the agent or internal references
  *   - lookups are by token hash only; the sale id is never accepted from the client
@@ -57,9 +59,6 @@ router.get('/:token', async (req, res, next) => {
     const row = await findByToken(req.params.token);
     if (!row) return gone(res);
 
-    if (row.consent_token_expires_at && new Date(row.consent_token_expires_at) < new Date()) {
-      return gone(res);
-    }
     if (!['awaiting_consent', 'consented'].includes(row.status)) return gone(res);
 
     res.json({ success: true, data: buildPublicSummary(row) });
@@ -73,9 +72,6 @@ router.post('/:token', async (req, res, next) => {
     const row = await findByToken(req.params.token);
     if (!row) return gone(res);
 
-    if (row.consent_token_expires_at && new Date(row.consent_token_expires_at) < new Date()) {
-      return gone(res);
-    }
     if (row.status === 'consented') {
       return res.status(409).json({
         success: false,
