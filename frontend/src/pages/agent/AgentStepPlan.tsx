@@ -223,7 +223,7 @@ export default function AgentStepPlan({
           </FormField>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 mt-4">
           <FormField label="NMI / MIRN" hint="Optional — resolves the network exactly">
             <input
               value={connectionId}
@@ -263,26 +263,25 @@ export default function AgentStepPlan({
               ))}
             </datalist>
           </FormField>
-        </div>
 
-        <div className="flex flex-wrap items-end gap-4 mt-4">
-          <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={hasEV}
-              onChange={(e) => setHasEV(e.target.checked)}
-              className="w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-            />
-            <Zap className="w-4 h-4 text-gray-400" />
-            Has an electric vehicle
-          </label>
+          <FormField label="Has EV">
+            <label className="flex h-10.5 items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 text-sm text-gray-700 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={hasEV}
+                onChange={(e) => setHasEV(e.target.checked)}
+                className="w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+              />
+              <Zap className="w-4 h-4 text-gray-400" />
+              <span>Has an electric vehicle</span>
+            </label>
+          </FormField>
 
-          <div className="flex items-center gap-2 text-sm text-gray-700">
-            <span>View</span>
+          <FormField label="View">
             <select
               value={view}
               onChange={(e) => setView(e.target.value as PriceView)}
-              className={`${selectClass} w-auto py-1.5`}
+              className={selectClass}
             >
               {PRICE_VIEWS.map((v) => (
                 <option key={v} value={v}>
@@ -290,7 +289,10 @@ export default function AgentStepPlan({
                 </option>
               ))}
             </select>
-          </div>
+          </FormField>
+        </div>
+
+        <div className="flex flex-wrap items-end gap-4 mt-4">
 
           <button
             type="button"
@@ -355,9 +357,7 @@ export default function AgentStepPlan({
             <div className="mb-4 flex items-start gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
               <Info className="w-4 h-4 mt-0.5 shrink-0" />
               <span>
-                No network tariff supplied, so these are flat-rate estimates — the same basis
-                Momentum's own site quotes on. Enter the network tariff from the customer's bill to
-                pin the exact offer.
+                These are flat-rate estimates, on the same basis Momentum's own site quotes on.
               </span>
             </div>
           )}
