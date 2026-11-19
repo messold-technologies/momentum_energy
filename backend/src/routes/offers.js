@@ -159,6 +159,7 @@ router.get(
   [
     query('energyType').customSanitizer(normaliseEnergyTypeParam).isIn(ENERGY_TYPES),
     query('networkName').isString().notEmpty(),
+    query('customerType').optional().customSanitizer(normaliseCustomerTypeParam).isIn(CUSTOMER_TYPES),
   ],
   validate,
   async (req, res, next) => {
@@ -166,6 +167,7 @@ router.get(
       const options = await getNetworkTariffOptions({
         energyType: req.query.energyType,
         networkName: req.query.networkName,
+        customerType: req.query.customerType,
       });
       res.json({ success: true, data: { count: options.length, options } });
     } catch (err) {
