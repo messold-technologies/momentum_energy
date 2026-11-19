@@ -202,6 +202,7 @@ export function createOffersApi(client: AxiosInstance, base = '/offers') {
     networkTariffs: async (params: {
       energyType: EnergyType;
       networkName: string;
+      customerType?: OfferCustomerType;
     }): Promise<NetworkTariffOption[]> => {
       const { data } = await client.get(`${base}/network-tariffs`, { params });
       return unwrap<{ count: number; options: NetworkTariffOption[] }>(data).options;

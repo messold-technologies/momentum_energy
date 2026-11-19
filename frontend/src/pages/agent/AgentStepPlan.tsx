@@ -112,7 +112,13 @@ export default function AgentStepPlan({
         // derived. Offering the tariffs that exist on this network at least turns it
         // from a guessed code into a pick from the customer's bill.
         offersApi
-          .networkTariffs({ energyType, networkName: res.resolved.networkName })
+          .networkTariffs({
+            energyType,
+            networkName: res.resolved.networkName,
+            // Narrowed by customer type, so every option returns plans. The raw map is
+            // mostly dead ends: 52 of Citipower's 74 return nothing for a resident.
+            customerType,
+          })
           .then(setTariffOptions)
           .catch(() => setTariffOptions([]));
       } catch (err: unknown) {
@@ -214,6 +220,8 @@ export default function AgentStepPlan({
               onChange={(e) => {
                 setCustomerType(e.target.value as OfferCustomerType);
                 setResult(null);
+                setTariffOptions([]);
+                setTariffKey('');
               }}
               className={selectClass}
             >

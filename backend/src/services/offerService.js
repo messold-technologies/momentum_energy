@@ -134,7 +134,7 @@ export async function getRetailTariffCodes({
  * it from free text into a list the agent can search, and shows which retail tariff each
  * one resolves to.
  */
-export async function getNetworkTariffOptions({ energyType, networkName }) {
+export async function getNetworkTariffOptions({ energyType, networkName, customerType }) {
   const versionId = await requireActiveVersionId();
 
   if (energyType === 'GAS') {
@@ -143,8 +143,9 @@ export async function getNetworkTariffOptions({ energyType, networkName }) {
        FROM tariff_map
        WHERE version_id = $1 AND energy_type = 'GAS' AND network_name = $2
          AND network_zone IS NOT NULL
+         AND ($3::text IS NULL OR customer_type = $3)
        ORDER BY network_zone`,
-      [versionId, networkName]
+      [versionId, networkName, customerType || null]
     );
     return rows.map((r) => ({
       key: r.key,
@@ -154,18 +155,43 @@ export async function getNetworkTariffOptions({ energyType, networkName }) {
     }));
   }
 
+  /*
+   * Only tariffs that actually lead to a sellable offer.
+   *
+   * Electricity_Tariff_Map has no customer-type column, so the raw map lists every
+   * tariff on the network regardless of who it is for. Left unfiltered that is mostly
+   * dead ends -- 52 of Citipower's 74 return nothing for a residential customer, and
+   * 127 of Energex's 169 return nothing for a business one. An agent reading a real
+   * tariff off a real bill would get an empty result and no idea why.
+   *
+   * The EXISTS clause keeps only the keys whose retail tariff has an offer for this
+   * customer type, which is the list the agent can actually choose from.
+   */
   const { rows } = await query(
-    `SELECT DISTINCT tariff_combination_key AS key, retail_tariff_code, solar_applicable
-     FROM tariff_map
-     WHERE version_id = $1 AND energy_type = 'ELECTRICITY' AND network_name = $2
-       AND tariff_combination_key IS NOT NULL
-     ORDER BY tariff_combination_key`,
-    [versionId, networkName]
+    `SELECT DISTINCT t.tariff_combination_key AS key, t.retail_tariff_code, t.solar_applicable
+     FROM tariff_map t
+     WHERE t.version_id = $1
+       AND t.energy_type = 'ELECTRICITY'
+       AND t.network_name = $2
+       AND t.tariff_combination_key IS NOT NULL
+       AND (
+         $3::text IS NULL
+         OR EXISTS (
+           SELECT 1 FROM offer_rates o
+           WHERE o.version_id = t.version_id
+             AND o.energy_type = 'ELECTRICITY'
+             AND o.network_name = t.network_name
+             AND o.retail_tariff_code = t.retail_tariff_code
+             AND o.customer_type = $3
+         )
+       )
+     ORDER BY t.tariff_combination_key`,
+    [versionId, networkName, customerType || null]
   );
   return rows.map((r) => ({
     key: r.key,
     retailTariffCode: r.retail_tariff_code,
-    customerType: null,
+    customerType: customerType ?? null,
     solarApplicable: r.solar_applicable,
   }));
 }
