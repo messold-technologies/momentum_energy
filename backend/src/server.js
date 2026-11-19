@@ -19,6 +19,7 @@ import offersRoutes from './routes/offers.js';
 import agentSalesRoutes from './routes/agentSales.js';
 import consentRoutes from './routes/consent.js';
 import agentPortalRoutes from './routes/agentPortal.js';
+import rateCardRoutes from './routes/rateCard.js';
 import { requireAgentScope } from './middleware/requireAgentScope.js';
 import { requireAuth } from './middleware/requireAuth.js';
 
@@ -53,6 +54,8 @@ app.use('/api/drafts', requireAuth, draftsRoutes);
 app.use('/api/first-energy', requireAuth, firstEnergyRoutes);
 app.use('/api/offers', requireAuth, offersRoutes);
 app.use('/api/agent-sales', requireAuth, agentSalesRoutes);
+// Admin only: uploading a rate card replaces every price the agent portal quotes.
+app.use('/api/rate-card', requireAuth, rateCardRoutes);
 // Public: the customer holds only a consent link, so this one sits outside requireAuth.
 app.use('/api/consent', consentRoutes);
 // Agent portal: agents sign up and log in with their own credentials, stored in
