@@ -77,20 +77,6 @@ export function hashConsentToken(token) {
   return crypto.createHash('sha256').update(String(token)).digest('hex');
 }
 
-function firstPhone(contact) {
-  const phones = contact?.contactPhones;
-  if (!Array.isArray(phones)) return null;
-  const mobile = phones.find((p) => p?.contactPhoneType === 'MOBILE' && p?.phone);
-  return (mobile || phones.find((p) => p?.phone))?.phone ?? null;
-}
-
-/** Mask all but the last 3 characters, e.g. 0477222090 -> *******090 */
-function maskTail(value, keep = 3) {
-  const s = String(value || '');
-  if (s.length <= keep) return s ? '*'.repeat(s.length) : null;
-  return '*'.repeat(s.length - keep) + s.slice(-keep);
-}
-
 export function formatAddress(addr) {
   if (!addr) return null;
   const line = [
@@ -128,34 +114,117 @@ export function deriveSummary(payload) {
  * account number, and anything about the agent or internal references. A direct debit
  * account is acknowledged only as a masked tail so the customer can recognise it.
  */
+function contactBlock(c) {
+  if (!c) return null;
+  return {
+    salutation: c.salutation ?? null,
+    firstName: c.firstName ?? null,
+    middleName: c.middleName ?? null,
+    lastName: c.lastName ?? null,
+    dateOfBirth: c.dateOfBirth ?? null,
+    countryOfBirth: c.countryOfBirth ?? null,
+    email: c.email ?? null,
+    phones: Array.isArray(c.contactPhones)
+      ? c.contactPhones.filter((p) => p?.phone).map((p) => ({ type: p.contactPhoneType ?? null, phone: p.phone }))
+      : [],
+    addresses: Array.isArray(c.addresses)
+      ? c.addresses.map((a) => ({ type: a.addressType ?? null, address: formatAddress(a) })).filter((a) => a.address)
+      : [],
+  };
+}
+
+function documentBlock(d) {
+  if (!d || !Object.values(d).some(Boolean)) return null;
+  return {
+    documentId: d.documentId ?? null,
+    documentNumber: d.documentNumber ?? null,
+    documentExpiryDate: d.documentExpiryDate ?? null,
+    issuingState: d.issuingState ?? null,
+    issuingCountry: d.issuingCountry ?? null,
+  };
+}
+
+/**
+ * What the customer sees on the public consent page.
+ *
+ * This is the full record the agent captured, identity document numbers and bank details
+ * included, so the customer can check every field before confirming. A typo in a passport
+ * number or a BSB fails the sale at Momentum, and the customer is the only person who can
+ * catch it.
+ *
+ * The trade-off: anyone holding the link sees all of it. The link is single use and the
+ * stored token is only a hash, but it is still a bearer URL -- if it is forwarded or
+ * opened on a shared device, that is full PII exposed. Shortening what is shown here is
+ * the lever if that becomes a concern.
+ */
 export function buildPublicSummary(row) {
   const payload = row.payload || {};
-  const primary = payload?.customer?.contacts?.primaryContact;
+  const customer = payload.customer || {};
+  const primary = customer?.contacts?.primaryContact;
+  const secondary = customer?.contacts?.secondaryContact;
   const plan = row.selected_plan || {};
-  const billing = payload?.service?.serviceBilling || {};
-  const dd = payload?.customer?.directDebitDetails;
+  const service = payload.service || {};
+  const billing = service.serviceBilling || {};
+  const dd = customer.directDebitDetails;
+  const ident = customer.residentIdentity || {};
+  const company = customer.companyIdentity;
+  const concession = billing.concession;
 
   const usingDirectDebit =
     billing.paymentMethod === 'Direct Debit Via Bank Account' || Boolean(dd?.accountNumber);
 
   return {
     status: row.status,
+
     customer: {
+      customerType: customer.customerType ?? null,
+      customerSubType: customer.customerSubType ?? null,
+      communicationPreference: customer.communicationPreference ?? null,
+      // Kept flat as well, so the page header can greet them without digging.
       firstName: primary?.firstName ?? null,
       lastName: primary?.lastName ?? null,
       email: primary?.email ?? null,
-      phone: firstPhone(primary),
+      phone: primary?.contactPhones?.find((p) => p?.phone)?.phone ?? null,
       postalAddress: formatAddress(primary?.addresses?.[0]),
     },
-    service: {
-      energyType: payload?.service?.serviceType === 'GAS' ? 'Gas' : 'Electricity',
-      serviceSubType: payload?.service?.serviceSubType ?? null,
-      address: formatAddress(payload?.service?.servicedAddress),
-      startDate: payload?.service?.serviceStartDate ?? null,
+
+    primaryContact: contactBlock(primary),
+    secondaryContact: contactBlock(secondary),
+
+    identity: {
+      passport: documentBlock(ident.passport),
+      drivingLicense: documentBlock(ident.drivingLicense),
+      medicare: documentBlock(ident.medicare),
     },
+
+    company: company
+      ? {
+          entityName: company.entityName ?? null,
+          tradingName: company.tradingName ?? null,
+          trusteeName: company.trusteeName ?? null,
+          industry: company.industry ?? null,
+          abn: company.abn?.documentId ?? null,
+          acn: company.acn?.documentId ?? null,
+        }
+      : null,
+
+    service: {
+      energyType: service.serviceType === 'GAS' ? 'Gas' : 'Electricity',
+      serviceSubType: service.serviceSubType ?? null,
+      address: formatAddress(service.servicedAddress),
+      connectionId: service.serviceConnectionId ?? null,
+      meterId: service.serviceMeterId ?? null,
+      startDate: service.serviceStartDate ?? null,
+      estimatedAnnualKwhs: service.estimatedAnnualKwhs ?? null,
+      lotNumber: service.lotNumber ?? null,
+      accessInstructions: service.servicedAddress?.accessInstructions ?? null,
+      safetyInstructions: service.servicedAddress?.safetyInstructions ?? null,
+    },
+
     plan: {
       planCode: plan.planCode ?? billing.servicePlanCode ?? null,
       networkName: plan.networkName ?? null,
+      retailTariffCode: plan.retailTariffCode ?? null,
       monthlyCost: plan.monthlyCost ?? null,
       annualCost: plan.annualCost ?? null,
       comparisonLabel: plan.comparisonLabel ?? null,
@@ -165,11 +234,30 @@ export function buildPublicSummary(row) {
       billCycle: billing.billCycleCode ?? null,
       billDelivery: billing.billDeliveryMethod ?? null,
       paymentMethod: billing.paymentMethod ?? null,
+      quoteDate: billing.offerQuoteDate ?? null,
       indicativeOnly: plan.indicativeOnly ?? false,
     },
-    directDebit: usingDirectDebit
-      ? { accountNameInitial: dd?.accountName ? `${String(dd.accountName).trim()[0]}.` : null, accountNumberMasked: maskTail(dd?.accountNumber) }
+
+    concession: concession?.concessionCardNumber
+      ? {
+          cardType: concession.concessionCardType ?? null,
+          cardCode: concession.concessionCardCode ?? null,
+          cardNumber: concession.concessionCardNumber ?? null,
+          expiryDate: concession.concessionCardExpiryDate ?? null,
+          holderName: [concession.concessionCardFirstName, concession.concessionCardLastName]
+            .filter(Boolean)
+            .join(' ') || null,
+        }
       : null,
+
+    directDebit: usingDirectDebit
+      ? {
+          accountName: dd?.accountName ?? null,
+          bsb: dd?.bsb ?? null,
+          accountNumber: dd?.accountNumber ?? null,
+        }
+      : null,
+
     consentItems: CONSENT_ITEMS.filter((c) => !c.onlyWhenDirectDebit || usingDirectDebit).map(
       ({ key, required, label, description }) => ({ key, required, label, description })
     ),

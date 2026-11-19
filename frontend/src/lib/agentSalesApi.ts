@@ -12,10 +12,10 @@ export type AgentSaleStatus =
   | 'cancelled';
 
 export const STATUS_LABEL: Record<AgentSaleStatus, string> = {
-  agent_draft: 'Draft',
-  awaiting_consent: 'Awaiting consent',
-  consented: 'Ready for QA',
-  submitted: 'Submitted',
+  agent_draft: 'Incomplete',
+  awaiting_consent: 'Customer consent pending',
+  consented: 'Ready to submit',
+  submitted: 'Sale complete',
   rejected: 'Rejected',
   cancelled: 'Cancelled',
 };
@@ -122,25 +122,74 @@ export interface ConsentItem {
   description: string;
 }
 
-/** The narrow projection the public consent page receives. */
+export interface ConsentContact {
+  salutation: string | null;
+  firstName: string | null;
+  middleName: string | null;
+  lastName: string | null;
+  dateOfBirth: string | null;
+  countryOfBirth: string | null;
+  email: string | null;
+  phones: Array<{ type: string | null; phone: string }>;
+  addresses: Array<{ type: string | null; address: string }>;
+}
+
+export interface ConsentDocument {
+  documentId: string | null;
+  documentNumber: string | null;
+  documentExpiryDate: string | null;
+  issuingState: string | null;
+  issuingCountry: string | null;
+}
+
+/**
+ * The full record the agent captured, so the customer can check every field before
+ * confirming. Identity document numbers and bank details included on purpose: a typo
+ * there fails the sale at Momentum and the customer is the only one who can catch it.
+ */
 export interface ConsentSummary {
   status: AgentSaleStatus;
   customer: {
+    customerType: string | null;
+    customerSubType: string | null;
+    communicationPreference: string | null;
     firstName: string | null;
     lastName: string | null;
     email: string | null;
     phone: string | null;
     postalAddress: string | null;
   };
+  primaryContact: ConsentContact | null;
+  secondaryContact: ConsentContact | null;
+  identity: {
+    passport: ConsentDocument | null;
+    drivingLicense: ConsentDocument | null;
+    medicare: ConsentDocument | null;
+  };
+  company: {
+    entityName: string | null;
+    tradingName: string | null;
+    trusteeName: string | null;
+    industry: string | null;
+    abn: string | null;
+    acn: string | null;
+  } | null;
   service: {
     energyType: string;
     serviceSubType: string | null;
     address: string | null;
+    connectionId: string | null;
+    meterId: string | null;
     startDate: string | null;
+    estimatedAnnualKwhs: number | null;
+    lotNumber: string | null;
+    accessInstructions: string | null;
+    safetyInstructions: string | null;
   };
   plan: {
     planCode: string | null;
     networkName: string | null;
+    retailTariffCode: string | null;
     monthlyCost: number | null;
     annualCost: number | null;
     comparisonLabel: string | null;
@@ -150,9 +199,17 @@ export interface ConsentSummary {
     billCycle: string | null;
     billDelivery: string | null;
     paymentMethod: string | null;
+    quoteDate: string | null;
     indicativeOnly: boolean;
   };
-  directDebit: { accountNameInitial: string | null; accountNumberMasked: string | null } | null;
+  concession: {
+    cardType: string | null;
+    cardCode: string | null;
+    cardNumber: string | null;
+    expiryDate: string | null;
+    holderName: string | null;
+  } | null;
+  directDebit: { accountName: string | null; bsb: string | null; accountNumber: string | null } | null;
   consentItems: ConsentItem[];
   alreadyConsentedAt: string | null;
 }

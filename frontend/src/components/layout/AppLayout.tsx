@@ -1,5 +1,6 @@
 import { Outlet, NavLink, useLocation } from 'react-router-dom';
 import {
+  ClipboardList,
   LayoutDashboard,
   FilePlus,
   FileEdit,
@@ -25,6 +26,7 @@ export default function AppLayout() {
     { to: '/momentum/transactions/new?fresh=1', label: 'New Transaction', icon: FilePlus },
     { to: '/momentum/drafts', label: 'My Drafts', icon: FileEdit },
     { to: '/momentum/form-responses', label: 'Form Responses', icon: FileText },
+    { to: '/momentum/agent/sales', label: 'Sales Status', icon: ClipboardList },
     ...(user?.isAdmin ? [{ to: '/momentum/excel-dashboard', label: 'Excel Dashboard', icon: Sheet }] : []),
   ];
 

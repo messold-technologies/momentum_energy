@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Loader2, Plus, RefreshCw } from 'lucide-react';
 
 import {
@@ -11,14 +11,16 @@ import {
 } from '../../lib/agentSalesApi';
 
 const FILTERS: Array<{ label: string; statuses?: AgentSaleStatus[] }> = [
-  { label: 'Ready for QA', statuses: ['consented'] },
-  { label: 'Awaiting consent', statuses: ['awaiting_consent'] },
-  { label: 'Drafts', statuses: ['agent_draft'] },
-  { label: 'Submitted', statuses: ['submitted'] },
+  { label: 'Ready to submit', statuses: ['consented'] },
+  { label: 'Consent pending', statuses: ['awaiting_consent'] },
+  { label: 'Incomplete', statuses: ['agent_draft'] },
+  { label: 'Sale complete', statuses: ['submitted'] },
+  { label: 'Rejected', statuses: ['rejected', 'cancelled'] },
   { label: 'All' },
 ];
 
 export default function AgentSalesQueuePage() {
+  const navigate = useNavigate();
   const [filter, setFilter] = useState(0);
   const [rows, setRows] = useState<AgentSale[]>([]);
   const [loading, setLoading] = useState(true);
@@ -43,9 +45,10 @@ export default function AgentSalesQueuePage() {
     <div className="max-w-6xl mx-auto">
       <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
         <div>
-          <h1 className="text-xl font-semibold text-gray-900">Agent sales</h1>
+          <h1 className="text-xl font-semibold text-gray-900">Sales status</h1>
           <p className="text-sm text-gray-500 mt-0.5">
-            Sales captured on the agent portal. QA reviews and submits them to Momentum.
+            Every sale from the agent portal and where it has got to. Open a row to see the
+            full details and submit it to Momentum.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -107,6 +110,7 @@ export default function AgentSalesQueuePage() {
                   <th className="px-4 py-3 font-medium">Service address</th>
                   <th className="px-4 py-3 font-medium">Plan</th>
                   <th className="px-4 py-3 font-medium">Agent</th>
+                  <th className="px-4 py-3 font-medium">Customer consent</th>
                   <th className="px-4 py-3 font-medium">Status</th>
                   <th className="px-4 py-3 font-medium">Created</th>
                   <th className="px-4 py-3" />
@@ -114,7 +118,11 @@ export default function AgentSalesQueuePage() {
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {rows.map((r) => (
-                  <tr key={r.id} className="hover:bg-gray-50">
+                  <tr
+                    key={r.id}
+                    onClick={() => navigate(`/momentum/agent/sales/${r.id}`)}
+                    className="hover:bg-gray-50 cursor-pointer"
+                  >
                     <td className="px-4 py-3">
                       <p className="font-medium text-gray-900">{r.customerName ?? '—'}</p>
                       <p className="text-xs text-gray-500">{r.customerEmail ?? ''}</p>
@@ -144,6 +152,17 @@ export default function AgentSalesQueuePage() {
                       )}
                     </td>
                     <td className="px-4 py-3">
+                      {r.consentedAt ? (
+                        <span className="text-green-700">
+                          Given {new Date(r.consentedAt).toLocaleDateString()}
+                        </span>
+                      ) : r.consentSentAt ? (
+                        <span className="text-amber-700">Link sent, not used</span>
+                      ) : (
+                        <span className="text-gray-400">Not sent</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3">
                       <span
                         className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_CLASS[r.status]}`}
                       >
@@ -158,7 +177,7 @@ export default function AgentSalesQueuePage() {
                         to={`/momentum/agent/sales/${r.id}`}
                         className="text-sm font-medium text-primary-700 hover:underline"
                       >
-                        {r.status === 'consented' ? 'Review' : 'Open'}
+                        {r.status === 'consented' ? 'Review & submit' : 'Open'}
                       </Link>
                     </td>
                   </tr>

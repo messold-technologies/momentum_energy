@@ -2,7 +2,12 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { AlertTriangle, Check, ExternalLink, Loader2, ShieldCheck } from 'lucide-react';
 
-import { consentApi, type ConsentSummary } from '../lib/agentSalesApi';
+import {
+  consentApi,
+  type ConsentContact,
+  type ConsentDocument,
+  type ConsentSummary,
+} from '../lib/agentSalesApi';
 
 /**
  * Public page the customer opens from their consent link. No sign-in, and it is served
@@ -152,18 +157,23 @@ export default function ConsentPage() {
 
           <dl className="divide-y divide-gray-100 text-sm">
             <Row label="Service address" value={summary.service.address} />
+            <Row label="Service type" value={summary.service.serviceSubType} />
+            <Row label="NMI / MIRN" value={summary.service.connectionId} />
+            <Row label="Meter number" value={summary.service.meterId} />
+            <Row label="Lot number" value={summary.service.lotNumber} />
+            <Row label="Service start date" value={summary.service.startDate} />
+            <Row
+              label="Estimated annual usage"
+              value={summary.service.estimatedAnnualKwhs != null ? `${summary.service.estimatedAnnualKwhs} kWh` : null}
+            />
+            <Row label="Access instructions" value={summary.service.accessInstructions} />
+            <Row label="Safety instructions" value={summary.service.safetyInstructions} />
+            <Row label="Network / tariff" value={[summary.plan.networkName, summary.plan.retailTariffCode].filter(Boolean).join(' · ') || null} />
             <Row label="Contract" value={summary.plan.contractTerm} />
             <Row label="Billing cycle" value={summary.plan.billCycle} />
             <Row label="Bills sent by" value={summary.plan.billDelivery} />
             <Row label="Payment method" value={summary.plan.paymentMethod} />
-            {summary.directDebit && (
-              <Row
-                label="Direct debit account"
-                value={`${summary.directDebit.accountNameInitial ?? ''} ${
-                  summary.directDebit.accountNumberMasked ?? ''
-                }`.trim()}
-              />
-            )}
+            <Row label="Quote date" value={summary.plan.quoteDate} />
           </dl>
 
           {summary.plan.factSheetUrl && (
@@ -180,26 +190,61 @@ export default function ConsentPage() {
             </div>
           )}
 
-          <div className="px-5 lg:px-6 py-4 border-t border-gray-100">
-            <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-              Your details
-            </p>
-            <dl className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-x-6 text-sm">
-              <InlineRow
-                label="Name"
-                value={[summary.customer.firstName, summary.customer.lastName]
-                  .filter(Boolean)
-                  .join(' ')}
-              />
-              <InlineRow label="Email" value={summary.customer.email} />
-              <InlineRow label="Phone" value={summary.customer.phone} />
-              <InlineRow label="Postal address" value={summary.customer.postalAddress} />
-            </dl>
-            <p className="mt-3 text-xs text-gray-500">
-              If anything above is wrong, please contact the person who sent you this link before
-              confirming.
-            </p>
-          </div>
+          {/* Everything the agent captured, so the customer can check it before confirming. */}
+          <Block title="Your details">
+            <ContactGrid contact={summary.primaryContact} />
+            <InlineRow label="Customer type" value={summary.customer.customerType} />
+            <InlineRow label="Customer sub-type" value={summary.customer.customerSubType} />
+            <InlineRow label="Contact preference" value={summary.customer.communicationPreference} />
+          </Block>
+
+          {summary.secondaryContact && (
+            <Block title="Second contact">
+              <ContactGrid contact={summary.secondaryContact} />
+            </Block>
+          )}
+
+          {summary.company && (
+            <Block title="Business details">
+              <InlineRow label="Entity name" value={summary.company.entityName} />
+              <InlineRow label="Trading name" value={summary.company.tradingName} />
+              <InlineRow label="Trustee" value={summary.company.trusteeName} />
+              <InlineRow label="Industry" value={summary.company.industry} />
+              <InlineRow label="ABN" value={summary.company.abn} />
+              <InlineRow label="ACN" value={summary.company.acn} />
+            </Block>
+          )}
+
+          {(summary.identity.passport || summary.identity.drivingLicense || summary.identity.medicare) && (
+            <Block title="Identity documents">
+              <DocumentRows label="Passport" doc={summary.identity.passport} />
+              <DocumentRows label="Driving licence" doc={summary.identity.drivingLicense} />
+              <DocumentRows label="Medicare" doc={summary.identity.medicare} />
+            </Block>
+          )}
+
+          {summary.concession && (
+            <Block title="Concession card">
+              <InlineRow label="Card type" value={summary.concession.cardType} />
+              <InlineRow label="Card code" value={summary.concession.cardCode} />
+              <InlineRow label="Card number" value={summary.concession.cardNumber} />
+              <InlineRow label="Expiry" value={summary.concession.expiryDate} />
+              <InlineRow label="Name on card" value={summary.concession.holderName} />
+            </Block>
+          )}
+
+          {summary.directDebit && (
+            <Block title="Direct debit account">
+              <InlineRow label="Account name" value={summary.directDebit.accountName} />
+              <InlineRow label="BSB" value={summary.directDebit.bsb} />
+              <InlineRow label="Account number" value={summary.directDebit.accountNumber} />
+            </Block>
+          )}
+
+          <p className="px-5 lg:px-6 py-4 text-xs text-gray-500 border-t border-gray-100">
+            If anything above is wrong, please contact the person who sent you this link before
+            confirming. A wrong document or account number will hold up your connection.
+          </p>
         </section>
 
         {/* ------------------------------------------------------------------ confirm */}
@@ -265,6 +310,52 @@ export default function ConsentPage() {
         </section>
       </div>
     </Shell>
+  );
+}
+
+/** A labelled group inside the left column. */
+function Block({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="px-5 lg:px-6 py-4 border-t border-gray-100">
+      <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">{title}</p>
+      <dl className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-x-6 text-sm">{children}</dl>
+    </div>
+  );
+}
+
+function ContactGrid({ contact }: { contact: ConsentContact | null }) {
+  if (!contact) return null;
+  return (
+    <>
+      <InlineRow
+        label="Name"
+        value={[contact.salutation, contact.firstName, contact.middleName, contact.lastName]
+          .filter(Boolean)
+          .join(' ')}
+      />
+      <InlineRow label="Date of birth" value={contact.dateOfBirth} />
+      <InlineRow label="Country of birth" value={contact.countryOfBirth} />
+      <InlineRow label="Email" value={contact.email} />
+      {contact.phones.map((p, i) => (
+        <InlineRow key={i} label={p.type ? `${p.type.toLowerCase()} phone` : 'Phone'} value={p.phone} />
+      ))}
+      {contact.addresses.map((a, i) => (
+        <InlineRow key={i} label={a.type ? `${a.type.toLowerCase()} address` : 'Address'} value={a.address} />
+      ))}
+    </>
+  );
+}
+
+function DocumentRows({ label, doc }: { label: string; doc: ConsentDocument | null }) {
+  if (!doc) return null;
+  const extra = [doc.issuingState, doc.issuingCountry].filter(Boolean).join(', ');
+  return (
+    <>
+      <InlineRow label={`${label} number`} value={doc.documentId} />
+      {doc.documentNumber && <InlineRow label={`${label} card number`} value={doc.documentNumber} />}
+      <InlineRow label={`${label} expiry`} value={doc.documentExpiryDate} />
+      {extra && <InlineRow label={`${label} issued`} value={extra} />}
+    </>
   );
 }
 
