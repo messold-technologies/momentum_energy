@@ -26,6 +26,17 @@ export default {
     url: process.env.DATABASE_URL,
   },
 
+  agentPortal: {
+    /**
+     * Shared password agents type to enter the portal. There is no per-agent account, so
+     * anyone holding this password can read the plan catalogue and create sales that
+     * contain customer PII. The default is the company name and therefore guessable:
+     * set AGENT_PORTAL_PASSWORD to something non-obvious in any real environment.
+     */
+    password: process.env.AGENT_PORTAL_PASSWORD || 'utilityhub',
+    sessionExpiresIn: process.env.AGENT_PORTAL_SESSION_EXPIRES_IN || '12h',
+  },
+
   jwt: {
     secret: process.env.JWT_SECRET || 'development-secret-change-in-production',
     expiresIn: process.env.JWT_EXPIRES_IN || '7d',

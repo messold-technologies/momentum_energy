@@ -17,7 +17,17 @@ const INDUSTRIES = [
 ];
 const STATES = ['VIC', 'NSW', 'QLD', 'SA', 'WA', 'TAS', 'NT', 'ACT'];
 
-export default function Step2Customer() {
+interface Step2CustomerProps {
+  /**
+   * Hides the promotion-consent tick. Used by the agent flows, where the customer gives
+   * that consent themselves on the consent page -- an agent ticking it on their behalf
+   * would be recording a consent that was never given. Defaults to false, so the direct
+   * submit wizard is unchanged.
+   */
+  hidePromotionConsent?: boolean;
+}
+
+export default function Step2Customer({ hidePromotionConsent = false }: Step2CustomerProps = {}) {
   const { register, formState, control, setValue } = useFormContext();
   const errors = formState.errors as FieldErrors<TransactionPayload>;
 
@@ -107,18 +117,26 @@ export default function Step2Customer() {
           </select>
         </FormField>
 
-        <FormField label="Promotion Consent" required error={errors.customer?.promotionAllowed}>
-          <label className="flex items-center gap-2 mt-1 cursor-pointer">
-            <input
-              type="checkbox"
-              {...register('customer.promotionAllowed', {
-                setValueAs: (v) => v === true || v === 'on',
-              })}
-              className="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500"
-            />
-            <span className="text-sm text-gray-700">Customer agrees to receive promotions</span>
-          </label>
-        </FormField>
+        {hidePromotionConsent ? (
+          <FormField label="Promotion Consent">
+            <p className="mt-2 text-sm text-gray-500">
+              The customer gives this themselves on the consent page.
+            </p>
+          </FormField>
+        ) : (
+          <FormField label="Promotion Consent" required error={errors.customer?.promotionAllowed}>
+            <label className="flex items-center gap-2 mt-1 cursor-pointer">
+              <input
+                type="checkbox"
+                {...register('customer.promotionAllowed', {
+                  setValueAs: (v) => v === true || v === 'on',
+                })}
+                className="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500"
+              />
+              <span className="text-sm text-gray-700">Customer agrees to receive promotions</span>
+            </label>
+          </FormField>
+        )}
       </div>
 
       {/* Resident identity */}

@@ -1,5 +1,6 @@
 import { Outlet, NavLink, useLocation } from 'react-router-dom';
 import {
+  ClipboardList,
   LayoutDashboard,
   FilePlus,
   FileEdit,
@@ -22,6 +23,7 @@ export default function AppLayout() {
 
   const momentumNav = [
     { to: '/', label: 'Dashboard', icon: LayoutDashboard },
+    { to: '/momentum/agent/sales', label: 'Sales Status', icon: ClipboardList },
     { to: '/momentum/transactions/new?fresh=1', label: 'New Transaction', icon: FilePlus },
     { to: '/momentum/drafts', label: 'My Drafts', icon: FileEdit },
     { to: '/momentum/form-responses', label: 'Form Responses', icon: FileText },

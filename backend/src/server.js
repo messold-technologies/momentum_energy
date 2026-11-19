@@ -15,6 +15,11 @@ import draftsRoutes from './routes/drafts.js';
 import healthRoutes from './routes/health.js';
 import authRoutes from './routes/auth.js';
 import firstEnergyRoutes from './routes/firstEnergyAccounts.js';
+import offersRoutes from './routes/offers.js';
+import agentSalesRoutes from './routes/agentSales.js';
+import consentRoutes from './routes/consent.js';
+import agentPortalRoutes from './routes/agentPortal.js';
+import { requireAgentScope } from './middleware/requireAgentScope.js';
 import { requireAuth } from './middleware/requireAuth.js';
 
 const app = express();
@@ -46,6 +51,15 @@ app.use('/api/transactions', requireAuth, transactionRoutes);
 app.use('/api/submissions', requireAuth, submissionsRoutes);
 app.use('/api/drafts', requireAuth, draftsRoutes);
 app.use('/api/first-energy', requireAuth, firstEnergyRoutes);
+app.use('/api/offers', requireAuth, offersRoutes);
+app.use('/api/agent-sales', requireAuth, agentSalesRoutes);
+// Public: the customer holds only a consent link, so this one sits outside requireAuth.
+app.use('/api/consent', consentRoutes);
+// Agent portal: agents sign up and log in with their own credentials, stored in
+// agent_users. Their tokens carry scope 'agent' and are accepted only here, never by
+// the staff routes above.
+app.use('/api/agent-portal/offers', requireAgentScope, offersRoutes);
+app.use('/api/agent-portal', agentPortalRoutes);
 
 app.use((req, res) => {
   res.status(404).json({ success: false, error: `Route ${req.method} ${req.path} not found` });
