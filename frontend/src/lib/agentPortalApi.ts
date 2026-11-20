@@ -106,6 +106,12 @@ export const agentPortalApi = {
     return token;
   },
 
+  /** Sales taken from this portal, newest first. Backs the "My sales" list. */
+  list: async () => {
+    const { data } = await agentClient.get('/sales');
+    return unwrap<AgentSaleView[]>(data);
+  },
+
   create: async (payload: TransactionPayload, selectedPlan: SelectedPlanSnapshot | null) => {
     const { data } = await agentClient.post('/sales', { payload, selectedPlan });
     return unwrap<AgentSaleView>(data);
