@@ -22,6 +22,7 @@ import AgentSalesQueuePage from './pages/agent/AgentSalesQueuePage';
 import AgentSaleReviewPage from './pages/agent/AgentSaleReviewPage';
 import ConsentPage from './pages/ConsentPage';
 import AgentPortalPage from './pages/agent-portal/AgentPortalPage';
+import RateCardPage from './pages/RateCardPage';
 
 export default function App() {
   return (
@@ -58,6 +59,14 @@ export default function App() {
                 }
               />
               {/* Agent portal: capture -> customer consent -> QA submit. */}
+              <Route
+                path="momentum/rate-card"
+                element={
+                  <AdminRoute>
+                    <RateCardPage />
+                  </AdminRoute>
+                }
+              />
               <Route path="momentum/agent/sales" element={<AgentSalesQueuePage />} />
               <Route path="momentum/agent/sales/new" element={<AgentNewSalePage />} />
               <Route path="momentum/agent/sales/:id" element={<AgentSaleReviewPage />} />

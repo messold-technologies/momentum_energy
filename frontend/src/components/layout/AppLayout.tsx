@@ -1,6 +1,7 @@
 import { Outlet, NavLink, useLocation } from 'react-router-dom';
 import {
   ClipboardList,
+  FileSpreadsheet,
   LayoutDashboard,
   FilePlus,
   FileEdit,
@@ -24,10 +25,15 @@ export default function AppLayout() {
   const momentumNav = [
     { to: '/', label: 'Dashboard', icon: LayoutDashboard },
     { to: '/momentum/agent/sales', label: 'Sales Status', icon: ClipboardList },
+    ...(user?.isAdmin ? [{ to: '/momentum/rate-card', label: 'Rate Card', icon: FileSpreadsheet }] : []),
     { to: '/momentum/transactions/new?fresh=1', label: 'New Transaction', icon: FilePlus },
     { to: '/momentum/drafts', label: 'My Drafts', icon: FileEdit },
     { to: '/momentum/form-responses', label: 'Form Responses', icon: FileText },
-    ...(user?.isAdmin ? [{ to: '/momentum/excel-dashboard', label: 'Excel Dashboard', icon: Sheet }] : []),
+    ...(user?.isAdmin
+      ? [
+          { to: '/momentum/excel-dashboard', label: 'Excel Dashboard', icon: Sheet },
+        ]
+      : []),
   ];
 
   const firstEnergyNav = [
