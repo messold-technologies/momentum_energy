@@ -20,6 +20,28 @@ export default {
 
   portal: {
     allowedOrigins: (process.env.ALLOWED_ORIGINS || 'http://localhost:5173').split(','),
+
+    /**
+     * Where the customer-facing site actually lives. Consent links are built from this
+     * and sent to customers, so it has to be the public address.
+     *
+     * This used to be allowedOrigins[0], which meant the order of the CORS list decided
+     * what customers received: a production .env copied from .env.example lists localhost
+     * first, so every consent link pointed at localhost:5173.
+     *
+     * Set PUBLIC_APP_URL. Failing that, prefer the first origin that is not localhost, so
+     * an existing deployment is right without a config change, and fall back to the first
+     * origin for local development, where localhost is the correct answer.
+     */
+    get publicUrl() {
+      const explicit = (process.env.PUBLIC_APP_URL || '').trim();
+      if (explicit) return explicit.replace(/\/$/, '');
+
+      const origins = this.allowedOrigins.map((o) => o.trim()).filter(Boolean);
+      const isLocal = (o) => /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:|\/|$)/i.test(o);
+      const chosen = origins.find((o) => !isLocal(o)) || origins[0] || '';
+      return chosen.replace(/\/$/, '');
+    },
   },
 
   database: {
