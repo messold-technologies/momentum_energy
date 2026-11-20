@@ -2,7 +2,17 @@ import { useEffect, useState } from 'react';
 import { useForm, FormProvider, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { ArrowLeft, ArrowRight, Check, Copy, Link2, Loader2, LogOut, Plus } from 'lucide-react';
+import {
+  ArrowLeft,
+  ArrowRight,
+  Check,
+  ClipboardList,
+  Copy,
+  Link2,
+  Loader2,
+  LogOut,
+  Plus,
+} from 'lucide-react';
 import moment from 'moment-timezone';
 
 import Stepper from '../../components/ui/Stepper';
@@ -12,6 +22,7 @@ import StepCustomer from '../../components/form-steps/Step3Customer';
 import StepService from '../../components/form-steps/Step4Service';
 import AgentStepPlan from '../agent/AgentStepPlan';
 import AgentStepBilling from '../agent/AgentStepBilling';
+import AgentSalesList from './AgentSalesList';
 import { step1Schema, step2Schema, step3Schema, step4Schema } from '../../lib/schemas';
 import {
   agentPortalApi,
@@ -184,14 +195,31 @@ function defaultValues(): TransactionPayload {
 
 export default function AgentPortalPage() {
   const [unlocked, setUnlocked] = useState(Boolean(getAgentToken()));
+  const [view, setView] = useState<'form' | 'sales'>('form');
+  // Remounting SaleForm is what makes "New sale" start genuinely empty.
+  const [formKey, setFormKey] = useState(0);
 
   function signOut() {
     clearAgentSession();
     setUnlocked(false);
+    setView('form');
   }
 
   if (!unlocked) return <AccessGate onUnlocked={() => setUnlocked(true)} />;
-  return <SaleForm onSessionLost={signOut} />;
+
+  if (view === 'sales') {
+    return (
+      <AgentSalesList
+        onNewSale={() => {
+          setFormKey((k) => k + 1);
+          setView('form');
+        }}
+        onSessionLost={signOut}
+      />
+    );
+  }
+
+  return <SaleForm key={formKey} onSessionLost={signOut} onShowSales={() => setView('sales')} />;
 }
 
 /* ------------------------------------------------------------------- gate */
@@ -255,7 +283,13 @@ function AccessGate({ onUnlocked }: { onUnlocked: () => void }) {
 
 /* ------------------------------------------------------------------- form */
 
-function SaleForm({ onSessionLost }: { onSessionLost: () => void }) {
+function SaleForm({
+  onSessionLost,
+  onShowSales,
+}: {
+  onSessionLost: () => void;
+  onShowSales: () => void;
+}) {
   const [step, setStep] = useState(0);
   const [sale, setSale] = useState<AgentSaleView | null>(null);
   const [selectedPlan, setSelectedPlan] = useState<SelectedPlanSnapshot | null>(null);
@@ -356,6 +390,14 @@ function SaleForm({ onSessionLost }: { onSessionLost: () => void }) {
         <div className="w-full px-6 lg:px-8 py-3 flex items-center justify-between">
           <img src="/utility-hub-logo.png" alt="Utility Hub" className="h-8" />
           <div className="flex items-center gap-4">
+          <button
+            type="button"
+            onClick={onShowSales}
+            className="inline-flex items-center gap-1.5 text-sm text-gray-600 hover:text-gray-900 cursor-pointer"
+          >
+            <ClipboardList className="w-4 h-4" />
+            My sales
+          </button>
           <button
             type="button"
             onClick={onSessionLost}
