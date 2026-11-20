@@ -77,6 +77,17 @@ if (process.env.NODE_ENV !== 'test') {
       environment: config.nodeEnv,
       momentumUrl: config.momentum.baseUrl,
     });
+
+    // Consent links are sent to customers. A localhost link in production is useless to
+    // them and nothing else surfaces it, so say so loudly at boot.
+    const publicUrl = config.portal.publicUrl;
+    if (config.nodeEnv === 'production' && /localhost|127\.0\.0\.1/.test(publicUrl)) {
+      logger.error(
+        `PUBLIC_APP_URL is not set and ALLOWED_ORIGINS has no public address, so consent links will point at ${publicUrl} and customers will not be able to open them.`
+      );
+    } else {
+      logger.info(`Consent links will point at ${publicUrl}`);
+    }
   });
 }
 

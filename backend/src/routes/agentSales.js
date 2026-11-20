@@ -243,7 +243,7 @@ router.post('/:id/consent-link', async (req, res, next) => {
       [row.id, hash]
     );
 
-    const base = (config.portal.allowedOrigins?.[0] || '').replace(/\/$/, '');
+    const base = config.portal.publicUrl;
     logger.info('Consent link issued', { agentSaleId: row.id, userId: req.user?.id });
 
     res.json({
