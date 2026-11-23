@@ -290,7 +290,10 @@ router.post('/sales/:id/consent-link', async (req, res, next) => {
     const { rows } = await query(
       `UPDATE agent_sales
        SET consent_token_hash = $2, consent_token_expires_at = NULL,
-           consent_sent_at = NOW(), status = 'awaiting_consent', updated_at = NOW()
+           consent_sent_at = NOW(), status = 'awaiting_consent', updated_at = NOW(),
+           -- A new link clears the lock: this is how an agent reopens a page that a
+           -- customer locked by mistyping their postcode or birthday.
+           consent_attempts = 0, consent_locked_at = NULL
        WHERE id = $1 RETURNING *`,
       [row.id, hash]
     );
