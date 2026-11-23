@@ -157,6 +157,60 @@ function documentBlock(d) {
  * opened on a shared device, that is full PII exposed. Shortening what is shown here is
  * the lever if that becomes a concern.
  */
+/** How many wrong passwords a single link tolerates before it locks. */
+export const CONSENT_MAX_ATTEMPTS = 8;
+
+/**
+ * The password the customer types to open their consent page: their postcode followed
+ * by the two-digit day of their date of birth. Postcode 3121 and a birthday on the 7th
+ * gives 312107.
+ *
+ * Returns every acceptable spelling, because "their postcode" is ambiguous when the
+ * property and the postal address differ -- either is accepted, since both are things
+ * the customer knows and neither is more secret than the other.
+ *
+ * ok is false when the payload has no date of birth or no postcode at all. The page
+ * then cannot be opened by anyone, which is a dead end for that customer but better
+ * than quietly serving their identity documents with no gate.
+ */
+export function deriveConsentPasswords(payload) {
+  const primary = payload?.customer?.contacts?.primaryContact;
+  const dob = String(primary?.dateOfBirth ?? '').trim();
+
+  // Stored as YYYY-MM-DD. Take the day, not whatever a Date parse makes of a timezone.
+  const dayMatch = dob.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  const day = dayMatch ? dayMatch[3] : null;
+
+  const postcodes = new Set();
+  const add = (pc) => {
+    const digits = String(pc ?? '').replace(/\D/g, '');
+    if (digits.length === 4) postcodes.add(digits);
+  };
+  add(payload?.service?.servicedAddress?.postCode);
+  for (const a of primary?.addresses ?? []) add(a?.postCode);
+
+  if (!day || postcodes.size === 0) {
+    return { ok: false, values: new Set() };
+  }
+  return { ok: true, values: new Set([...postcodes].map((pc) => `${pc}${day}`)) };
+}
+
+/** Digits only, so spaces or a dash the customer typed do not matter. */
+export function consentPasswordMatches(payload, supplied) {
+  const given = String(supplied ?? '').replace(/\D/g, '');
+  if (given.length !== 6) return false;
+  const { ok, values } = deriveConsentPasswords(payload);
+  if (!ok) return false;
+
+  // Compare against every acceptable value without returning early, so the time taken
+  // does not depend on which one matched.
+  let hit = false;
+  for (const v of values) {
+    if (crypto.timingSafeEqual(Buffer.from(v), Buffer.from(given))) hit = true;
+  }
+  return hit;
+}
+
 export function buildPublicSummary(row) {
   const payload = row.payload || {};
   const customer = payload.customer || {};

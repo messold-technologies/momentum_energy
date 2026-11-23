@@ -1,18 +1,21 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { AlertTriangle, Check, ExternalLink, Loader2, ShieldCheck } from 'lucide-react';
+import { AlertTriangle, Check, ExternalLink, Loader2, Lock, ShieldCheck } from 'lucide-react';
 
 import {
   consentApi,
   type ConsentContact,
+  type ConsentGate,
   type ConsentDocument,
   type ConsentSummary,
 } from '../lib/agentSalesApi';
 
 /**
- * Public page the customer opens from their consent link. No sign-in, and it is served
- * a deliberately narrow projection of the sale: enough to recognise and verify, with no
- * date of birth, identity document numbers or full bank details.
+ * Public page the customer opens from their consent link. No sign-in, but not open
+ * either: it shows everything the agent filled in, identity documents included, so the
+ * link on its own is not enough. The customer first enters their postcode followed by
+ * the day of their date of birth, and the server sends nothing about them until that is
+ * right -- the details are never in the browser behind a hidden element.
  *
  * Layout: a single column on a phone, where the customer scrolls plan -> details ->
  * confirm. From lg it becomes two columns -- what they are signing up to on the left,
@@ -23,8 +26,16 @@ export default function ConsentPage() {
   const { token } = useParams();
 
   const [summary, setSummary] = useState<ConsentSummary | null>(null);
+  const [gate, setGate] = useState<ConsentGate | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+
+  // Held for the whole session: the confirm call sends it again, because the server
+  // re-checks it rather than trusting that /verify happened.
+  const [password, setPassword] = useState('');
+  const [unlocking, setUnlocking] = useState(false);
+  const [unlockError, setUnlockError] = useState<string | null>(null);
+  const [locked, setLocked] = useState(false);
 
   const [ticks, setTicks] = useState<Record<string, boolean>>({});
   const [submitting, setSubmitting] = useState(false);
@@ -34,8 +45,11 @@ export default function ConsentPage() {
   useEffect(() => {
     if (!token) return;
     consentApi
-      .get(token)
-      .then(setSummary)
+      .gate(token)
+      .then((g) => {
+        setGate(g);
+        setLocked(g.locked);
+      })
       .catch((err) => {
         setLoadError(
           (err as { response?: { data?: { error?: string } } }).response?.data?.error ??
@@ -50,7 +64,7 @@ export default function ConsentPage() {
     setSubmitting(true);
     setSubmitError(null);
     try {
-      await consentApi.submit(token, ticks);
+      await consentApi.submit(token, password, ticks);
       setDone(true);
     } catch (err) {
       setSubmitError(
@@ -59,6 +73,22 @@ export default function ConsentPage() {
       );
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  async function handleUnlock(e: React.FormEvent) {
+    e.preventDefault();
+    if (!token) return;
+    setUnlocking(true);
+    setUnlockError(null);
+    try {
+      setSummary(await consentApi.verify(token, password));
+    } catch (err) {
+      const res = (err as { response?: { status?: number; data?: { error?: string } } }).response;
+      if (res?.status === 423) setLocked(true);
+      setUnlockError(res?.data?.error ?? 'We could not open this link.');
+    } finally {
+      setUnlocking(false);
     }
   }
 
@@ -76,7 +106,7 @@ export default function ConsentPage() {
     );
   }
 
-  if (loadError || !summary) {
+  if (loadError || !gate) {
     return (
       <Shell narrow>
         <div className="py-12 text-center">
@@ -84,6 +114,88 @@ export default function ConsentPage() {
           <h1 className="mt-4 text-lg font-semibold text-gray-900">Link unavailable</h1>
           <p className="mt-2 text-sm text-gray-600">{loadError}</p>
         </div>
+      </Shell>
+    );
+  }
+
+  if (locked) {
+    return (
+      <Shell narrow>
+        <div className="py-12 text-center">
+          <AlertTriangle className="w-10 h-10 mx-auto text-red-500" />
+          <h1 className="mt-4 text-lg font-semibold text-gray-900">Link locked</h1>
+          <p className="mt-2 text-sm text-gray-600">
+            {unlockError ??
+              'This link has been locked after too many incorrect attempts. Please contact the person who sent it to you for a new link.'}
+          </p>
+        </div>
+      </Shell>
+    );
+  }
+
+  // The sale has no date of birth or postcode, so no password can be formed. Say so
+  // plainly instead of letting them try combinations that cannot work.
+  if (!gate.passwordAvailable) {
+    return (
+      <Shell narrow>
+        <div className="py-12 text-center">
+          <AlertTriangle className="w-10 h-10 mx-auto text-amber-500" />
+          <h1 className="mt-4 text-lg font-semibold text-gray-900">Link unavailable</h1>
+          <p className="mt-2 text-sm text-gray-600">
+            We cannot open this link. Please contact the person who sent it to you.
+          </p>
+        </div>
+      </Shell>
+    );
+  }
+
+  /* The details are not in the browser until this passes -- the server sends nothing
+     about the customer until the password is right. */
+  if (!summary) {
+    return (
+      <Shell narrow>
+        <form onSubmit={handleUnlock} className="py-10 max-w-sm mx-auto">
+          <div className="w-12 h-12 mx-auto rounded-full bg-primary-50 flex items-center justify-center">
+            <Lock className="w-6 h-6 text-primary-700" />
+          </div>
+          <h1 className="mt-4 text-lg font-semibold text-gray-900 text-center">
+            Confirm it is you
+          </h1>
+          <p className="mt-2 text-sm text-gray-600 text-center">
+            To protect your details, enter your <strong>postcode</strong> followed by the{' '}
+            <strong>day</strong> of your date of birth.
+          </p>
+          <p className="mt-3 text-xs text-gray-500 text-center">
+            Postcode 3121, born on the 7th of any month → <span className="font-mono">312107</span>
+          </p>
+
+          <input
+            type="text"
+            inputMode="numeric"
+            autoComplete="off"
+            value={password}
+            onChange={(e) => setPassword(e.target.value.replace(/\D/g, '').slice(0, 6))}
+            autoFocus
+            placeholder="######"
+            aria-label="Postcode followed by the day of your date of birth"
+            className="mt-5 w-full px-3 py-3 border border-gray-300 rounded-lg text-center text-lg font-mono tracking-[0.3em] focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+          />
+
+          {unlockError && (
+            <p role="alert" className="mt-3 text-sm text-red-700 text-center">
+              {unlockError}
+            </p>
+          )}
+
+          <button
+            type="submit"
+            disabled={password.length !== 6 || unlocking}
+            className="mt-5 w-full inline-flex items-center justify-center gap-2 px-5 py-2.5 text-sm font-semibold text-white bg-primary-600 rounded-lg hover:bg-primary-700 disabled:opacity-40 cursor-pointer"
+          >
+            {unlocking && <Loader2 className="w-4 h-4 animate-spin" />}
+            Continue
+          </button>
+        </form>
       </Shell>
     );
   }

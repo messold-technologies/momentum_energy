@@ -263,13 +263,31 @@ export const agentSalesApi = {
  */
 const publicApi = axios.create({ baseURL: '/api', headers: { 'Content-Type': 'application/json' } });
 
+/** What a link reveals before the password is given: nothing about the customer. */
+export interface ConsentGate {
+  status: AgentSaleStatus;
+  requiresPassword: boolean;
+  locked: boolean;
+  /** False when the sale has no date of birth or postcode to build a password from. */
+  passwordAvailable: boolean;
+}
+
 export const consentApi = {
-  get: async (token: string) => {
+  /** Whether this link can be opened at all. Carries no customer details. */
+  gate: async (token: string) => {
     const { data } = await publicApi.get(`/consent/${token}`);
+    return unwrap<ConsentGate>(data);
+  },
+
+  /** Exchanges the password for the details. */
+  verify: async (token: string, password: string) => {
+    const { data } = await publicApi.post(`/consent/${token}/verify`, { password });
     return unwrap<ConsentSummary>(data);
   },
-  submit: async (token: string, consent: Record<string, boolean>) => {
-    const { data } = await publicApi.post(`/consent/${token}`, { consent });
+
+  /** The password goes up again: the server re-checks it rather than trusting /verify. */
+  submit: async (token: string, password: string, consent: Record<string, boolean>) => {
+    const { data } = await publicApi.post(`/consent/${token}`, { password, consent });
     return unwrap<{ consentedAt: string }>(data);
   },
 };
