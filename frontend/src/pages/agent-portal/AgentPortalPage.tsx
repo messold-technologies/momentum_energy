@@ -32,7 +32,6 @@ import {
   getAgentToken,
   clearAgentSession,
   getAgentChannel,
-  type AgentChannel,
   AgentSessionExpiredError,
   type AgentSaleView,
 } from '../../lib/agentPortalApi';
@@ -229,25 +228,11 @@ export default function AgentPortalPage() {
 /* ------------------------------------------------------------------- gate */
 
 function AccessGate({ onUnlocked }: { onUnlocked: () => void }) {
-  const [channels, setChannels] = useState<AgentChannel[]>([]);
   const [channel, setChannel] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  // The list comes from the server so there is one source of truth for which channels
-  // exist. It holds names only; the password is what actually grants access, and the
-  // server rejects anything not on its own list regardless of what is sent.
-  useEffect(() => {
-    agentPortalApi
-      .channels()
-      .then((list) => {
-        setChannels(list);
-        if (list.length === 1) setChannel(list[0].id);
-      })
-      .catch(() => setError('Could not load the channel list. Refresh and try again.'));
-  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -272,24 +257,29 @@ function AccessGate({ onUnlocked }: { onUnlocked: () => void }) {
         <img src="/utility-hub-logo.png" alt="Utility Hub" className="h-9 mx-auto" />
         <h1 className="mt-5 text-lg font-semibold text-gray-900 text-center">Agent access</h1>
         <p className="mt-1 text-sm text-gray-500 text-center">
-          Choose your channel and enter its password.
+          Enter your channel name and its password.
         </p>
 
+        {/*
+          A typed channel name. The server holds the only list that matters and rejects
+          anything not on it, so this box cannot widen access -- it just has to be
+          forgiving about how it is typed, which findChannel() handles by ignoring case
+          and spacing.
+        */}
         <label className="block mt-6">
           <span className="text-sm font-medium text-gray-700">Channel</span>
-          <select
+          <input
+            type="text"
             value={channel}
             onChange={(e) => setChannel(e.target.value)}
             autoFocus
-            className="mt-1.5 w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-primary-500 focus:border-primary-500 cursor-pointer"
-          >
-            <option value="">Select a channel</option>
-            {channels.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
+            autoComplete="organization"
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
+            placeholder="Channel name"
+            className="mt-1.5 w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+          />
         </label>
 
         {/* Keeps the show/hide toggle from main; autoFocus moves to the channel. */}
@@ -323,7 +313,7 @@ function AccessGate({ onUnlocked }: { onUnlocked: () => void }) {
 
         <button
           type="submit"
-          disabled={busy || !channel || password.length === 0}
+          disabled={busy || channel.trim().length === 0 || password.length === 0}
           className="mt-5 w-full inline-flex items-center justify-center gap-2 px-5 py-2.5 text-sm font-semibold text-white bg-primary-600 rounded-lg hover:bg-primary-700 disabled:opacity-40 cursor-pointer"
         >
           {busy && <Loader2 className="w-4 h-4 animate-spin" />}

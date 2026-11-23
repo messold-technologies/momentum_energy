@@ -98,14 +98,6 @@ function issueToken(channel) {
 
 /* ------------------------------------------------------------------ access */
 
-/** Names only, so the sign-in screen can offer the three. The password is the secret. */
-router.get('/channels', (_req, res) => {
-  res.json({
-    success: true,
-    data: config.agentPortal.channels.map((c) => ({ id: c.id, name: c.name })),
-  });
-});
-
 router.post('/access', accessLimiter, async (req, res, next) => {
   try {
     const channel = findChannel(req.body?.channel);

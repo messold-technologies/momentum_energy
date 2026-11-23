@@ -113,12 +113,6 @@ export function clearAgentSession() {
 }
 
 export const agentPortalApi = {
-  /** The three channels allowed in. Names only -- the password is the secret. */
-  channels: async () => {
-    const { data } = await axios.get('/api/agent-portal/channels');
-    return (data as { data: AgentChannel[] }).data;
-  },
-
   /** Exchanges a channel's password for a short-lived, agent-scoped session. */
   access: async (channel: string, password: string) => {
     const { data } = await axios.post('/api/agent-portal/access', { channel, password });
