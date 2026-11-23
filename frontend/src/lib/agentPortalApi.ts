@@ -64,6 +64,11 @@ agentClient.interceptors.response.use(
 
 export const agentOffersApi = createOffersApi(agentClient, '/offers');
 
+export interface AgentChannel {
+  id: string;
+  name: string;
+}
+
 export interface AgentSaleView {
   id: string;
   status: string;
@@ -88,6 +93,16 @@ function unwrap<T>(data: { success: boolean; data: T }): T {
 
 const PROFILE_KEY = 'agent_portal_profile';
 
+/** The signed-in channel, for showing who is logged in. Decorative only. */
+export function getAgentChannel(): AgentChannel | null {
+  try {
+    const raw = sessionStorage.getItem(PROFILE_KEY);
+    return raw ? (JSON.parse(raw) as AgentChannel) : null;
+  } catch {
+    return null;
+  }
+}
+
 export function clearAgentSession() {
   setAgentToken(null);
   try {
@@ -98,12 +113,17 @@ export function clearAgentSession() {
 }
 
 export const agentPortalApi = {
-  /** Exchanges the shared password for a short-lived, agent-scoped session. */
-  access: async (password: string) => {
-    const { data } = await axios.post('/api/agent-portal/access', { password });
-    const token = (data as { data: { token: string } }).data.token;
-    setAgentToken(token);
-    return token;
+  /** Exchanges a channel's password for a short-lived, agent-scoped session. */
+  access: async (channel: string, password: string) => {
+    const { data } = await axios.post('/api/agent-portal/access', { channel, password });
+    const res = (data as { data: { token: string; channel: AgentChannel } }).data;
+    setAgentToken(res.token);
+    try {
+      sessionStorage.setItem(PROFILE_KEY, JSON.stringify(res.channel));
+    } catch {
+      /* private browsing -- the channel is in the token regardless */
+    }
+    return res;
   },
 
   /** Sales taken from this portal, newest first. Backs the "My sales" list. */

@@ -31,6 +31,7 @@ import {
   agentOffersApi,
   getAgentToken,
   clearAgentSession,
+  getAgentChannel,
   AgentSessionExpiredError,
   type AgentSaleView,
 } from '../../lib/agentPortalApi';
@@ -227,6 +228,7 @@ export default function AgentPortalPage() {
 /* ------------------------------------------------------------------- gate */
 
 function AccessGate({ onUnlocked }: { onUnlocked: () => void }) {
+  const [channel, setChannel] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -237,10 +239,10 @@ function AccessGate({ onUnlocked }: { onUnlocked: () => void }) {
     setBusy(true);
     setError(null);
     try {
-      await agentPortalApi.access(password);
+      await agentPortalApi.access(channel, password);
       onUnlocked();
     } catch (err) {
-      setError(apiError(err, 'That password is not recognised'));
+      setError(apiError(err, 'That channel and password combination is not recognised'));
     } finally {
       setBusy(false);
     }
@@ -248,32 +250,60 @@ function AccessGate({ onUnlocked }: { onUnlocked: () => void }) {
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
-      <form onSubmit={handleSubmit} className="w-full max-w-sm bg-white rounded-2xl border border-gray-200 p-8">
+      <form
+        onSubmit={handleSubmit}
+        className="w-full max-w-sm bg-white rounded-2xl border border-gray-200 p-8"
+      >
         <img src="/utility-hub-logo.png" alt="Utility Hub" className="h-9 mx-auto" />
         <h1 className="mt-5 text-lg font-semibold text-gray-900 text-center">Agent access</h1>
         <p className="mt-1 text-sm text-gray-500 text-center">
-          Enter the password to start a sale.
+          Enter your channel name and its password.
         </p>
 
-        <div className="mt-6 relative">
+        {/*
+          A typed channel name. The server holds the only list that matters and rejects
+          anything not on it, so this box cannot widen access -- it just has to be
+          forgiving about how it is typed, which findChannel() handles by ignoring case
+          and spacing.
+        */}
+        <label className="block mt-6">
+          <span className="text-sm font-medium text-gray-700">Channel</span>
           <input
-            type={showPassword ? 'text' : 'password'}
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            type="text"
+            value={channel}
+            onChange={(e) => setChannel(e.target.value)}
             autoFocus
-            autoComplete="off"
-            placeholder="Password"
-            className="w-full px-3 py-2.5 pr-11 border border-gray-300 rounded-lg text-sm text-center tracking-wide focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+            autoComplete="organization"
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
+            placeholder="Channel name"
+            className="mt-1.5 w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
           />
-          <button
-            type="button"
-            onClick={() => setShowPassword((v) => !v)}
-            aria-label={showPassword ? 'Hide password' : 'Show password'}
-            className="absolute inset-y-0 right-0 flex items-center px-3 text-gray-400 hover:text-gray-600 cursor-pointer"
-          >
-            {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-          </button>
-        </div>
+        </label>
+
+        {/* Keeps the show/hide toggle from main; autoFocus moves to the channel. */}
+        <label className="block mt-4">
+          <span className="text-sm font-medium text-gray-700">Password</span>
+          <div className="mt-1.5 relative">
+            <input
+              type={showPassword ? 'text' : 'password'}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              autoComplete="off"
+              placeholder="Password"
+              className="w-full px-3 py-2.5 pr-11 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword((v) => !v)}
+              aria-label={showPassword ? 'Hide password' : 'Show password'}
+              className="absolute inset-y-0 right-0 flex items-center px-3 text-gray-400 hover:text-gray-600 cursor-pointer"
+            >
+              {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+            </button>
+          </div>
+        </label>
 
         {error && (
           <p role="alert" className="mt-3 text-sm text-red-700 text-center">
@@ -283,7 +313,7 @@ function AccessGate({ onUnlocked }: { onUnlocked: () => void }) {
 
         <button
           type="submit"
-          disabled={busy || password.length === 0}
+          disabled={busy || channel.trim().length === 0 || password.length === 0}
           className="mt-5 w-full inline-flex items-center justify-center gap-2 px-5 py-2.5 text-sm font-semibold text-white bg-primary-600 rounded-lg hover:bg-primary-700 disabled:opacity-40 cursor-pointer"
         >
           {busy && <Loader2 className="w-4 h-4 animate-spin" />}
@@ -303,6 +333,7 @@ function SaleForm({
   onSessionLost: () => void;
   onShowSales: () => void;
 }) {
+  const channel = getAgentChannel();
   const [step, setStep] = useState(0);
   const [sale, setSale] = useState<AgentSaleView | null>(null);
   const [selectedPlan, setSelectedPlan] = useState<SelectedPlanSnapshot | null>(null);
@@ -403,6 +434,9 @@ function SaleForm({
         <div className="w-full px-6 lg:px-8 py-3 flex items-center justify-between">
           <img src="/utility-hub-logo.png" alt="Utility Hub" className="h-8" />
           <div className="flex items-center gap-2">
+            {channel && (
+              <span className="hidden sm:inline text-sm text-gray-500 mr-1">{channel.name}</span>
+            )}
             <button
               type="button"
               onClick={onShowSales}
