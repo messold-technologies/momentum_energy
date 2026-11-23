@@ -39,7 +39,7 @@ const STATUS: Record<string, { label: string; tone: string }> = {
   awaiting_consent: { label: 'Waiting on customer', tone: 'bg-blue-100 text-blue-800' },
   consented: { label: 'Customer confirmed', tone: 'bg-green-100 text-green-800' },
   submitted: { label: 'Sent to Momentum', tone: 'bg-green-100 text-green-800' },
-  rejected: { label: 'Sent back for checking', tone: 'bg-red-100 text-red-800' },
+  rejected: { label: 'QA rejected', tone: 'bg-red-100 text-red-800' },
   cancelled: { label: 'Cancelled', tone: 'bg-gray-100 text-gray-700' },
 };
 
@@ -49,13 +49,6 @@ const CAN_ISSUE = ['agent_draft', 'awaiting_consent'];
 function apiError(err: unknown, fallback: string): string {
   const d = (err as { response?: { data?: { error?: string } } }).response?.data;
   return d?.error ?? fallback;
-}
-
-function contactLine(sale: AgentSaleView): string | null {
-  const c = sale.payload?.customer?.contacts?.primaryContact;
-  if (!c) return null;
-  const parts = [c.email, c.contactPhones?.[0]?.phone].filter(Boolean);
-  return parts.length ? parts.join(' · ') : null;
 }
 
 export default function AgentSalesList({ onNewSale, onSessionLost }: Props) {
@@ -196,7 +189,6 @@ export default function AgentSalesList({ onNewSale, onSessionLost }: Props) {
               };
               const link = links[sale.id];
               const canIssue = CAN_ISSUE.includes(sale.status);
-              const contact = contactLine(sale);
 
               return (
                 <li
@@ -215,16 +207,17 @@ export default function AgentSalesList({ onNewSale, onSessionLost }: Props) {
                           {status.label}
                         </span>
                       </div>
-                      {sale.serviceAddress && (
-                        <p className="text-sm text-gray-600 mt-0.5">{sale.serviceAddress}</p>
-                      )}
-                      {contact && <p className="text-xs text-gray-500 mt-0.5">{contact}</p>}
-                      <p className="text-xs text-gray-400 mt-1">
+                      <p className="text-xs text-gray-500 mt-1">
                         {sale.selectedPlan?.planCode ? `${sale.selectedPlan.planCode} · ` : ''}
                         started {new Date(sale.createdAt).toLocaleString()}
                         {sale.consentSentAt
                           ? ` · link sent ${new Date(sale.consentSentAt).toLocaleString()}`
                           : ''}
+                      </p>
+                      <p className="text-xs text-gray-500 mt-1">
+                        {sale.consentedAt
+                          ? `Customer confirmed on ${new Date(sale.consentedAt).toLocaleString()}. No link needed.`
+                          : status.label}
                       </p>
                     </div>
 
@@ -277,13 +270,6 @@ export default function AgentSalesList({ onNewSale, onSessionLost }: Props) {
                     </div>
                   )}
 
-                  {!canIssue && !link && (
-                    <p className="mt-3 text-xs text-gray-500">
-                      {sale.consentedAt
-                        ? `Customer confirmed on ${new Date(sale.consentedAt).toLocaleString()}. No link needed.`
-                        : 'No link can be created for this sale.'}
-                    </p>
-                  )}
                 </li>
               );
             })}

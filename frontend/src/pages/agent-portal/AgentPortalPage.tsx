@@ -18,14 +18,13 @@ import {
 import moment from 'moment-timezone';
 
 import Stepper from '../../components/ui/Stepper';
-import Step1Transaction from '../../components/form-steps/Step1Transaction';
 import StepContact from '../../components/form-steps/Step2Contact';
 import StepCustomer from '../../components/form-steps/Step3Customer';
 import StepService from '../../components/form-steps/Step4Service';
 import AgentStepPlan from '../agent/AgentStepPlan';
 import AgentStepBilling from '../agent/AgentStepBilling';
 import AgentSalesList from './AgentSalesList';
-import { step1Schema, step2Schema, step3Schema, step4Schema } from '../../lib/schemas';
+import { step2Schema, step3Schema, step4Schema } from '../../lib/schemas';
 import {
   agentPortalApi,
   agentOffersApi,
@@ -41,9 +40,8 @@ import type { TransactionPayload } from '../../lib/types';
 const STEPS = [
   { label: 'Plan', description: 'Choose a plan' },
   { label: 'Billing', description: 'How they pay' },
-  { label: 'Transaction', description: 'Sale info' },
-  { label: 'Contact', description: 'Contact details' },
   { label: 'Customer', description: 'Identity' },
+  { label: 'Contact', description: 'Contact details' },
   { label: 'Service', description: 'Site & service' },
   { label: 'Consent', description: 'Send to customer' },
 ];
@@ -105,9 +103,8 @@ const agentCustomerStepSchema = z.preprocess((val) => {
 const stepSchemas = [
   planStepSchema,
   billingStepSchema,
-  step1Schema,
-  step2Schema,
   agentCustomerStepSchema,
+  step2Schema,
   step4Schema,
   consentStepSchema,
 ];
@@ -472,11 +469,10 @@ function SaleForm({
                 />
               )}
               {step === 1 && <AgentStepBilling selectedPlan={selectedPlan} />}
-              {step === 2 && <Step1Transaction />}
+              {step === 2 && <StepCustomer hidePromotionConsent />}
               {step === 3 && <StepContact />}
-              {step === 4 && <StepCustomer hidePromotionConsent />}
-              {step === 5 && <StepService />}
-              {step === 6 && (
+              {step === 4 && <StepService />}
+              {step === 5 && (
                 <div className="space-y-5">
                   <div>
                     <h2 className="text-lg font-semibold text-gray-900">Customer consent</h2>

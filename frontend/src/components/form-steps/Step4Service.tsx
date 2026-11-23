@@ -1,6 +1,6 @@
+import { useEffect, useRef, useState } from 'react';
 import { useFormContext, useWatch, type FieldErrors } from 'react-hook-form';
 import FormField, { inputClass, selectClass } from '../ui/FormField';
-import { useRef, useState } from 'react';
 import type { TransactionPayload } from '../../lib/types';
 import {
   UNIT_TYPES,
@@ -40,10 +40,12 @@ export default function Step4Service() {
   const serviceType = useWatch({ control, name: 'service.serviceType' });
   const serviceSubType = useWatch({ control, name: 'service.serviceSubType' });
   const [showConcession, setShowConcession] = useState(false);
+  const [sameAsPrimaryAddress, setSameAsPrimaryAddress] = useState(false);
   const concessionCacheRef = useRef<TransactionPayload['service']['serviceBilling']['concession'] | undefined>(undefined);
   const concessionConsentObtained = useWatch({ control, name: 'service.serviceBilling.concession.concessionConsentObtained' });
   const concessionHasMS = useWatch({ control, name: 'service.serviceBilling.concession.concessionHasMS' });
   const concessionInGroupHome = useWatch({ control, name: 'service.serviceBilling.concession.concessionInGroupHome' });
+  const primaryAddress = useWatch({ control, name: 'customer.contacts.primaryContact.addresses.0' });
 
   const billCycleOptions =
     serviceType === 'GAS'
@@ -52,6 +54,18 @@ export default function Step4Service() {
           { value: 'Monthly', label: 'Monthly' },
           { value: 'Quarterly', label: 'Quarterly' },
         ];
+
+  useEffect(() => {
+    if (!sameAsPrimaryAddress) return;
+
+    setValue('service.servicedAddress.unitNumber', primaryAddress?.unitNumber ?? '', { shouldDirty: true });
+    setValue('service.servicedAddress.streetNumber', primaryAddress?.streetNumber ?? '', { shouldDirty: true });
+    setValue('service.servicedAddress.streetName', primaryAddress?.streetName ?? '', { shouldDirty: true });
+    setValue('service.servicedAddress.streetTypeCode', primaryAddress?.streetTypeCode ?? '', { shouldDirty: true });
+    setValue('service.servicedAddress.suburb', primaryAddress?.suburb ?? '', { shouldDirty: true });
+    setValue('service.servicedAddress.state', primaryAddress?.state ?? '', { shouldDirty: true });
+    setValue('service.servicedAddress.postCode', primaryAddress?.postCode ?? '', { shouldDirty: true });
+  }, [sameAsPrimaryAddress, primaryAddress, setValue]);
 
   return (
     <div className="space-y-6">
@@ -157,7 +171,18 @@ export default function Step4Service() {
 
       {/* Serviced address */}
       <div className="border-t pt-5">
-        <p className="text-sm font-medium text-gray-900 mb-4">Service Address</p>
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <p className="text-sm font-medium text-gray-900">Service Address</p>
+          <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={sameAsPrimaryAddress}
+              onChange={(e) => setSameAsPrimaryAddress(e.target.checked)}
+              className="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500"
+            />
+            <span>Same as primary address</span>
+          </label>
+        </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <FormField label="Property Name" error={errors.service?.servicedAddress?.name}>
             <input
