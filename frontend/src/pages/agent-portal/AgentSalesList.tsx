@@ -12,6 +12,7 @@ import {
 
 import {
   agentPortalApi,
+  getAgentChannel,
   AgentSessionExpiredError,
   type AgentSaleView,
 } from '../../lib/agentPortalApi';
@@ -58,6 +59,7 @@ function contactLine(sale: AgentSaleView): string | null {
 }
 
 export default function AgentSalesList({ onNewSale, onSessionLost }: Props) {
+  const channel = getAgentChannel();
   const [sales, setSales] = useState<AgentSaleView[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -120,6 +122,9 @@ export default function AgentSalesList({ onNewSale, onSessionLost }: Props) {
         <div className="w-full px-6 lg:px-8 py-3 flex items-center justify-between">
           <img src="/utility-hub-logo.png" alt="Utility Hub" className="h-8" />
           <div className="flex items-center gap-4">
+            {channel && (
+              <span className="hidden sm:inline text-sm text-gray-500">{channel.name}</span>
+            )}
             <button
               type="button"
               onClick={onNewSale}

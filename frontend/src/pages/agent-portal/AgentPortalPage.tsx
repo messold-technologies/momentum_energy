@@ -29,6 +29,8 @@ import {
   agentOffersApi,
   getAgentToken,
   clearAgentSession,
+  getAgentChannel,
+  type AgentChannel,
   AgentSessionExpiredError,
   type AgentSaleView,
 } from '../../lib/agentPortalApi';
@@ -225,19 +227,34 @@ export default function AgentPortalPage() {
 /* ------------------------------------------------------------------- gate */
 
 function AccessGate({ onUnlocked }: { onUnlocked: () => void }) {
+  const [channels, setChannels] = useState<AgentChannel[]>([]);
+  const [channel, setChannel] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // The list comes from the server so there is one source of truth for which channels
+  // exist. It holds names only; the password is what actually grants access, and the
+  // server rejects anything not on its own list regardless of what is sent.
+  useEffect(() => {
+    agentPortalApi
+      .channels()
+      .then((list) => {
+        setChannels(list);
+        if (list.length === 1) setChannel(list[0].id);
+      })
+      .catch(() => setError('Could not load the channel list. Refresh and try again.'));
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
     setError(null);
     try {
-      await agentPortalApi.access(password);
+      await agentPortalApi.access(channel, password);
       onUnlocked();
     } catch (err) {
-      setError(apiError(err, 'That password is not recognised'));
+      setError(apiError(err, 'That channel and password combination is not recognised'));
     } finally {
       setBusy(false);
     }
@@ -245,22 +262,44 @@ function AccessGate({ onUnlocked }: { onUnlocked: () => void }) {
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
-      <form onSubmit={handleSubmit} className="w-full max-w-sm bg-white rounded-2xl border border-gray-200 p-8">
+      <form
+        onSubmit={handleSubmit}
+        className="w-full max-w-sm bg-white rounded-2xl border border-gray-200 p-8"
+      >
         <img src="/utility-hub-logo.png" alt="Utility Hub" className="h-9 mx-auto" />
         <h1 className="mt-5 text-lg font-semibold text-gray-900 text-center">Agent access</h1>
         <p className="mt-1 text-sm text-gray-500 text-center">
-          Enter the password to start a sale.
+          Choose your channel and enter its password.
         </p>
 
-        <input
-          type="password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          autoFocus
-          autoComplete="off"
-          placeholder="Password"
-          className="mt-6 w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm text-center tracking-wide focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-        />
+        <label className="block mt-6">
+          <span className="text-sm font-medium text-gray-700">Channel</span>
+          <select
+            value={channel}
+            onChange={(e) => setChannel(e.target.value)}
+            autoFocus
+            className="mt-1.5 w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-primary-500 focus:border-primary-500 cursor-pointer"
+          >
+            <option value="">Select a channel</option>
+            {channels.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label className="block mt-4">
+          <span className="text-sm font-medium text-gray-700">Password</span>
+          <input
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            autoComplete="off"
+            placeholder="Password"
+            className="mt-1.5 w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+          />
+        </label>
 
         {error && (
           <p role="alert" className="mt-3 text-sm text-red-700 text-center">
@@ -270,7 +309,7 @@ function AccessGate({ onUnlocked }: { onUnlocked: () => void }) {
 
         <button
           type="submit"
-          disabled={busy || password.length === 0}
+          disabled={busy || !channel || password.length === 0}
           className="mt-5 w-full inline-flex items-center justify-center gap-2 px-5 py-2.5 text-sm font-semibold text-white bg-primary-600 rounded-lg hover:bg-primary-700 disabled:opacity-40 cursor-pointer"
         >
           {busy && <Loader2 className="w-4 h-4 animate-spin" />}
@@ -290,6 +329,7 @@ function SaleForm({
   onSessionLost: () => void;
   onShowSales: () => void;
 }) {
+  const channel = getAgentChannel();
   const [step, setStep] = useState(0);
   const [sale, setSale] = useState<AgentSaleView | null>(null);
   const [selectedPlan, setSelectedPlan] = useState<SelectedPlanSnapshot | null>(null);
@@ -390,6 +430,9 @@ function SaleForm({
         <div className="w-full px-6 lg:px-8 py-3 flex items-center justify-between">
           <img src="/utility-hub-logo.png" alt="Utility Hub" className="h-8" />
           <div className="flex items-center gap-4">
+          {channel && (
+            <span className="hidden sm:inline text-sm text-gray-500">{channel.name}</span>
+          )}
           <button
             type="button"
             onClick={onShowSales}

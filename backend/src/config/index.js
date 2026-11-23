@@ -50,12 +50,37 @@ export default {
 
   agentPortal: {
     /**
-     * Shared password agents type to enter the portal. There is no per-agent account, so
-     * anyone holding this password can read the plan catalogue and create sales that
-     * contain customer PII. The default is the company name and therefore guessable:
-     * set AGENT_PORTAL_PASSWORD to something non-obvious in any real environment.
+     * The channels allowed into the agent portal. Exactly these three -- a channel that
+     * is not on this list cannot sign in, whatever it sends.
+     *
+     * Passwords are held as bcrypt hashes, not plaintext, so this file can live in the
+     * repository without carrying the credentials. Set the env var to rotate a channel's
+     * password without a deploy; the hash is the fallback.
+     *
+     * Still a shared password per channel rather than per-agent accounts: anyone holding
+     * a channel's password can read the plan catalogue and create sales containing
+     * customer PII, and sales are attributed to the channel, not to a person.
      */
-    password: process.env.AGENT_PORTAL_PASSWORD || 'utilityhub',
+    channels: [
+      {
+        id: 'utility-hub-india',
+        name: 'Utility Hub India',
+        envVar: 'AGENT_PORTAL_PASSWORD_UTILITY_HUB_INDIA',
+        passwordHash: '$2b$12$DCROX/Lb4y0jTWSbFKOI0ejPlxNBUU9JgDEapimhB4bnTlVy7bcbW',
+      },
+      {
+        id: 'ersolution',
+        name: 'ERSOLUTION',
+        envVar: 'AGENT_PORTAL_PASSWORD_ERSOLUTION',
+        passwordHash: '$2b$12$Rhydac4WRlxo5e7Xc3oQ4uOYzzQoxSHRTP8bxC/cYQg7/.4c8D.QC',
+      },
+      {
+        id: 'salesclub',
+        name: 'SALESCLUB',
+        envVar: 'AGENT_PORTAL_PASSWORD_SALESCLUB',
+        passwordHash: '$2b$12$x65G38qdjxe6xaiIy9v8a.8HoN/OcpihC9A2oRq2//DZWwbPZp0aG',
+      },
+    ],
     sessionExpiresIn: process.env.AGENT_PORTAL_SESSION_EXPIRES_IN || '12h',
   },
 
