@@ -203,15 +203,69 @@ export default function ConsentPage() {
   if (done || summary.alreadyConsentedAt) {
     return (
       <Shell narrow>
-        <div className="py-12 text-center">
+        <div className="py-10 lg:py-12">
           <div className="w-12 h-12 mx-auto rounded-full bg-green-100 flex items-center justify-center">
             <Check className="w-6 h-6 text-green-700" />
           </div>
-          <h1 className="mt-4 text-lg font-semibold text-gray-900">Thank you</h1>
-          <p className="mt-2 text-sm text-gray-600">
-            Your consent has been recorded. We will be in touch about your{' '}
-            {summary.service.energyType.toLowerCase()} connection.
-          </p>
+
+          <h1 className="mt-5 text-lg lg:text-xl font-semibold text-gray-900 text-center">
+            Thank you for choosing Momentum Energy!
+          </h1>
+
+          {/* Left aligned on purpose: centred paragraphs of this length are hard to read. */}
+          <div className="mt-5 space-y-4 text-sm leading-relaxed text-gray-700">
+            <p>
+              Your digital sign-up has been successfully submitted with the assistance of
+              Utility Hub.
+            </p>
+            <p>
+              We appreciate your trust in our services. Momentum Energy will process your
+              application and provide further confirmation regarding your new energy account.
+            </p>
+            <p>
+              If you have any questions or require assistance, please feel free to contact
+              Utility Hub, an authorised sales partner of Momentum Energy.
+            </p>
+            <p>
+              Kind regards,
+              <br />
+              <span className="font-medium text-gray-900">Utility Hub Team</span>
+            </p>
+          </div>
+
+          <div className="mt-6 pt-5 border-t border-gray-200 space-y-2 text-sm">
+            <p className="text-gray-700">
+              <span className="text-gray-500">Phone: </span>
+              <a href="tel:+61386267715" className="text-primary-700 hover:underline">
+                (03) 8626 7715
+              </a>
+              <span className="text-gray-400"> | </span>
+              <a href="tel:1800835328" className="text-primary-700 hover:underline">
+                1800 835 328
+              </a>
+            </p>
+            <p className="text-gray-700">
+              <span className="text-gray-500">Email: </span>
+              <a
+                href="mailto:info@utilityhub.com.au"
+                className="text-primary-700 hover:underline break-all"
+              >
+                info@utilityhub.com.au
+              </a>
+            </p>
+            <p className="text-gray-700">
+              <span className="text-gray-500">Website: </span>
+              <a
+                href="https://www.utilityhub.com.au"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 text-primary-700 hover:underline"
+              >
+                www.utilityhub.com.au
+                <ExternalLink className="w-3.5 h-3.5" />
+              </a>
+            </p>
+          </div>
         </div>
       </Shell>
     );
