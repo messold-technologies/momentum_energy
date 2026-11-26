@@ -6,6 +6,7 @@
  * nothing that would be damaging in the wrong hands.
  */
 import crypto from 'crypto';
+import { getOfferByCode } from './offerService.js';
 
 /**
  * Consent statements a customer must agree to before the sale can go to QA.
@@ -211,12 +212,43 @@ export function consentPasswordMatches(payload, supplied) {
   return hit;
 }
 
-export function buildPublicSummary(row) {
+async function hydrateSelectedPlan(plan) {
+  if (!plan?.offerCode) return plan || {};
+
+  // Newer sales already persist the fields the shared plan card needs.
+  if (
+    plan.dailyChargeCents !== undefined ||
+    plan.rates !== undefined ||
+    plan.featureHeading !== undefined ||
+    plan.customerEligibility !== undefined ||
+    plan.terminationFee !== undefined
+  ) {
+    return plan;
+  }
+
+  const offer = await getOfferByCode(plan.offerCode).catch(() => null);
+  if (!offer) return plan;
+
+  return {
+    ...plan,
+    tariffCategory: plan.tariffCategory ?? offer.tariffCategory ?? null,
+    dailyChargeCents: plan.dailyChargeCents ?? offer.pricing?.dailyChargeCents ?? null,
+    rates: plan.rates ?? offer.pricing?.rates ?? null,
+    benchmarkTariffType: plan.benchmarkTariffType ?? offer.pricing?.benchmark?.tariffType ?? null,
+    benchmarkKwh: plan.benchmarkKwh ?? offer.pricing?.benchmark?.kwh ?? null,
+    featureHeading: plan.featureHeading ?? offer.plan?.features?.find((f) => f?.heading)?.heading ?? null,
+    customerEligibility: plan.customerEligibility ?? offer.plan?.customerEligibility ?? null,
+    terminationFee: plan.terminationFee ?? offer.plan?.terminationFee ?? null,
+    factSheetUrl: plan.factSheetUrl ?? offer.links?.factSheetUrl ?? null,
+  };
+}
+
+export async function buildPublicSummary(row) {
   const payload = row.payload || {};
   const customer = payload.customer || {};
   const primary = customer?.contacts?.primaryContact;
   const secondary = customer?.contacts?.secondaryContact;
-  const plan = row.selected_plan || {};
+  const plan = await hydrateSelectedPlan(row.selected_plan);
   const service = payload.service || {};
   const billing = service.serviceBilling || {};
   const dd = customer.directDebitDetails;
@@ -279,10 +311,18 @@ export function buildPublicSummary(row) {
       planCode: plan.planCode ?? billing.servicePlanCode ?? null,
       networkName: plan.networkName ?? null,
       retailTariffCode: plan.retailTariffCode ?? null,
+      tariffCategory: plan.tariffCategory ?? null,
       monthlyCost: plan.monthlyCost ?? null,
       annualCost: plan.annualCost ?? null,
+      dailyChargeCents: plan.dailyChargeCents ?? null,
+      rates: plan.rates ?? null,
       comparisonLabel: plan.comparisonLabel ?? null,
       benchmarkName: plan.benchmarkName ?? null,
+      benchmarkTariffType: plan.benchmarkTariffType ?? null,
+      benchmarkKwh: plan.benchmarkKwh ?? null,
+      featureHeading: plan.featureHeading ?? null,
+      customerEligibility: plan.customerEligibility ?? null,
+      terminationFee: plan.terminationFee ?? null,
       factSheetUrl: plan.factSheetUrl ?? null,
       contractTerm: billing.contractTermCode ?? null,
       billCycle: billing.billCycleCode ?? null,

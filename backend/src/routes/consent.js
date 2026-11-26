@@ -129,7 +129,7 @@ router.post('/:token/verify', async (req, res, next) => {
     }
 
     logger.info('Consent page opened', { agentSaleId: row.id });
-    res.json({ success: true, data: buildPublicSummary(row) });
+    res.json({ success: true, data: await buildPublicSummary(row) });
   } catch (err) {
     next(err);
   }
@@ -158,7 +158,7 @@ router.post('/:token', async (req, res, next) => {
         .json({ success: false, error: 'Please confirm your details again before submitting.' });
     }
 
-    const summary = buildPublicSummary(row);
+    const summary = await buildPublicSummary(row);
     const check = validateConsent(req.body, summary.consentItems);
     if (!check.ok) return res.status(400).json({ success: false, error: check.error });
 

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { AlertTriangle, Check, ExternalLink, Loader2, Lock, ShieldCheck } from 'lucide-react';
 
+import PlanCard from '../components/plan/PlanCard';
 import {
   consentApi,
   type ConsentContact,
@@ -9,6 +10,7 @@ import {
   type ConsentDocument,
   type ConsentSummary,
 } from '../lib/agentSalesApi';
+import type { OfferCard } from '../lib/offersApi';
 
 /**
  * Public page the customer opens from their consent link. No sign-in, but not open
@@ -285,40 +287,21 @@ export default function ConsentPage() {
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-5 lg:gap-6 items-start">
         {/* ------------------------------------------------- what they are signing up to */}
         <section className="lg:col-span-3 rounded-xl border border-gray-200 bg-white overflow-hidden">
-          <div className="bg-primary-50 px-5 lg:px-6 py-5">
-            <p className="text-xs font-semibold uppercase tracking-wide text-primary-700">
+          <div className="px-5 lg:px-6 py-5 bg-gray-50 border-b border-gray-100">
+            <p className="text-xs font-semibold uppercase tracking-wide text-primary-700 mb-4">
               Your {summary.service.energyType.toLowerCase()} plan
             </p>
-            <div className="mt-2 flex flex-wrap items-baseline gap-x-4 gap-y-1">
-              <p className="text-xl lg:text-2xl font-bold text-gray-900">
-                {summary.plan.planCode ?? '—'}
-              </p>
-              {summary.plan.monthlyCost != null && (
-                <p className="text-2xl lg:text-3xl font-bold text-gray-900">
-                  ${summary.plan.monthlyCost}
-                  <span className="text-base font-medium text-gray-500">/month</span>
-                </p>
-              )}
+            <div className="max-w-md">
+              <PlanCard
+                offer={toConsentOffer(summary)}
+                view="Monthly"
+                selected={false}
+                onSelect={() => {}}
+                indicative={summary.plan.indicativeOnly}
+                showAction={false}
+                showIndicativeNote={false}
+              />
             </div>
-            {summary.plan.comparisonLabel && (
-              <p className="mt-1 text-sm text-gray-700">
-                <span className="font-semibold">{summary.plan.comparisonLabel}</span>{' '}
-                {summary.plan.benchmarkName}
-              </p>
-            )}
-            {summary.plan.annualCost != null && (
-              <p className="mt-2 text-xs text-gray-500">
-                GST included. Estimated ${summary.plan.annualCost} per year based on average
-                usage in the {summary.plan.networkName} network. Your actual bill depends on how
-                much energy you use.
-              </p>
-            )}
-            {summary.plan.indicativeOnly && (
-              <p className="mt-2 text-xs text-gray-600">
-                This is an estimate based on a standard tariff. Your final rates are confirmed on
-                your welcome pack.
-              </p>
-            )}
           </div>
 
           <dl className="divide-y divide-gray-100 text-sm">
@@ -512,6 +495,65 @@ function ContactGrid({ contact }: { contact: ConsentContact | null }) {
   );
 }
 
+function toConsentOffer(summary: ConsentSummary): OfferCard {
+  return {
+    offerCode: summary.plan.planCode ?? 'consent-plan',
+    offerWithRateNumber: null,
+    offerNumber: null,
+    planCode: summary.plan.planCode ?? 'Selected plan',
+    energyType: String(summary.service.energyType || '').toUpperCase() === 'GAS' ? 'GAS' : 'ELECTRICITY',
+    state: '',
+    networkName: summary.plan.networkName ?? '',
+    networkZone: null,
+    retailTariffCode: summary.plan.retailTariffCode ?? '',
+    customerType: summary.customer.customerType === 'COMPANY' ? 'COMMERCIAL' : 'RESIDENTIAL',
+    tariffCategory: summary.plan.tariffCategory,
+    isFlatRate: summary.plan.indicativeOnly,
+    effectiveStart: null,
+    effectiveEnd: null,
+    pricing: {
+      currency: 'AUD',
+      gstInclusive: true,
+      dailyChargeCents: summary.plan.dailyChargeCents,
+      rates: summary.plan.rates,
+      annualCost: summary.plan.annualCost,
+      monthlyCost: summary.plan.monthlyCost,
+      basis: summary.plan.annualCost != null ? 'rate-card-benchmark' : 'unavailable',
+      benchmark: {
+        name: summary.plan.benchmarkName ?? '',
+        tariffType: summary.plan.benchmarkTariffType,
+        kwh: summary.plan.benchmarkKwh,
+        cost: summary.plan.annualCost,
+      },
+      comparison: {
+        differenceDollar: null,
+        differencePercent: null,
+        label: summary.plan.comparisonLabel,
+      },
+      usageEstimate: null,
+    },
+    plan: {
+      features: summary.plan.featureHeading ? [{ heading: summary.plan.featureHeading, text: null }] : [],
+      contractTerm: summary.plan.contractTerm,
+      customerEligibility: summary.plan.customerEligibility,
+      terminationFee: summary.plan.terminationFee,
+      dishonouredPaymentFee: null,
+      creditCardPaymentFee: null,
+      billingOptions: null,
+      paymentOptions: null,
+      greenOptions: null,
+      termsAndConditions: null,
+      stateAvailability: [],
+      extras: {},
+    },
+    links: {
+      factSheetUrl: summary.plan.factSheetUrl,
+      cdrPlanCode: null,
+      cdrPlanId: null,
+    },
+  };
+}
+
 function DocumentRows({ label, doc }: { label: string; doc: ConsentDocument | null }) {
   if (!doc) return null;
   const extra = [doc.issuingState, doc.issuingCountry].filter(Boolean).join(', ');
@@ -542,7 +584,7 @@ function InlineRow({ label, value }: { label: string; value: string | null | und
   return (
     <div className="py-1.5">
       <dt className="text-xs text-gray-500">{label}</dt>
-      <dd className="font-medium text-gray-900 break-words">{value}</dd>
+      <dd className="font-medium text-gray-900 wrap-break-word">{value}</dd>
     </div>
   );
 }

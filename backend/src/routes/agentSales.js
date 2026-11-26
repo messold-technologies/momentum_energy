@@ -163,7 +163,7 @@ router.get('/:id', async (req, res, next) => {
     if (error === 'forbidden') return res.status(403).json({ success: false, error: 'Forbidden' });
     res.json({
       success: true,
-      data: { ...rowToJson(row, { includePayload: true }), publicSummary: buildPublicSummary(row) },
+      data: { ...rowToJson(row, { includePayload: true }), publicSummary: await buildPublicSummary(row) },
     });
   } catch (err) {
     next(err);

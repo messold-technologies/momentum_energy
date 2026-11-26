@@ -38,10 +38,18 @@ export interface SelectedPlanSnapshot {
   networkZone: string | null;
   retailTariffCode: string;
   customerType: string;
+  tariffCategory: string | null;
   annualCost: number | null;
   monthlyCost: number | null;
+  dailyChargeCents: number | null;
+  rates: OfferCard['pricing']['rates'];
   comparisonLabel: string | null;
   benchmarkName: string | null;
+  benchmarkTariffType: string | null;
+  benchmarkKwh: number | null;
+  featureHeading: string | null;
+  customerEligibility: string | null;
+  terminationFee: string | null;
   cdrPlanId: string | null;
   factSheetUrl: string | null;
   rateCardVersion?: string;
@@ -61,10 +69,18 @@ export function toSnapshot(
     networkZone: offer.networkZone,
     retailTariffCode: offer.retailTariffCode,
     customerType: offer.customerType,
+    tariffCategory: offer.tariffCategory,
     annualCost: offer.pricing.annualCost,
     monthlyCost: offer.pricing.monthlyCost,
+    dailyChargeCents: offer.pricing.dailyChargeCents,
+    rates: offer.pricing.rates,
     comparisonLabel: offer.pricing.comparison.label,
     benchmarkName: offer.pricing.benchmark.name,
+    benchmarkTariffType: offer.pricing.benchmark.tariffType,
+    benchmarkKwh: offer.pricing.benchmark.kwh,
+    featureHeading: offer.plan.features.find((f) => f.heading)?.heading ?? null,
+    customerEligibility: offer.plan.customerEligibility,
+    terminationFee: offer.plan.terminationFee,
     cdrPlanId: offer.links.cdrPlanId,
     factSheetUrl: offer.links.factSheetUrl,
     rateCardVersion: extra.rateCardVersion,
@@ -190,10 +206,18 @@ export interface ConsentSummary {
     planCode: string | null;
     networkName: string | null;
     retailTariffCode: string | null;
+    tariffCategory: string | null;
     monthlyCost: number | null;
     annualCost: number | null;
+    dailyChargeCents: number | null;
+    rates: OfferCard['pricing']['rates'];
     comparisonLabel: string | null;
     benchmarkName: string | null;
+    benchmarkTariffType: string | null;
+    benchmarkKwh: number | null;
+    featureHeading: string | null;
+    customerEligibility: string | null;
+    terminationFee: string | null;
     factSheetUrl: string | null;
     contractTerm: string | null;
     billCycle: string | null;
