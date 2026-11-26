@@ -37,6 +37,15 @@ app.use(cors({
 
 app.use(express.json({ limit: '1mb' }));
 
+// A consent token in a URL is a working link to a customer's identity documents, and
+// morgan writes the whole path. Redact it so access logs cannot be replayed.
+morgan.token('url', (req) =>
+  String(req.originalUrl || req.url || '').replace(
+    /\/consent\/[a-f0-9]{64}/gi,
+    '/consent/[redacted]'
+  )
+);
+
 app.use(morgan(config.nodeEnv === 'production' ? 'combined' : 'dev'));
 
 const limiter = rateLimit({

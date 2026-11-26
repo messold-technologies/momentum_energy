@@ -6,6 +6,7 @@ import {
   Link2,
   Loader2,
   LogOut,
+  MessageSquare,
   Plus,
   RefreshCw,
 } from 'lucide-react';
@@ -13,6 +14,8 @@ import {
 import {
   agentPortalApi,
   getAgentChannel,
+  isSmsEnabled,
+  type AgentConsentLink,
   AgentSessionExpiredError,
   type AgentSaleView,
 } from '../../lib/agentPortalApi';
@@ -60,6 +63,8 @@ export default function AgentSalesList({ onNewSale, onSessionLost }: Props) {
   // Links live here rather than on the row, so they survive a refresh of the list.
   const [links, setLinks] = useState<Record<string, string>>({});
   const [issuing, setIssuing] = useState<string | null>(null);
+  const [smsNote, setSmsNote] = useState<Record<string, string>>({});
+  const smsEnabled = isSmsEnabled();
   const [copied, setCopied] = useState<string | null>(null);
 
   function handleFailure(err: unknown, fallback: string) {
@@ -84,16 +89,29 @@ export default function AgentSalesList({ onNewSale, onSessionLost }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  async function issueLink(sale: AgentSaleView) {
+  async function issueLink(sale: AgentSaleView, sendSms = false) {
     setIssuing(sale.id);
     setError(null);
+    setSmsNote((prev) => ({ ...prev, [sale.id]: '' }));
     try {
-      const res = await agentPortalApi.consentLink(sale.id);
+      const res = await agentPortalApi.consentLink(sale.id, { sendSms });
       setLinks((prev) => ({ ...prev, [sale.id]: res.consentUrl }));
       // Pick up the status change (agent_draft -> awaiting_consent).
       setSales((prev) => prev.map((s) => (s.id === sale.id ? { ...s, ...res } : s)));
+      if (sendSms && res.sms) {
+        setSmsNote((prev) => ({ ...prev, [sale.id]: `Sent to ${res.sms!.to}.` }));
+      }
     } catch (err) {
-      handleFailure(err, 'Could not create a link for this sale');
+      // A failed text still issues the link, and the server hands it back so the agent
+      // can copy it rather than starting again.
+      const body = (err as { response?: { data?: { error?: string; data?: AgentConsentLink } } })
+        .response?.data;
+      if (body?.data?.consentUrl) {
+        setLinks((prev) => ({ ...prev, [sale.id]: body.data!.consentUrl }));
+        setSales((prev) => prev.map((x) => (x.id === sale.id ? { ...x, ...body.data! } : x)));
+      }
+      if (sendSms && body?.error) setError(`${body.error} The link is below — copy it instead.`);
+      else handleFailure(err, 'Could not create a link for this sale');
     } finally {
       setIssuing(null);
     }
@@ -222,19 +240,40 @@ export default function AgentSalesList({ onNewSale, onSessionLost }: Props) {
                     </div>
 
                     {canIssue && (
-                      <button
-                        type="button"
-                        onClick={() => void issueLink(sale)}
-                        disabled={issuing === sale.id}
-                        className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 disabled:opacity-50 cursor-pointer shrink-0"
-                      >
-                        {issuing === sale.id ? (
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                        ) : (
-                          <Link2 className="w-4 h-4" />
+                      <div className="flex flex-wrap items-center gap-2 shrink-0">
+                        {smsEnabled && (
+                          <button
+                            type="button"
+                            onClick={() => void issueLink(sale, true)}
+                            disabled={issuing === sale.id}
+                            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 disabled:opacity-50 cursor-pointer"
+                          >
+                            {issuing === sale.id ? (
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <MessageSquare className="w-4 h-4" />
+                            )}
+                            {sale.smsSentAt ? 'Send again' : 'Send by SMS'}
+                          </button>
                         )}
-                        {sale.consentSentAt ? 'Create a new link' : 'Create a link'}
-                      </button>
+                        <button
+                          type="button"
+                          onClick={() => void issueLink(sale)}
+                          disabled={issuing === sale.id}
+                          className={
+                            smsEnabled
+                              ? 'inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 cursor-pointer'
+                              : 'inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 disabled:opacity-50 cursor-pointer'
+                          }
+                        >
+                          {issuing === sale.id ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <Link2 className="w-4 h-4" />
+                          )}
+                          {sale.consentSentAt ? 'New link' : 'Create a link'}
+                        </button>
+                      </div>
                     )}
                   </div>
 
@@ -267,6 +306,12 @@ export default function AgentSalesList({ onNewSale, onSessionLost }: Props) {
                         Usable once. Copy it now — it cannot be shown again. Any link sent for
                         this sale earlier has stopped working.
                       </p>
+                      {smsNote[sale.id] && (
+                        <p className="mt-2 flex items-center gap-1.5 text-xs font-medium text-green-800">
+                          <Check className="w-3.5 h-3.5" />
+                          {smsNote[sale.id]}
+                        </p>
+                      )}
                     </div>
                   )}
 

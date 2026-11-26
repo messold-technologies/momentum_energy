@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useForm, FormProvider, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import {
+  AlertTriangle,
   ArrowLeft,
   ArrowRight,
   Check,
@@ -13,6 +14,7 @@ import {
   Link2,
   Loader2,
   LogOut,
+  MessageSquare,
   Plus,
 } from 'lucide-react';
 import moment from 'moment-timezone';
@@ -31,6 +33,8 @@ import {
   getAgentToken,
   clearAgentSession,
   getAgentChannel,
+  isSmsEnabled,
+  type AgentConsentLink,
   AgentSessionExpiredError,
   type AgentSaleView,
 } from '../../lib/agentPortalApi';
@@ -338,6 +342,10 @@ function SaleForm({
   const [issuing, setIssuing] = useState(false);
   const [consentUrl, setConsentUrl] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [smsNote, setSmsNote] = useState<string | null>(null);
+  const [smsError, setSmsError] = useState<string | null>(null);
+  const smsEnabled = isSmsEnabled();
   const [error, setError] = useState<string | null>(null);
 
   const methods = useForm<TransactionPayload>({
@@ -401,26 +409,60 @@ function SaleForm({
     setStep((s) => Math.min(s + 1, STEPS.length - 1));
   }
 
-  async function handleIssueConsentLink() {
+  async function handleIssueConsentLink({ sendSms = false } = {}) {
     const saved = await persist();
     if (!saved) return;
-    setIssuing(true);
+    if (sendSms) {
+      setSending(true);
+      setSmsError(null);
+      setSmsNote(null);
+    } else {
+      setIssuing(true);
+    }
     try {
-      const res = await agentPortalApi.consentLink(saved.id);
+      const res = await agentPortalApi.consentLink(saved.id, { sendSms });
       setConsentUrl(res.consentUrl);
       setSale(res);
+      if (sendSms && res.sms) setSmsNote(`Sent to ${res.sms.to}.`);
     } catch (err) {
-      handleError(err, 'Could not create the consent link');
+      // A failed text still issues the link, and the server returns it so the agent
+      // can copy it instead of starting again.
+      const body = (err as { response?: { data?: { error?: string; data?: AgentConsentLink } } })
+        .response?.data;
+      if (body?.data?.consentUrl) {
+        setConsentUrl(body.data.consentUrl);
+        setSale(body.data);
+      }
+      if (sendSms) setSmsError(body?.error ?? 'Could not send the SMS.');
+      else handleError(err, 'Could not create the consent link');
     } finally {
       setIssuing(false);
+      setSending(false);
     }
   }
+
+  /**
+   * The link is created as soon as the agent reaches this step, so there is always one
+   * to text or copy without a separate click. Runs once: issuing again would replace a
+   * link the agent may already have sent.
+   */
+  const autoIssued = useRef(false);
+  useEffect(() => {
+    if (step !== STEPS.length - 1) return;
+    if (autoIssued.current || consentUrl || sale?.consentedAt || !selectedPlan) return;
+    autoIssued.current = true;
+    void handleIssueConsentLink();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step, selectedPlan]);
 
   function startAnother() {
     methods.reset(defaultValues());
     setSale(null);
     setSelectedPlan(null);
     setConsentUrl(null);
+    setSmsNote(null);
+    setSmsError(null);
+    autoIssued.current = false;
     setError(null);
     setStep(0);
   }
@@ -508,19 +550,57 @@ function SaleForm({
                     </div>
                   ) : (
                     <>
-                      <button
-                        type="button"
-                        onClick={() => void handleIssueConsentLink()}
-                        disabled={issuing || saving || !selectedPlan}
-                        className="inline-flex items-center gap-2 px-5 py-2 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 disabled:opacity-50 cursor-pointer"
-                      >
-                        {issuing ? (
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                        ) : (
-                          <Link2 className="w-4 h-4" />
+                      <div className="flex flex-wrap items-center gap-3">
+                        {smsEnabled && (
+                          <button
+                            type="button"
+                            onClick={() => void handleIssueConsentLink({ sendSms: true })}
+                            disabled={sending || issuing || saving || !selectedPlan}
+                            className="inline-flex items-center gap-2 px-5 py-2 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 disabled:opacity-50 cursor-pointer"
+                          >
+                            {sending ? (
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <MessageSquare className="w-4 h-4" />
+                            )}
+                            {sale?.smsSentAt ? 'Send again by SMS' : 'Send by SMS'}
+                          </button>
                         )}
-                        {consentUrl ? 'Create a new link' : 'Create consent link'}
-                      </button>
+
+                        <button
+                          type="button"
+                          onClick={() => void handleIssueConsentLink()}
+                          disabled={issuing || sending || saving || !selectedPlan}
+                          className={
+                            smsEnabled
+                              ? 'inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 cursor-pointer'
+                              : 'inline-flex items-center gap-2 px-5 py-2 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 disabled:opacity-50 cursor-pointer'
+                          }
+                        >
+                          {issuing ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <Link2 className="w-4 h-4" />
+                          )}
+                          {consentUrl ? 'Create a new link' : 'Create consent link'}
+                        </button>
+                      </div>
+
+                      {smsNote && (
+                        <p className="flex items-center gap-2 text-sm text-green-800">
+                          <Check className="w-4 h-4" />
+                          {smsNote}
+                        </p>
+                      )}
+                      {smsError && (
+                        <p
+                          role="alert"
+                          className="flex items-start gap-2 text-sm text-red-700"
+                        >
+                          <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+                          <span>{smsError} The link below still works — copy it instead.</span>
+                        </p>
+                      )}
 
                       {consentUrl && (
                         <div className="rounded-lg border border-primary-200 bg-primary-50 p-4">
@@ -548,6 +628,9 @@ function SaleForm({
                           </div>
                           <p className="mt-2 text-xs text-primary-800">
                             Usable once. This page updates once the customer confirms.
+                            {sale?.smsSentAt
+                              ? ` Texted to ${sale.smsTo} at ${new Date(sale.smsSentAt).toLocaleTimeString()}.`
+                              : ''}
                           </p>
                         </div>
                       )}

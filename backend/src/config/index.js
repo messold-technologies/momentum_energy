@@ -48,6 +48,24 @@ export default {
     url: process.env.DATABASE_URL,
   },
 
+  /**
+   * Twilio, for texting the consent link to a customer. Absent credentials are not an
+   * error: isSmsConfigured() goes false, the agent portal hides the button and the
+   * endpoint answers 503. Local development and anyone who does not want SMS keep
+   * working with the copyable link.
+   */
+  twilio: {
+    /** Overridable so tests can point at a stand-in rather than the real Twilio. */
+    baseUrl: process.env.TWILIO_API_BASE || 'https://api.twilio.com/2010-04-01',
+    accountSid: process.env.TWILIO_ACCOUNT_SID || '',
+    authToken: process.env.TWILIO_AUTH_TOKEN || '',
+    /** A plain sender number. Ignored when a messaging service is set. */
+    from: process.env.TWILIO_FROM_NUMBER || '',
+    messagingServiceSid: process.env.TWILIO_MESSAGING_SERVICE_SID || '',
+    /** How many texts one sale may send, so a stuck agent cannot run up a bill. */
+    maxPerSale: Number(process.env.CONSENT_SMS_MAX_PER_SALE || 5),
+  },
+
   agentPortal: {
     /**
      * The channels allowed into the agent portal. Exactly these three -- a channel that

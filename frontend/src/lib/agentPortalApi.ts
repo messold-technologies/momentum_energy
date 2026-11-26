@@ -69,6 +69,12 @@ export interface AgentChannel {
   name: string;
 }
 
+/** What the server did with a text. The number comes back masked. */
+export interface SmsResult {
+  to: string;
+  status: string;
+}
+
 export interface AgentSaleView {
   id: string;
   status: string;
@@ -77,6 +83,11 @@ export interface AgentSaleView {
   selectedPlan: SelectedPlanSnapshot | null;
   consentSentAt: string | null;
   consentedAt: string | null;
+  smsSentAt: string | null;
+  smsCount: number;
+  /** Masked, e.g. +61400****456. */
+  smsTo: string | null;
+  smsStatus: string | null;
   createdAt: string;
   updatedAt: string;
   payload: TransactionPayload;
@@ -85,6 +96,7 @@ export interface AgentSaleView {
 export interface AgentConsentLink extends AgentSaleView {
   consentUrl: string;
   expiresAt: string;
+  sms: SmsResult | null;
 }
 
 function unwrap<T>(data: { success: boolean; data: T }): T {
@@ -92,6 +104,16 @@ function unwrap<T>(data: { success: boolean; data: T }): T {
 }
 
 const PROFILE_KEY = 'agent_portal_profile';
+const SMS_KEY = 'agent_portal_sms_enabled';
+
+/** Whether this environment can text. False hides the button rather than failing. */
+export function isSmsEnabled(): boolean {
+  try {
+    return sessionStorage.getItem(SMS_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
 
 /** The signed-in channel, for showing who is logged in. Decorative only. */
 export function getAgentChannel(): AgentChannel | null {
@@ -107,6 +129,7 @@ export function clearAgentSession() {
   setAgentToken(null);
   try {
     sessionStorage.removeItem(PROFILE_KEY);
+    sessionStorage.removeItem(SMS_KEY);
   } catch {
     /* private browsing */
   }
@@ -116,10 +139,13 @@ export const agentPortalApi = {
   /** Exchanges a channel's password for a short-lived, agent-scoped session. */
   access: async (channel: string, password: string) => {
     const { data } = await axios.post('/api/agent-portal/access', { channel, password });
-    const res = (data as { data: { token: string; channel: AgentChannel } }).data;
+    const res = (data as {
+      data: { token: string; channel: AgentChannel; smsEnabled: boolean };
+    }).data;
     setAgentToken(res.token);
     try {
       sessionStorage.setItem(PROFILE_KEY, JSON.stringify(res.channel));
+      sessionStorage.setItem(SMS_KEY, res.smsEnabled ? '1' : '0');
     } catch {
       /* private browsing -- the channel is in the token regardless */
     }
@@ -147,8 +173,17 @@ export const agentPortalApi = {
     return unwrap<AgentSaleView>(data);
   },
 
-  consentLink: async (id: string) => {
-    const { data } = await agentClient.post(`/sales/${id}/consent-link`);
+  /**
+   * Issues a fresh link, optionally texting it in the same call. It has to be one call:
+   * the raw token exists only in this response, since only its hash is stored.
+   *
+   * On a failed text the server answers 4xx/5xx but still includes the issued link, so
+   * the caller can show it to be copied instead.
+   */
+  consentLink: async (id: string, opts: { sendSms?: boolean } = {}) => {
+    const { data } = await agentClient.post(`/sales/${id}/consent-link`, {
+      sendSms: opts.sendSms === true,
+    });
     return unwrap<AgentConsentLink>(data);
   },
 };
