@@ -7,8 +7,14 @@
  *   - links are single-use: the hash is cleared the moment consent is recorded, so a
  *     link cannot be replayed. There is deliberately no expiry -- a customer who opens
  *     it days later should still be able to confirm rather than hit a dead end
- *   - the response is a narrow projection: no date of birth, no identity document
- *     numbers, no full bank account, nothing about the agent or internal references
+ *   - the page is gated by a password only the customer should know: their postcode
+ *     followed by the two-digit day of their date of birth. The link alone reveals
+ *     nothing -- GET returns status and nothing identifying, and the details are served
+ *     only by /verify. Confirming re-checks the password, so the gate cannot be skipped
+ *     by posting straight to the confirm endpoint
+ *   - wrong passwords are counted against the sale, not just the IP, and the link locks
+ *     after CONSENT_MAX_ATTEMPTS. Four of the six digits are a postcode, so an attacker
+ *     who knows roughly where the customer lives has about 31 guesses to try
  *   - lookups are by token hash only; the sale id is never accepted from the client
  *   - its own stricter rate limit on top of the app-wide one
  */
@@ -22,7 +28,10 @@ import {
   buildPublicSummary,
   applyConsentToPayload,
   validateConsent,
+  consentPasswordMatches,
+  deriveConsentPasswords,
   CONSENT_ITEMS,
+  CONSENT_MAX_ATTEMPTS,
 } from '../services/agentSaleService.js';
 
 const router = express.Router();
@@ -54,6 +63,7 @@ function gone(res) {
   });
 }
 
+/** Deliberately says nothing about the customer -- only whether the link can be opened. */
 router.get('/:token', async (req, res, next) => {
   try {
     const row = await findByToken(req.params.token);
@@ -61,7 +71,65 @@ router.get('/:token', async (req, res, next) => {
 
     if (!['awaiting_consent', 'consented'].includes(row.status)) return gone(res);
 
-    res.json({ success: true, data: buildPublicSummary(row) });
+    res.json({
+      success: true,
+      data: {
+        status: row.status,
+        requiresPassword: true,
+        locked: Boolean(row.consent_locked_at),
+        // False when the sale has no date of birth or postcode to build a password from.
+        // The page says to contact the agent rather than leaving the customer guessing.
+        passwordAvailable: deriveConsentPasswords(row.payload).ok,
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+function lockedResponse(res) {
+  return res.status(423).json({
+    success: false,
+    error:
+      'This link has been locked after too many incorrect attempts. Please contact the person who sent it to you for a new link.',
+  });
+}
+
+/**
+ * Checks the password and, only then, returns the details. Every failure is counted
+ * against the sale so the link cannot be ground down from a pool of addresses.
+ */
+router.post('/:token/verify', async (req, res, next) => {
+  try {
+    const row = await findByToken(req.params.token);
+    if (!row) return gone(res);
+    if (!['awaiting_consent', 'consented'].includes(row.status)) return gone(res);
+    if (row.consent_locked_at) return lockedResponse(res);
+
+    if (!consentPasswordMatches(row.payload, req.body?.password)) {
+      const attempts = Number(row.consent_attempts ?? 0) + 1;
+      const lock = attempts >= CONSENT_MAX_ATTEMPTS;
+      await query(
+        `UPDATE agent_sales
+         SET consent_attempts = $2, consent_locked_at = CASE WHEN $3 THEN NOW() ELSE consent_locked_at END
+         WHERE id = $1`,
+        [row.id, attempts, lock]
+      );
+      logger.warn('Consent password rejected', { agentSaleId: row.id, attempts, locked: lock });
+      if (lock) return lockedResponse(res);
+      return res.status(401).json({
+        success: false,
+        error: 'That does not match. Check your postcode and the day of your date of birth.',
+        attemptsLeft: Math.max(0, CONSENT_MAX_ATTEMPTS - attempts),
+      });
+    }
+
+    if (Number(row.consent_attempts ?? 0) > 0) {
+      await query('UPDATE agent_sales SET consent_attempts = 0 WHERE id = $1', [row.id]);
+    }
+
+    logger.info('Consent page opened', { agentSaleId: row.id });
+    res.json({ success: true, data: await buildPublicSummary(row) });
   } catch (err) {
     next(err);
   }
@@ -79,8 +147,18 @@ router.post('/:token', async (req, res, next) => {
       });
     }
     if (row.status !== 'awaiting_consent') return gone(res);
+    if (row.consent_locked_at) return lockedResponse(res);
 
-    const summary = buildPublicSummary(row);
+    // Re-checked here, not just on /verify, so consent cannot be recorded by posting
+    // straight to this endpoint with only the link.
+    if (!consentPasswordMatches(row.payload, req.body?.password)) {
+      logger.warn('Consent submitted without a valid password', { agentSaleId: row.id });
+      return res
+        .status(401)
+        .json({ success: false, error: 'Please confirm your details again before submitting.' });
+    }
+
+    const summary = await buildPublicSummary(row);
     const check = validateConsent(req.body, summary.consentItems);
     if (!check.ok) return res.status(400).json({ success: false, error: check.error });
 

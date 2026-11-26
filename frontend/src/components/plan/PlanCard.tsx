@@ -44,9 +44,22 @@ interface Props {
   indicative?: boolean;
   /** Used to stagger the entry animation across the grid. */
   style?: React.CSSProperties;
+  /** Hide the action button when the card is display-only. */
+  showAction?: boolean;
+  /** Hide the indicative pricing note when not needed. */
+  showIndicativeNote?: boolean;
 }
 
-export default function PlanCard({ offer, view, selected, onSelect, indicative, style }: Props) {
+export default function PlanCard({
+  offer,
+  view,
+  selected,
+  onSelect,
+  indicative,
+  style,
+  showAction = true,
+  showIndicativeNote = true,
+}: Props) {
   const accent = ACCENT[offer.planCode] ?? DEFAULT_ACCENT;
   const { pricing, plan } = offer;
   const hasPrice = pricing.annualCost !== null;
@@ -62,8 +75,12 @@ export default function PlanCard({ offer, view, selected, onSelect, indicative, 
   return (
     <div
       style={style}
-      className={`card-enter flex flex-col rounded-xl border overflow-hidden transition-all duration-200 hover:-translate-y-0.5 ${
-        selected ? 'border-primary-600 ring-2 ring-primary-600 shadow-md' : 'border-gray-200 hover:shadow-sm'
+      className={`card-enter flex flex-col rounded-xl border overflow-hidden transition-all duration-200 ${
+        showAction ? 'hover:-translate-y-0.5' : ''
+      } ${
+        selected ? 'border-primary-600 ring-2 ring-primary-600 shadow-md' : 'border-gray-200'
+      } ${
+        showAction && !selected ? 'hover:shadow-sm' : ''
       }`}
     >
       {/* Eligibility / promo band */}
@@ -144,7 +161,7 @@ export default function PlanCard({ offer, view, selected, onSelect, indicative, 
           </div>
         </dl>
 
-        {indicative && (
+        {indicative && showIndicativeNote && (
           <p className="mt-3 rounded bg-gray-50 border border-gray-200 px-2 py-1.5 text-[11px] text-gray-600">
             Indicative: flat-rate pricing. Confirm the site's network tariff before submitting.
           </p>
@@ -152,26 +169,28 @@ export default function PlanCard({ offer, view, selected, onSelect, indicative, 
 
       </div>
 
-      <div className="px-4 pb-4 bg-white">
-        <button
-          type="button"
-          onClick={() => onSelect(offer)}
-          className={`w-full inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded-lg cursor-pointer transition-colors ${
-            selected
-              ? 'bg-primary-600 text-white hover:bg-primary-700'
-              : 'bg-white text-primary-700 border border-primary-300 hover:bg-primary-50'
-          }`}
-        >
-          {selected ? (
-            <>
-              <Check className="w-4 h-4" />
-              Selected
-            </>
-          ) : (
-            'Select plan'
-          )}
-        </button>
-      </div>
+      {showAction && (
+        <div className="px-4 pb-4 bg-white">
+          <button
+            type="button"
+            onClick={() => onSelect(offer)}
+            className={`w-full inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded-lg cursor-pointer transition-colors ${
+              selected
+                ? 'bg-primary-600 text-white hover:bg-primary-700'
+                : 'bg-white text-primary-700 border border-primary-300 hover:bg-primary-50'
+            }`}
+          >
+            {selected ? (
+              <>
+                <Check className="w-4 h-4" />
+                Selected
+              </>
+            ) : (
+              'Select plan'
+            )}
+          </button>
+        </div>
+      )}
     </div>
   );
 }

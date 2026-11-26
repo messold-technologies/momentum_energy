@@ -16,6 +16,7 @@
 import express from 'express';
 import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
+import bcrypt from 'bcryptjs';
 import rateLimit from 'express-rate-limit';
 
 import { query } from '../db/connection.js';
@@ -36,27 +37,81 @@ const accessLimiter = rateLimit({
   message: { success: false, error: 'Too many attempts, please try again later' },
 });
 
-/** Constant time, so the response cannot be used to narrow the password down. */
-function passwordMatches(supplied) {
-  const expected = Buffer.from(String(config.agentPortal.password));
-  const given = Buffer.from(String(supplied ?? ''));
-  if (expected.length !== given.length) return false;
-  return crypto.timingSafeEqual(expected, given);
+/**
+ * A bcrypt hash of nothing in particular. Compared against when the channel is unknown,
+ * so a wrong channel name costs the same time as a wrong password and the response
+ * cannot be used to work out which channels exist.
+ */
+const DUMMY_HASH = '$2b$12$C6UzMDM.H6dfI/f/IKcEe.uQZbZ0cmaK0rbxafOTzBdLH0FAmrpZi';
+
+/** Channels are fixed in config. Matching is relaxed about case and spacing only. */
+function findChannel(supplied) {
+  const key = String(supplied ?? '')
+    .trim()
+    .toLowerCase()
+    .replace(/[\s_-]+/g, '');
+  if (!key) return null;
+  return (
+    config.agentPortal.channels.find(
+      (c) => c.id.replace(/[\s_-]+/g, '') === key || c.name.toLowerCase().replace(/[\s_-]+/g, '') === key
+    ) ?? null
+  );
 }
 
-function issueToken() {
-  return jwt.sign({ scope: 'agent', agentUserId: AGENT_USER_ID }, config.jwt.secret, {
-    expiresIn: config.agentPortal.sessionExpiresIn,
-  });
+/**
+ * An env var rotates a channel's password without a deploy; otherwise the bundled hash
+ * is used. Both paths are constant time with respect to the supplied password.
+ */
+async function passwordMatches(channel, supplied) {
+  const given = String(supplied ?? '');
+  if (!channel) {
+    await bcrypt.compare(given, DUMMY_HASH); // keep the timing the same
+    return false;
+  }
+
+  const override = (process.env[channel.envVar] || '').trim();
+  if (override) {
+    const a = Buffer.from(override);
+    const b = Buffer.from(given);
+    if (a.length !== b.length) {
+      crypto.timingSafeEqual(a, a);
+      return false;
+    }
+    return crypto.timingSafeEqual(a, b);
+  }
+
+  return bcrypt.compare(given, channel.passwordHash);
+}
+
+function issueToken(channel) {
+  return jwt.sign(
+    {
+      scope: 'agent',
+      agentUserId: AGENT_USER_ID,
+      channelId: channel.id,
+      channelName: channel.name,
+    },
+    config.jwt.secret,
+    { expiresIn: config.agentPortal.sessionExpiresIn }
+  );
 }
 
 /* ------------------------------------------------------------------ access */
 
 router.post('/access', accessLimiter, async (req, res, next) => {
   try {
-    if (!passwordMatches(req.body?.password)) {
-      logger.warn('Agent portal access denied', { ip: req.ip });
-      return res.status(401).json({ success: false, error: 'That password is not recognised' });
+    const channel = findChannel(req.body?.channel);
+    const ok = await passwordMatches(channel, req.body?.password);
+    if (!ok) {
+      // One message for both an unknown channel and a wrong password, so the screen
+      // cannot be used to discover which channels exist.
+      logger.warn('Agent portal access denied', {
+        ip: req.ip,
+        channelKnown: Boolean(channel),
+      });
+      return res
+        .status(401)
+        .json({ success: false, error: 'That channel and password combination is not recognised' });
     }
 
     const { rows } = await query('SELECT id, is_active FROM agent_users WHERE id = $1', [
@@ -74,10 +129,14 @@ router.post('/access', accessLimiter, async (req, res, next) => {
 
     await query('UPDATE agent_users SET last_login_at = NOW() WHERE id = $1', [AGENT_USER_ID]);
 
-    logger.info('Agent portal session started', { ip: req.ip });
+    logger.info('Agent portal session started', { ip: req.ip, channel: channel.id });
     res.json({
       success: true,
-      data: { token: issueToken(), expiresIn: config.agentPortal.sessionExpiresIn },
+      data: {
+        token: issueToken(channel),
+        expiresIn: config.agentPortal.sessionExpiresIn,
+        channel: { id: channel.id, name: channel.name },
+      },
     });
   } catch (err) {
     next(err);
@@ -128,9 +187,19 @@ router.get('/sales', async (req, res, next) => {
   }
 });
 
+/**
+ * The channel is taken from the session, not the body, and overwrites whatever was
+ * sent. portalMeta is internal: agentSales.js strips it before anything goes to
+ * Momentum, so this records who sold it without reaching the external API.
+ */
+function stampChannel(payload, agent) {
+  if (!agent?.channelName) return payload;
+  return { ...payload, portalMeta: { ...(payload.portalMeta ?? {}), channel: agent.channelName } };
+}
+
 router.post('/sales', async (req, res, next) => {
   try {
-    const payload = sanitizeBody(req.body?.payload ?? {});
+    const payload = stampChannel(sanitizeBody(req.body?.payload ?? {}), req.agent);
     const selectedPlan = req.body?.selectedPlan ?? null;
     const summary = deriveSummary(payload);
 
@@ -177,7 +246,7 @@ router.patch('/sales/:id', async (req, res, next) => {
       return res.status(409).json({ success: false, error: 'This sale can no longer be edited' });
     }
 
-    const payload = sanitizeBody(req.body?.payload ?? row.payload);
+    const payload = stampChannel(sanitizeBody(req.body?.payload ?? row.payload), req.agent);
     const selectedPlan =
       req.body?.selectedPlan === undefined ? row.selected_plan : req.body.selectedPlan;
     const summary = deriveSummary(payload);
@@ -221,7 +290,10 @@ router.post('/sales/:id/consent-link', async (req, res, next) => {
     const { rows } = await query(
       `UPDATE agent_sales
        SET consent_token_hash = $2, consent_token_expires_at = NULL,
-           consent_sent_at = NOW(), status = 'awaiting_consent', updated_at = NOW()
+           consent_sent_at = NOW(), status = 'awaiting_consent', updated_at = NOW(),
+           -- A new link clears the lock: this is how an agent reopens a page that a
+           -- customer locked by mistyping their postcode or birthday.
+           consent_attempts = 0, consent_locked_at = NULL
        WHERE id = $1 RETURNING *`,
       [row.id, hash]
     );

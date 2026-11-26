@@ -163,7 +163,7 @@ router.get('/:id', async (req, res, next) => {
     if (error === 'forbidden') return res.status(403).json({ success: false, error: 'Forbidden' });
     res.json({
       success: true,
-      data: { ...rowToJson(row, { includePayload: true }), publicSummary: buildPublicSummary(row) },
+      data: { ...rowToJson(row, { includePayload: true }), publicSummary: await buildPublicSummary(row) },
     });
   } catch (err) {
     next(err);
@@ -237,7 +237,10 @@ router.post('/:id/consent-link', async (req, res, next) => {
     const { rows } = await query(
       `UPDATE agent_sales
        SET consent_token_hash = $2, consent_token_expires_at = NULL,
-           consent_sent_at = NOW(), status = 'awaiting_consent', updated_at = NOW()
+           consent_sent_at = NOW(), status = 'awaiting_consent', updated_at = NOW(),
+           -- A new link clears the lock: this is how an agent reopens a page that a
+           -- customer locked by mistyping their postcode or birthday.
+           consent_attempts = 0, consent_locked_at = NULL
        WHERE id = $1
        RETURNING *`,
       [row.id, hash]

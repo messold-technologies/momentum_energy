@@ -29,6 +29,10 @@ export function requireAgentScope(req, res, next) {
       userId: decoded.agentUserId,
       name: decoded.agentName ?? null,
       email: decoded.agentEmail ?? null,
+      // Which channel signed in. Comes from the signed token, never from the request
+      // body, so a sale cannot be attributed to a channel the session did not use.
+      channelId: decoded.channelId ?? null,
+      channelName: decoded.channelName ?? null,
     };
     next();
   } catch (err) {
