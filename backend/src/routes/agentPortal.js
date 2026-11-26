@@ -25,6 +25,14 @@ import logger from '../config/logger.js';
 import { sanitizeBody } from '../utils/sanitizeBody.js';
 import { requireAgentScope } from '../middleware/requireAgentScope.js';
 import { generateConsentToken, deriveSummary } from '../services/agentSaleService.js';
+import {
+  isSmsConfigured,
+  normalisePhone,
+  maskPhone,
+  consentSmsBody,
+  sendSms,
+  SmsError,
+} from '../services/sms.js';
 
 const router = express.Router();
 
@@ -136,6 +144,9 @@ router.post('/access', accessLimiter, async (req, res, next) => {
         token: issueToken(channel),
         expiresIn: config.agentPortal.sessionExpiresIn,
         channel: { id: channel.id, name: channel.name },
+        // Lets the portal hide the SMS button rather than offering an action that
+        // can only fail on an environment with no Twilio credentials.
+        smsEnabled: isSmsConfigured(),
       },
     });
   } catch (err) {
@@ -166,6 +177,10 @@ function agentView(row) {
     selectedPlan: row.selected_plan,
     consentSentAt: row.consent_sent_at,
     consentedAt: row.consented_at,
+    smsSentAt: row.consent_sms_sent_at ?? null,
+    smsCount: Number(row.consent_sms_count ?? 0),
+    smsTo: row.consent_sms_to ?? null,
+    smsStatus: row.consent_sms_status ?? null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     payload: row.payload,
@@ -272,6 +287,74 @@ router.patch('/sales/:id', async (req, res, next) => {
   }
 });
 
+/**
+ * Everything that can refuse a text before a token is issued.
+ *
+ * This runs first on purpose. Issuing a link replaces the previous one, so a send that
+ * was never going to happen -- no credentials, cap reached, no mobile on the sale --
+ * must not rotate the token and kill a link the customer may already be holding.
+ */
+function checkCanText(row) {
+  if (!isSmsConfigured()) {
+    return { error: 'SMS is not set up on this environment.', status: 503 };
+  }
+
+  const max = config.twilio.maxPerSale;
+  if (Number(row.consent_sms_count ?? 0) >= max) {
+    return {
+      error: `This sale has already been texted ${max} times. Copy the link and send it another way.`,
+      status: 429,
+    };
+  }
+
+  const primary = row.payload?.customer?.contacts?.primaryContact;
+  const phones = Array.isArray(primary?.contactPhones) ? primary.contactPhones : [];
+  // A mobile is what can receive this, so prefer one even if it is not listed first.
+  const picked =
+    phones.find((p) => p?.contactPhoneType === 'MOBILE' && p?.phone)?.phone ??
+    phones.find((p) => p?.phone)?.phone ??
+    null;
+
+  const to = normalisePhone(picked);
+  if (!to) {
+    return {
+      error: picked
+        ? 'That phone number is not one we can text. Check it on the contact step.'
+        : 'This sale has no phone number to text.',
+      status: 400,
+    };
+  }
+  return { to };
+}
+
+/**
+ * Sends the link and records it. Only reached once a token has been issued, so a
+ * failure here does leave the previous link dead -- the new one is returned to the
+ * agent either way, which is what they will send by hand.
+ */
+async function textTheLink(row, to, consentUrl) {
+  try {
+    const sent = await sendSms({ to, body: consentSmsBody(consentUrl) });
+    const { rows } = await query(
+      `UPDATE agent_sales
+       SET consent_sms_count = consent_sms_count + 1, consent_sms_sent_at = NOW(),
+           consent_sms_to = $2, consent_sms_sid = $3, consent_sms_status = $4,
+           updated_at = NOW()
+       WHERE id = $1 RETURNING *`,
+      [row.id, maskPhone(to), sent.sid, sent.status]
+    );
+    logger.info('Consent link texted', {
+      agentSaleId: row.id,
+      to: maskPhone(to),
+      twilioStatus: sent.status,
+    });
+    return { row: rows[0], result: { to: maskPhone(to), status: sent.status } };
+  } catch (err) {
+    if (err instanceof SmsError) return { error: err.message, status: err.status };
+    throw err;
+  }
+}
+
 router.post('/sales/:id/consent-link', async (req, res, next) => {
   try {
     const row = await loadOwnSale(req.params.id, req.agent.userId);
@@ -281,6 +364,17 @@ router.post('/sales/:id/consent-link', async (req, res, next) => {
       return res
         .status(409)
         .json({ success: false, error: 'A consent link cannot be issued for this sale' });
+    }
+
+    // Asked for a text? Everything that could refuse it is checked before a new token
+    // is minted, so a refusal leaves any link the customer already has still working.
+    let smsTo = null;
+    if (req.body?.sendSms === true) {
+      const check = checkCanText(row);
+      if (check.error) {
+        return res.status(check.status).json({ success: false, error: check.error });
+      }
+      smsTo = check.to;
     }
 
     // No expiry: the link is single-use, and a customer confirming days later should
@@ -299,17 +393,31 @@ router.post('/sales/:id/consent-link', async (req, res, next) => {
     );
 
     const base = config.portal.publicUrl;
+    const consentUrl = `${base}/consent/${token}`;
     logger.info('Consent link issued from agent portal', {
       agentSaleId: row.id,
       agentUserId: req.agent.userId,
     });
 
+    // The token exists only in this response, so the text has to go out here. Sending
+    // later would mean storing the link, and only its hash is kept on purpose.
+    let sms = null;
+    if (smsTo) {
+      sms = await textTheLink(rows[0], smsTo, consentUrl);
+      if (sms.error) {
+        // The link was still issued and is in the response, so the agent can copy it.
+        return res.status(sms.status).json({
+          success: false,
+          error: sms.error,
+          data: { ...agentView(rows[0]), consentUrl },
+        });
+      }
+    }
+
+    const fresh = sms?.row ?? rows[0];
     res.json({
       success: true,
-      data: {
-        ...agentView(rows[0]),
-        consentUrl: `${base}/consent/${token}`,
-      },
+      data: { ...agentView(fresh), consentUrl, sms: sms?.result ?? null },
     });
   } catch (err) {
     next(err);
